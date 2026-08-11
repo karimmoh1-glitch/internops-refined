@@ -55,8 +55,10 @@ export interface IStorage {
 
   createPlanVersion(data: InsertPlanVersion): Promise<PlanVersion>;
   getPlanVersionsByProject(projectId: string): Promise<PlanVersion[]>;
+  getPlanVersionsByProjectIds(projectIds: string[]): Promise<PlanVersion[]>;
   getPlanVersionById(id: string): Promise<PlanVersion | undefined>;
   getLatestPlanVersion(projectId: string): Promise<PlanVersion | undefined>;
+  getLatestPlanVersionsByProjectIds(projectIds: string[]): Promise<Map<string, PlanVersion>>;
   updatePlanVersionStatus(id: string, status: string): Promise<PlanVersion | undefined>;
   updatePlanVersionContent(id: string, contentJson: any): Promise<PlanVersion | undefined>;
 
@@ -66,6 +68,7 @@ export interface IStorage {
 
   createWeeklyLog(data: InsertWeeklyLog): Promise<WeeklyLog>;
   getWeeklyLogsByProject(projectId: string): Promise<WeeklyLog[]>;
+  getWeeklyLogsByProjectIds(projectIds: string[]): Promise<WeeklyLog[]>;
   updateWeeklyLog(id: string, logText: string): Promise<WeeklyLog | undefined>;
   getWeeklyLogById(id: string): Promise<WeeklyLog | undefined>;
 
@@ -281,6 +284,11 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(planVersions).where(eq(planVersions.projectId, projectId)).orderBy(desc(planVersions.versionNumber));
   }
 
+  async getPlanVersionsByProjectIds(projectIds: string[]): Promise<PlanVersion[]> {
+    if (projectIds.length === 0) return [];
+    return db.select().from(planVersions).where(inArray(planVersions.projectId, projectIds)).orderBy(desc(planVersions.versionNumber));
+  }
+
   async getPlanVersionById(id: string): Promise<PlanVersion | undefined> {
     const [pv] = await db.select().from(planVersions).where(eq(planVersions.id, id));
     return pv;
@@ -292,6 +300,22 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(planVersions.versionNumber))
       .limit(1);
     return pv;
+  }
+
+  // Single bulk query + in-memory reduction, instead of calling
+  // getLatestPlanVersion once per project — used by the analytics
+  // endpoints, which previously issued one query per project per metric.
+  async getLatestPlanVersionsByProjectIds(projectIds: string[]): Promise<Map<string, PlanVersion>> {
+    const latest = new Map<string, PlanVersion>();
+    if (projectIds.length === 0) return latest;
+    const versions = await db.select().from(planVersions).where(inArray(planVersions.projectId, projectIds));
+    for (const v of versions) {
+      const current = latest.get(v.projectId);
+      if (!current || v.versionNumber > current.versionNumber) {
+        latest.set(v.projectId, v);
+      }
+    }
+    return latest;
   }
 
   async updatePlanVersionStatus(id: string, status: string): Promise<PlanVersion | undefined> {
@@ -327,6 +351,11 @@ export class DatabaseStorage implements IStorage {
 
   async getWeeklyLogsByProject(projectId: string): Promise<WeeklyLog[]> {
     return db.select().from(weeklyLogs).where(eq(weeklyLogs.projectId, projectId)).orderBy(weeklyLogs.weekNumber, weeklyLogs.createdAt);
+  }
+
+  async getWeeklyLogsByProjectIds(projectIds: string[]): Promise<WeeklyLog[]> {
+    if (projectIds.length === 0) return [];
+    return db.select().from(weeklyLogs).where(inArray(weeklyLogs.projectId, projectIds)).orderBy(weeklyLogs.weekNumber, weeklyLogs.createdAt);
   }
 
   async updateWeeklyLog(id: string, logText: string): Promise<WeeklyLog | undefined> {
