@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { parseErrorMessage } from "@/lib/api-error";
 import { Link } from "wouter";
 import { UserPlus, ArrowLeft, Eye, EyeOff, CheckCircle2, XCircle, Loader2, Check, X } from "lucide-react";
+import LogoMark from "@/components/logo-mark";
 
 interface AcceptInviteProps {
   token: string;
@@ -120,7 +121,7 @@ export default function AcceptInvite({ token, onAccept }: AcceptInviteProps) {
       <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline" data-testid="link-home">
-            <div className="w-8 h-8 bg-gradient-to-br from-[#EF7878] to-[#e05555] rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-[#EF7878]/20">I</div>
+            <LogoMark size={32} />
             InternOps
           </Link>
         </div>
