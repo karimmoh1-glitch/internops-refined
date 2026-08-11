@@ -1,0 +1,719 @@
+import { eq, desc, and, count, inArray, gt, isNull, sql, or } from "drizzle-orm";
+import { db } from "./db";
+import { lt } from "drizzle-orm";
+import {
+  users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
+  channels, channelMembers, channelMessages,
+  passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
+  type User, type InsertUser,
+  type Company, type InsertCompany,
+  type Invitation, type InsertInvitation,
+  type Project, type InsertProject,
+  type PlanVersion, type InsertPlanVersion,
+  type Comment, type InsertComment,
+  type WeeklyLog, type InsertWeeklyLog,
+  type LogComment, type InsertLogComment,
+  type Notification, type InsertNotification,
+  type TeamMessage, type InsertTeamMessage,
+  type ChatMessage, type InsertChatMessage,
+  type Channel, type InsertChannel,
+  type ChannelMember, type InsertChannelMember,
+  type ChannelMessage, type InsertChannelMessage,
+  type PasswordResetToken, type InsertPasswordResetToken,
+  type SignupToken, type InsertSignupToken,
+} from "@shared/schema";
+
+export interface IStorage {
+  getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(data: InsertUser): Promise<User>;
+  getUsersByCompany(companyId: string): Promise<User[]>;
+  getInternsByCompany(companyId: string): Promise<User[]>;
+  updateUserPassword(id: string, passwordHash: string): Promise<void>;
+
+  createCompany(data: InsertCompany): Promise<Company>;
+  getCompanyById(id: string): Promise<Company | undefined>;
+
+  createInvitation(data: InsertInvitation): Promise<Invitation>;
+  getInvitationByToken(token: string): Promise<Invitation | undefined>;
+  markInvitationUsed(id: string): Promise<void>;
+  getInvitationsByCompany(companyId: string): Promise<Invitation[]>;
+
+  createProject(data: InsertProject): Promise<Project>;
+  getProjectById(id: string): Promise<Project | undefined>;
+  getProjectsByIntern(internId: string): Promise<Project[]>;
+  getProjectsByCompany(companyId: string): Promise<Project[]>;
+  updateProjectStatus(id: string, status: string): Promise<Project | undefined>;
+  updateProject(id: string, data: { title?: string; idea?: string; minimumTotalHours?: number; githubRepoUrl?: string | null }): Promise<Project | undefined>;
+  deleteProject(id: string): Promise<void>;
+
+  createPlanVersion(data: InsertPlanVersion): Promise<PlanVersion>;
+  getPlanVersionsByProject(projectId: string): Promise<PlanVersion[]>;
+  getPlanVersionById(id: string): Promise<PlanVersion | undefined>;
+  getLatestPlanVersion(projectId: string): Promise<PlanVersion | undefined>;
+  updatePlanVersionStatus(id: string, status: string): Promise<PlanVersion | undefined>;
+  updatePlanVersionContent(id: string, contentJson: any): Promise<PlanVersion | undefined>;
+
+  createComment(data: InsertComment): Promise<Comment>;
+  getCommentsByVersion(versionId: string): Promise<Comment[]>;
+  getAllCommentsByProject(projectId: string): Promise<Comment[]>;
+
+  createWeeklyLog(data: InsertWeeklyLog): Promise<WeeklyLog>;
+  getWeeklyLogsByProject(projectId: string): Promise<WeeklyLog[]>;
+  updateWeeklyLog(id: string, logText: string): Promise<WeeklyLog | undefined>;
+  getWeeklyLogById(id: string): Promise<WeeklyLog | undefined>;
+
+  createLogComment(data: InsertLogComment): Promise<LogComment>;
+  getLogCommentsByProject(projectId: string): Promise<LogComment[]>;
+
+  deleteProjectsByIntern(internId: string, companyId: string): Promise<number>;
+  deletePlanVersionsByProject(projectId: string): Promise<void>;
+
+  // GitHub
+  updateProjectGithubUrl(id: string, githubRepoUrl: string | null): Promise<Project | undefined>;
+  updateCompanyGithubToken(companyId: string, githubToken: string | null): Promise<Company | undefined>;
+  getCompanyGithubToken(companyId: string): Promise<string | null>;
+
+  // Analytics
+  getProjectStatusCounts(companyId: string): Promise<{ status: string; count: number }[]>;
+  getWeeklyLogsByCompany(companyId: string): Promise<any[]>;
+  getLogActivityByCompany(companyId: string): Promise<{ week: string; logs: number }[]>;
+
+  createNotification(data: InsertNotification): Promise<Notification>;
+  getNotificationsByUser(userId: string): Promise<Notification[]>;
+  markNotificationRead(id: string): Promise<Notification | undefined>;
+  markAllNotificationsRead(userId: string): Promise<void>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+
+  // Team Chat
+  getTeamMessages(companyId: string, limit?: number): Promise<(TeamMessage & { userName: string })[]>;
+  createTeamMessage(data: InsertTeamMessage): Promise<TeamMessage>;
+
+  // AI Chat History
+  getChatMessages(projectId: string, mode: string): Promise<ChatMessage[]>;
+  saveChatMessage(data: InsertChatMessage): Promise<ChatMessage>;
+  clearChatMessages(projectId: string, mode: string): Promise<void>;
+
+  // Channels
+  createChannel(data: InsertChannel): Promise<Channel>;
+  getChannelById(id: string): Promise<Channel | undefined>;
+  getChannelsByCompany(companyId: string, userId: string): Promise<(Channel & { unreadCount: number })[]>;
+  ensureGeneralChannel(companyId: string): Promise<Channel>;
+  createProjectChannel(project: { id: string; companyId: string; title: string; internId: string }): Promise<Channel>;
+  getOrCreateDMChannel(companyId: string, userId1: string, userId2: string, user1Name: string, user2Name: string): Promise<Channel>;
+  deleteChannel(id: string): Promise<void>;
+
+  // Channel Members
+  addChannelMember(channelId: string, userId: string): Promise<ChannelMember>;
+  removeChannelMember(channelId: string, userId: string): Promise<void>;
+  getChannelMembers(channelId: string): Promise<(ChannelMember & { userName: string; userRole: string })[]>;
+  isChannelMember(channelId: string, userId: string): Promise<boolean>;
+  updateLastReadAt(channelId: string, userId: string): Promise<void>;
+
+  // Channel Messages
+  getChannelMessages(channelId: string, limit?: number): Promise<(ChannelMessage & { userName: string })[]>;
+  createChannelMessage(data: InsertChannelMessage): Promise<ChannelMessage>;
+  getTotalUnreadCount(companyId: string, userId: string): Promise<number>;
+
+  createPasswordResetToken(data: InsertPasswordResetToken): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+
+  createSignupToken(data: InsertSignupToken): Promise<SignupToken>;
+  getSignupToken(token: string): Promise<SignupToken | undefined>;
+  markSignupTokenUsed(token: string): Promise<void>;
+}
+
+export class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(data: InsertUser): Promise<User> {
+    const [created] = await db.insert(users).values(data).returning();
+    return created;
+  }
+
+  async getUsersByCompany(companyId: string): Promise<User[]> {
+    return db.select().from(users).where(eq(users.companyId, companyId)).orderBy(desc(users.createdAt));
+  }
+
+  async getInternsByCompany(companyId: string): Promise<User[]> {
+    return db.select().from(users).where(
+      and(eq(users.companyId, companyId), eq(users.role, "intern"))
+    ).orderBy(desc(users.createdAt));
+  }
+
+  async updateUserPassword(id: string, passwordHash: string): Promise<void> {
+    await db.update(users).set({ passwordHash }).where(eq(users.id, id));
+  }
+
+  async createCompany(data: InsertCompany): Promise<Company> {
+    const [created] = await db.insert(companies).values(data).returning();
+    return created;
+  }
+
+  async getCompanyById(id: string): Promise<Company | undefined> {
+    const [company] = await db.select().from(companies).where(eq(companies.id, id));
+    return company;
+  }
+
+  async createInvitation(data: InsertInvitation): Promise<Invitation> {
+    const [created] = await db.insert(invitations).values(data).returning();
+    return created;
+  }
+
+  async getInvitationByToken(token: string): Promise<Invitation | undefined> {
+    const [inv] = await db.select().from(invitations).where(eq(invitations.token, token));
+    return inv;
+  }
+
+  async markInvitationUsed(id: string): Promise<void> {
+    await db.update(invitations).set({ used: true }).where(eq(invitations.id, id));
+  }
+
+  async getInvitationsByCompany(companyId: string): Promise<Invitation[]> {
+    return db.select().from(invitations).where(eq(invitations.companyId, companyId)).orderBy(desc(invitations.createdAt));
+  }
+
+  async createProject(data: InsertProject): Promise<Project> {
+    const [created] = await db.insert(projects).values(data).returning();
+    return created;
+  }
+
+  async getProjectById(id: string): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project;
+  }
+
+  async getProjectsByIntern(internId: string): Promise<Project[]> {
+    return db.select().from(projects).where(eq(projects.internId, internId)).orderBy(desc(projects.createdAt));
+  }
+
+  async getProjectsByCompany(companyId: string): Promise<Project[]> {
+    return db.select().from(projects).where(eq(projects.companyId, companyId)).orderBy(desc(projects.createdAt));
+  }
+
+  async updateProjectStatus(id: string, status: string): Promise<Project | undefined> {
+    const [updated] = await db.update(projects).set({ status }).where(eq(projects.id, id)).returning();
+    return updated;
+  }
+
+  async updateProject(id: string, data: { title?: string; idea?: string; minimumTotalHours?: number; githubRepoUrl?: string | null }): Promise<Project | undefined> {
+    const updateData: any = {};
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.idea !== undefined) updateData.idea = data.idea;
+    if (data.minimumTotalHours !== undefined) updateData.minimumTotalHours = data.minimumTotalHours;
+    if (data.githubRepoUrl !== undefined) updateData.githubRepoUrl = data.githubRepoUrl;
+    if (Object.keys(updateData).length === 0) return this.getProjectById(id);
+    const [updated] = await db.update(projects).set(updateData).where(eq(projects.id, id)).returning();
+    return updated;
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    const versions = await this.getPlanVersionsByProject(id);
+    for (const v of versions) {
+      await db.delete(comments).where(eq(comments.versionId, v.id));
+    }
+    await db.delete(planVersions).where(eq(planVersions.projectId, id));
+    const logs = await db.select({ id: weeklyLogs.id }).from(weeklyLogs).where(eq(weeklyLogs.projectId, id));
+    if (logs.length > 0) {
+      const logIds = logs.map(l => l.id);
+      await db.delete(logComments).where(inArray(logComments.logId, logIds));
+    }
+    await db.delete(weeklyLogs).where(eq(weeklyLogs.projectId, id));
+    await db.delete(chatMessages).where(eq(chatMessages.projectId, id));
+    await db.delete(projects).where(eq(projects.id, id));
+  }
+
+  async createPlanVersion(data: InsertPlanVersion): Promise<PlanVersion> {
+    const [created] = await db.insert(planVersions).values(data).returning();
+    return created;
+  }
+
+  async getPlanVersionsByProject(projectId: string): Promise<PlanVersion[]> {
+    return db.select().from(planVersions).where(eq(planVersions.projectId, projectId)).orderBy(desc(planVersions.versionNumber));
+  }
+
+  async getPlanVersionById(id: string): Promise<PlanVersion | undefined> {
+    const [pv] = await db.select().from(planVersions).where(eq(planVersions.id, id));
+    return pv;
+  }
+
+  async getLatestPlanVersion(projectId: string): Promise<PlanVersion | undefined> {
+    const [pv] = await db.select().from(planVersions)
+      .where(eq(planVersions.projectId, projectId))
+      .orderBy(desc(planVersions.versionNumber))
+      .limit(1);
+    return pv;
+  }
+
+  async updatePlanVersionStatus(id: string, status: string): Promise<PlanVersion | undefined> {
+    const [updated] = await db.update(planVersions).set({ status }).where(eq(planVersions.id, id)).returning();
+    return updated;
+  }
+
+  async updatePlanVersionContent(id: string, contentJson: any): Promise<PlanVersion | undefined> {
+    const [updated] = await db.update(planVersions).set({ contentJson }).where(eq(planVersions.id, id)).returning();
+    return updated;
+  }
+
+  async createComment(data: InsertComment): Promise<Comment> {
+    const [created] = await db.insert(comments).values(data).returning();
+    return created;
+  }
+
+  async getCommentsByVersion(versionId: string): Promise<Comment[]> {
+    return db.select().from(comments).where(eq(comments.versionId, versionId)).orderBy(desc(comments.createdAt));
+  }
+
+  async getAllCommentsByProject(projectId: string): Promise<Comment[]> {
+    const versions = await this.getPlanVersionsByProject(projectId);
+    if (versions.length === 0) return [];
+    const versionIds = versions.map(v => v.id);
+    return db.select().from(comments).where(inArray(comments.versionId, versionIds)).orderBy(desc(comments.createdAt));
+  }
+
+  async createWeeklyLog(data: InsertWeeklyLog): Promise<WeeklyLog> {
+    const [created] = await db.insert(weeklyLogs).values(data).returning();
+    return created;
+  }
+
+  async getWeeklyLogsByProject(projectId: string): Promise<WeeklyLog[]> {
+    return db.select().from(weeklyLogs).where(eq(weeklyLogs.projectId, projectId)).orderBy(weeklyLogs.weekNumber, weeklyLogs.createdAt);
+  }
+
+  async updateWeeklyLog(id: string, logText: string): Promise<WeeklyLog | undefined> {
+    const [updated] = await db.update(weeklyLogs).set({ logText }).where(eq(weeklyLogs.id, id)).returning();
+    return updated;
+  }
+
+  async getWeeklyLogById(id: string): Promise<WeeklyLog | undefined> {
+    const [log] = await db.select().from(weeklyLogs).where(eq(weeklyLogs.id, id));
+    return log;
+  }
+
+  async createLogComment(data: InsertLogComment): Promise<LogComment> {
+    const [created] = await db.insert(logComments).values(data).returning();
+    return created;
+  }
+
+  async getLogCommentsByProject(projectId: string): Promise<LogComment[]> {
+    const logs = await db.select({ id: weeklyLogs.id }).from(weeklyLogs).where(eq(weeklyLogs.projectId, projectId));
+    if (logs.length === 0) return [];
+    const logIds = logs.map(l => l.id);
+    return db.select().from(logComments).where(inArray(logComments.logId, logIds)).orderBy(desc(logComments.createdAt));
+  }
+
+  async createNotification(data: InsertNotification): Promise<Notification> {
+    const [created] = await db.insert(notifications).values(data).returning();
+    return created;
+  }
+
+  async getNotificationsByUser(userId: string): Promise<Notification[]> {
+    return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+  }
+
+  async markNotificationRead(id: string): Promise<Notification | undefined> {
+    const [updated] = await db.update(notifications).set({ read: true }).where(eq(notifications.id, id)).returning();
+    return updated;
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await db.update(notifications).set({ read: true }).where(eq(notifications.userId, userId));
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(notifications).where(
+      and(eq(notifications.userId, userId), eq(notifications.read, false))
+    );
+    return result?.count ?? 0;
+  }
+
+  async deleteProjectsByIntern(internId: string, companyId: string): Promise<number> {
+    const internProjects = await db.select().from(projects).where(
+      and(eq(projects.internId, internId), eq(projects.companyId, companyId))
+    );
+    for (const project of internProjects) {
+      await this.deleteProject(project.id);
+    }
+    return internProjects.length;
+  }
+
+  async deletePlanVersionsByProject(projectId: string): Promise<void> {
+    const versions = await this.getPlanVersionsByProject(projectId);
+    for (const v of versions) {
+      await db.delete(comments).where(eq(comments.versionId, v.id));
+    }
+    await db.delete(planVersions).where(eq(planVersions.projectId, projectId));
+  }
+
+  async updateProjectGithubUrl(id: string, githubRepoUrl: string | null): Promise<Project | undefined> {
+    const [updated] = await db.update(projects).set({ githubRepoUrl }).where(eq(projects.id, id)).returning();
+    return updated;
+  }
+
+  async updateCompanyGithubToken(companyId: string, githubToken: string | null): Promise<Company | undefined> {
+    const [updated] = await db.update(companies).set({ githubToken }).where(eq(companies.id, companyId)).returning();
+    return updated;
+  }
+
+  async getCompanyGithubToken(companyId: string): Promise<string | null> {
+    const company = await this.getCompanyById(companyId);
+    return company?.githubToken || null;
+  }
+
+  async getProjectStatusCounts(companyId: string): Promise<{ status: string; count: number }[]> {
+    const result = await db
+      .select({ status: projects.status, count: count() })
+      .from(projects)
+      .where(eq(projects.companyId, companyId))
+      .groupBy(projects.status);
+    return result;
+  }
+
+  async getWeeklyLogsByCompany(companyId: string): Promise<any[]> {
+    const companyProjects = await db.select({ id: projects.id }).from(projects).where(eq(projects.companyId, companyId));
+    if (companyProjects.length === 0) return [];
+    const projectIds = companyProjects.map((p) => p.id);
+    return db.select().from(weeklyLogs).where(inArray(weeklyLogs.projectId, projectIds)).orderBy(weeklyLogs.createdAt);
+  }
+
+  async getLogActivityByCompany(companyId: string): Promise<{ week: string; logs: number }[]> {
+    const allLogs = await this.getWeeklyLogsByCompany(companyId);
+    const weekMap = new Map<string, number>();
+    allLogs.forEach((log: any) => {
+      const date = new Date(log.createdAt);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const key = weekStart.toISOString().split("T")[0];
+      weekMap.set(key, (weekMap.get(key) || 0) + 1);
+    });
+    return Array.from(weekMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([week, logs]) => ({ week, logs }));
+  }
+
+  async getTeamMessages(companyId: string, limit: number = 50): Promise<(TeamMessage & { userName: string })[]> {
+    const rows = await db
+      .select({
+        id: teamMessages.id,
+        companyId: teamMessages.companyId,
+        userId: teamMessages.userId,
+        content: teamMessages.content,
+        createdAt: teamMessages.createdAt,
+        userName: users.name,
+      })
+      .from(teamMessages)
+      .innerJoin(users, eq(teamMessages.userId, users.id))
+      .where(eq(teamMessages.companyId, companyId))
+      .orderBy(desc(teamMessages.createdAt))
+      .limit(limit);
+    return rows.reverse();
+  }
+
+  async createTeamMessage(data: InsertTeamMessage): Promise<TeamMessage> {
+    const [created] = await db.insert(teamMessages).values(data).returning();
+    return created;
+  }
+
+  async getChatMessages(projectId: string, mode: string): Promise<ChatMessage[]> {
+    return db.select().from(chatMessages)
+      .where(and(eq(chatMessages.projectId, projectId), eq(chatMessages.mode, mode)))
+      .orderBy(chatMessages.createdAt);
+  }
+
+  async saveChatMessage(data: InsertChatMessage): Promise<ChatMessage> {
+    const [created] = await db.insert(chatMessages).values(data).returning();
+    return created;
+  }
+
+  async clearChatMessages(projectId: string, mode: string): Promise<void> {
+    await db.delete(chatMessages).where(
+      and(eq(chatMessages.projectId, projectId), eq(chatMessages.mode, mode))
+    );
+  }
+
+  // --- Channel Methods ---
+
+  async createChannel(data: InsertChannel): Promise<Channel> {
+    const [created] = await db.insert(channels).values(data).returning();
+    return created;
+  }
+
+  async getChannelById(id: string): Promise<Channel | undefined> {
+    const [found] = await db.select().from(channels).where(eq(channels.id, id));
+    return found;
+  }
+
+  async getChannelsByCompany(companyId: string, userId: string): Promise<(Channel & { unreadCount: number })[]> {
+    // Single query: join channels → members, with a correlated subquery for unread count
+    const rows = await db
+      .select({
+        id: channels.id,
+        companyId: channels.companyId,
+        type: channels.type,
+        name: channels.name,
+        projectId: channels.projectId,
+        createdById: channels.createdById,
+        createdAt: channels.createdAt,
+        lastReadAt: channelMembers.lastReadAt,
+      })
+      .from(channels)
+      .innerJoin(channelMembers, and(
+        eq(channelMembers.channelId, channels.id),
+        eq(channelMembers.userId, userId),
+      ))
+      .where(eq(channels.companyId, companyId))
+      .orderBy(channels.createdAt);
+
+    if (rows.length === 0) return [];
+
+    // Batch: get unread counts for all channels in one query
+    const channelIds = rows.map(r => r.id);
+    const lastReadMap = new Map(rows.map(r => [r.id, r.lastReadAt]));
+
+    // Get message counts per channel (all messages, then we'll subtract read ones)
+    const allCounts = await db
+      .select({
+        channelId: channelMessages.channelId,
+        msgCount: count(),
+      })
+      .from(channelMessages)
+      .where(sql`${channelMessages.channelId} IN (${sql.join(channelIds.map(id => sql`${id}`), sql`, `)})`)
+      .groupBy(channelMessages.channelId);
+
+    // For channels with a lastReadAt, get the count of messages BEFORE lastReadAt
+    const channelsWithReadAt = rows.filter(r => r.lastReadAt !== null);
+    const readCounts = new Map<string, number>();
+
+    if (channelsWithReadAt.length > 0) {
+      // Get read message counts in a single query using UNION ALL approach
+      for (const ch of channelsWithReadAt) {
+        const [result] = await db
+          .select({ msgCount: count() })
+          .from(channelMessages)
+          .where(and(
+            eq(channelMessages.channelId, ch.id),
+            sql`${channelMessages.createdAt} <= ${ch.lastReadAt}`,
+          ));
+        readCounts.set(ch.id, Number(result.msgCount));
+      }
+    }
+
+    const totalCountMap = new Map(allCounts.map(c => [c.channelId, Number(c.msgCount)]));
+
+    return rows.map(row => ({
+      id: row.id,
+      companyId: row.companyId,
+      type: row.type,
+      name: row.name,
+      projectId: row.projectId,
+      createdById: row.createdById,
+      createdAt: row.createdAt,
+      unreadCount: lastReadMap.get(row.id)
+        ? (totalCountMap.get(row.id) || 0) - (readCounts.get(row.id) || 0)
+        : (totalCountMap.get(row.id) || 0),
+    }));
+  }
+
+  async ensureGeneralChannel(companyId: string): Promise<Channel> {
+    const [existing] = await db.select().from(channels)
+      .where(and(eq(channels.companyId, companyId), eq(channels.type, "general")));
+    if (existing) return existing;
+    const [created] = await db.insert(channels).values({
+      companyId,
+      type: "general",
+      name: "general",
+    }).returning();
+    return created;
+  }
+
+  async createProjectChannel(project: { id: string; companyId: string; title: string; internId: string }): Promise<Channel> {
+    const [created] = await db.insert(channels).values({
+      companyId: project.companyId,
+      type: "project",
+      name: project.title,
+      projectId: project.id,
+    }).returning();
+    // Add the intern
+    await this.addChannelMember(created.id, project.internId);
+    // Add all admins in the company
+    const admins = await db.select().from(users)
+      .where(and(eq(users.companyId, project.companyId), eq(users.role, "admin")));
+    for (const admin of admins) {
+      await this.addChannelMember(created.id, admin.id);
+    }
+    return created;
+  }
+
+  async getOrCreateDMChannel(companyId: string, userId1: string, userId2: string, user1Name: string, user2Name: string): Promise<Channel> {
+    // Find existing DM between these two users using a single query
+    // Look for DM channels where BOTH users are members
+    const cm1 = db.$with("cm1").as(
+      db.select({ channelId: channelMembers.channelId })
+        .from(channelMembers)
+        .where(eq(channelMembers.userId, userId1))
+    );
+    const cm2 = db.$with("cm2").as(
+      db.select({ channelId: channelMembers.channelId })
+        .from(channelMembers)
+        .where(eq(channelMembers.userId, userId2))
+    );
+
+    const existing = await db
+      .with(cm1, cm2)
+      .select({ id: channels.id, companyId: channels.companyId, type: channels.type, name: channels.name, projectId: channels.projectId, createdById: channels.createdById, createdAt: channels.createdAt })
+      .from(channels)
+      .innerJoin(cm1, eq(sql`${cm1}.channel_id`, channels.id))
+      .innerJoin(cm2, eq(sql`${cm2}.channel_id`, channels.id))
+      .where(and(eq(channels.companyId, companyId), eq(channels.type, "dm")))
+      .limit(1);
+
+    if (existing.length > 0) return existing[0];
+
+    // Create new DM channel
+    const [created] = await db.insert(channels).values({
+      companyId,
+      type: "dm",
+      name: `${user1Name}, ${user2Name}`,
+      createdById: userId1,
+    }).returning();
+    await this.addChannelMember(created.id, userId1);
+    await this.addChannelMember(created.id, userId2);
+    return created;
+  }
+
+  async deleteChannel(id: string): Promise<void> {
+    await db.delete(channels).where(eq(channels.id, id));
+  }
+
+  // --- Channel Member Methods ---
+
+  async addChannelMember(channelId: string, userId: string): Promise<ChannelMember> {
+    // Upsert — ignore if already exists
+    const [existing] = await db.select().from(channelMembers)
+      .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.userId, userId)));
+    if (existing) return existing;
+    const [created] = await db.insert(channelMembers).values({ channelId, userId }).returning();
+    return created;
+  }
+
+  async removeChannelMember(channelId: string, userId: string): Promise<void> {
+    await db.delete(channelMembers).where(
+      and(eq(channelMembers.channelId, channelId), eq(channelMembers.userId, userId))
+    );
+  }
+
+  async getChannelMembers(channelId: string): Promise<(ChannelMember & { userName: string; userRole: string })[]> {
+    return db
+      .select({
+        id: channelMembers.id,
+        channelId: channelMembers.channelId,
+        userId: channelMembers.userId,
+        lastReadAt: channelMembers.lastReadAt,
+        joinedAt: channelMembers.joinedAt,
+        userName: users.name,
+        userRole: users.role,
+      })
+      .from(channelMembers)
+      .innerJoin(users, eq(channelMembers.userId, users.id))
+      .where(eq(channelMembers.channelId, channelId));
+  }
+
+  async isChannelMember(channelId: string, userId: string): Promise<boolean> {
+    const [found] = await db.select().from(channelMembers)
+      .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.userId, userId)));
+    return !!found;
+  }
+
+  async updateLastReadAt(channelId: string, userId: string): Promise<void> {
+    await db.update(channelMembers)
+      .set({ lastReadAt: new Date() })
+      .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.userId, userId)));
+  }
+
+  // --- Channel Message Methods ---
+
+  async getChannelMessages(channelId: string, limit: number = 100): Promise<(ChannelMessage & { userName: string })[]> {
+    const rows = await db
+      .select({
+        id: channelMessages.id,
+        channelId: channelMessages.channelId,
+        userId: channelMessages.userId,
+        content: channelMessages.content,
+        createdAt: channelMessages.createdAt,
+        userName: users.name,
+      })
+      .from(channelMessages)
+      .innerJoin(users, eq(channelMessages.userId, users.id))
+      .where(eq(channelMessages.channelId, channelId))
+      .orderBy(desc(channelMessages.createdAt))
+      .limit(limit);
+    return rows.reverse(); // Chronological order
+  }
+
+  async createChannelMessage(data: InsertChannelMessage): Promise<ChannelMessage> {
+    const [created] = await db.insert(channelMessages).values(data).returning();
+    return created;
+  }
+
+  async getTotalUnreadCount(companyId: string, userId: string): Promise<number> {
+    // Single query: count all unread messages across all channels user is a member of
+    const result = await db
+      .select({ total: count() })
+      .from(channelMessages)
+      .innerJoin(channelMembers, and(
+        eq(channelMembers.channelId, channelMessages.channelId),
+        eq(channelMembers.userId, userId),
+      ))
+      .innerJoin(channels, and(
+        eq(channels.id, channelMessages.channelId),
+        eq(channels.companyId, companyId),
+      ))
+      .where(
+        or(
+          isNull(channelMembers.lastReadAt),
+          gt(channelMessages.createdAt, channelMembers.lastReadAt),
+        )
+      );
+    return Number(result[0]?.total || 0);
+  }
+
+  async createPasswordResetToken(data: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    const [created] = await db.insert(resetTokensTable).values(data).returning();
+    return created;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [found] = await db.select().from(resetTokensTable).where(eq(resetTokensTable.token, token));
+    return found;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.update(resetTokensTable).set({ used: true }).where(eq(resetTokensTable.token, token));
+  }
+
+  async createSignupToken(data: InsertSignupToken): Promise<SignupToken> {
+    const [created] = await db.insert(signupTokensTable).values(data).returning();
+    return created;
+  }
+
+  async getSignupToken(token: string): Promise<SignupToken | undefined> {
+    const [found] = await db.select().from(signupTokensTable).where(eq(signupTokensTable.token, token));
+    return found;
+  }
+
+  async markSignupTokenUsed(token: string): Promise<void> {
+    await db.update(signupTokensTable).set({ used: true }).where(eq(signupTokensTable.token, token));
+  }
+}
+
+export const storage = new DatabaseStorage();

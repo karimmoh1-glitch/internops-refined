@@ -1,0 +1,323 @@
+You are building a full-stack web application called InternOps — an AI-powered internship planning platform.
+
+Use:
+
+Frontend: React + Tailwind
+Backend: Node.js + Express
+Database: PostgreSQL (or SQLite if needed)
+File Storage: Local + S3-ready structure
+Authentication: JWT
+Architecture: Modular and clean
+
+⸻
+
+🔥 CORE PRODUCT PHILOSOPHY
+
+InternOps is an AI-powered internship planning platform.
+
+Manager gives project idea and sets minimum total hours required.
+
+Intern:
+	•	Decides actual time allocation
+	•	Works with AI to structure roadmap
+	•	Submits plan for review
+	•	Owns revisions
+	•	Submits weekly logs and proof
+
+AI:
+	•	Structures roadmap
+	•	Refines milestones
+	•	Assists planning
+	•	Never auto-edits plan
+	•	Never evaluates performance
+
+Manager:
+	•	Reviews
+	•	Comments
+	•	Suggests
+	•	Approves
+	•	Cannot edit directly
+
+⸻
+
+🔵 USER ROLES
+	1.	Intern
+	2.	Manager (also System Admin)
+
+⸻
+
+🔵 CORE FEATURES TO IMPLEMENT
+
+⸻
+
+1️⃣ AUTHENTICATION SYSTEM
+	•	Separate login for Intern and Manager
+	•	JWT-based authentication
+	•	Role-based routing
+	•	Manager can assign projects
+	•	Intern sees only assigned projects
+
+⸻
+
+2️⃣ PROJECT ASSIGNMENT (Manager Side)
+
+Manager creates project:
+
+Fields:
+	•	Project Title
+	•	Project Idea (text)
+	•	Minimum Total Hours Required (number)
+
+Store in database.
+
+Intern gets notification:
+“New Project Assigned”
+
+⸻
+
+3️⃣ INTERN PLANNING WORKSPACE (AI Collaboration Workspace)
+
+Layout:
+
+Left Side:
+AI Assistant Panel (persistent)
+
+Right Side:
+Editable Plan Builder
+
+⸻
+
+Planning Flow
+
+Step 1 – Intern enters time allocation:
+	•	Hours per day
+	•	Days per week
+	•	Number of weeks
+
+System calculates:
+
+Total Planned Hours
+
+If total < manager minimum:
+Show warning and block plan generation.
+
+If total >= minimum:
+Allow AI plan generation.
+
+⸻
+
+AI Plan Generation (Mocked AI Service for Now)
+
+AI receives:
+	•	Project idea
+	•	Total hours
+	•	Duration
+
+AI returns:
+	•	Weekly milestones
+	•	Deliverables
+	•	Success criteria
+
+Store as:
+Plan Version 1.0 (status: Draft)
+
+⸻
+
+4️⃣ PLAN VERSIONING
+
+Each plan submission creates version:
+
+PlanVersion table:
+	•	id
+	•	project_id
+	•	version_number
+	•	content_json
+	•	created_at
+	•	status (Draft, Submitted, Approved)
+
+Intern can:
+	•	Edit draft
+	•	Submit for review
+	•	Create new revision
+
+Old versions remain archived.
+
+⸻
+
+5️⃣ MANAGER REVIEW PANEL
+
+Manager sees:
+	•	Total planned hours
+	•	Minimum required hours
+	•	Weekly breakdown
+	•	Version history
+
+Manager can:
+	•	Approve
+	•	Add comments
+	•	Request revision
+
+Manager cannot directly edit plan.
+
+Comments stored per version.
+
+⸻
+
+6️⃣ EXECUTION MODE (After Approval)
+
+Toggle:
+
+Planning Mode
+Execution Mode
+
+After approval:
+Plan locked.
+
+Execution mode activated.
+
+⸻
+
+Weekly Structure
+
+Each week contains:
+	•	Milestones
+	•	Weekly Log (text)
+	•	Proof of Work Upload
+
+Proof types:
+	•	Image
+	•	PDF
+	•	Video
+	•	Document
+	•	External link
+
+Week submission requires:
+	•	Log filled
+	•	At least one proof file
+
+Status:
+	•	In Progress
+	•	Submitted
+	•	Reviewed
+
+⸻
+
+7️⃣ AI ASSISTANT DURING EXECUTION
+
+AI panel always visible.
+
+Intern can:
+	•	Ask to refine milestone
+	•	Ask to summarize logs
+	•	Ask to rewrite weekly reflection
+	•	Ask to restructure upcoming weeks
+
+AI cannot modify active plan unless intern clicks:
+“Create Revision”
+
+⸻
+
+8️⃣ UI / UX REQUIREMENTS
+	•	Clean minimal UI
+	•	Collapsible weeks
+	•	Highlight current week
+	•	Progress bar based on weeks completed
+	•	Version badge at top
+	•	Clear “Total Hours vs Minimum Required” indicator
+	•	Smooth transitions
+	•	No clutter
+
+⸻
+
+9️⃣ DATABASE STRUCTURE
+
+Users:
+	•	id
+	•	name
+	•	email
+	•	password_hash
+	•	role
+
+Projects:
+	•	id
+	•	manager_id
+	•	intern_id
+	•	title
+	•	idea
+	•	minimum_total_hours
+	•	status
+
+PlanVersions:
+	•	id
+	•	project_id
+	•	version_number
+	•	content_json
+	•	status
+	•	created_at
+
+Comments:
+	•	id
+	•	version_id
+	•	manager_id
+	•	content
+	•	created_at
+
+WeeklyLogs:
+	•	id
+	•	project_id
+	•	week_number
+	•	log_text
+	•	submitted_at
+
+WeeklyProofs:
+	•	id
+	•	log_id
+	•	file_path
+	•	file_type
+
+⸻
+
+🔟 IMPLEMENTATION FLOW
+	1.	Setup backend structure
+	2.	Create database schema
+	3.	Implement auth
+	4.	Build manager dashboard
+	5.	Build intern AI planning workspace
+	6.	Implement version control
+	7.	Add execution mode
+	8.	Add file upload handling
+	9.	Add AI mock service
+	10.	Add clean UI polishing
+
+⸻
+
+CODE REQUIREMENTS
+	•	Clean modular structure
+	•	Separate routes
+	•	Separate controllers
+	•	Minimal but readable code
+	•	Comments for clarity
+	•	Environment config file
+	•	Ready for production extension
+
+⸻
+
+FINAL OUTPUT REQUIREMENTS
+
+After build:
+
+Provide:
+	•	Folder structure
+	•	How to run backend
+	•	How to run frontend
+	•	Example test users
+	•	Sample project seed data
+
+Ensure:
+	•	All buttons work
+	•	Login works
+	•	Role switching works
+	•	File uploads work
+	•	Versioning works
+	•	AI panel responds
+	•	Minimum hours validation works

@@ -1,0 +1,95 @@
+You are a senior full-stack engineer. Build a COMPLETE, FULLY FUNCTIONAL ForgeFlow SaaS application for global usage.
+
+### 1. Purpose
+- Global SaaS platform to manage interns for multiple companies.
+- Employers hire ForgeFlow to maintain and manage interns efficiently.
+- AI-assisted weekly summaries, 12-week task planning, gamification, analytics, and notifications.
+
+### 2. Roles
+- **Manager / Company Admin**
+  - Can log in, create companies, assign short ideas to specific interns
+  - View all interns’ tasks, AI-generated weekly summaries, gamification stats
+  - Cannot edit intern 12-week plans
+- **Intern**
+  - Login with username/password
+  - Sees only tasks assigned to them
+  - Collaborates with AI to generate 12-week task plan with subtasks
+  - Logs daily work (Mon-Fri)
+  - Views gamification feedback (streaks, badges, progress)
+- **Sign Out**
+  - Allows switching roles (Intern ↔ Manager/Company Admin)
+
+### 3. Landing Page (Marketing & Global SaaS)
+- Clean, professional, minimal creativity
+- Components:
+  - HeroSection: headline, subheading, CTA buttons (“Get Started Free”, “Watch Demo”), optional illustration
+  - BenefitsSection: 3–4 points (time saved, global oversight, gamification, integrations)
+  - HowItWorks: 3-step overview
+  - Testimonials (optional)
+  - CTAPricing: subscription / sign up buttons
+  - Footer: company info, privacy, contact
+- No ads, minimal unwanted icons or widgets
+- Optimized for conversions and global appeal
+
+### 4. Dashboards & Frontend
+- React + TailwindCSS
+- Components:
+  - EntryPage.jsx: Intern and Manager login forms
+  - ManagerDashboard.jsx: view all interns, assigned tasks, AI summaries, gamification metrics
+  - InternDashboard.jsx: view assigned tasks, AI-generated 12-week subtasks, daily logging
+  - Reusable: Navbar.jsx, ProgressBar.jsx, Badge.jsx, Card.jsx
+- Fully functional buttons, responsive, role-based access
+
+### 5. Backend
+- Node.js + Express
+- SQLite database with tables:
+  - companies (id, name, subscription_plan)
+  - users (username, password, role, company_id)
+  - tasks (idea_text, assigned_intern_id, manager_id, company_id)
+  - subtasks (task_id, week_number, title, description, status)
+  - daily_logs (task_id, intern_id, date, description, attachments)
+  - ai_feedback (task_id, manager_rating, manager_comments)
+- REST API routes:
+  - POST /login
+  - POST /companies/create
+  - POST /tasks/create (Manager assigns idea to intern)
+  - GET /tasks (Intern sees own tasks, Manager sees all company tasks)
+  - POST /subtasks/create (Intern + AI generates 12-week plan)
+  - POST /logs/create (Intern daily logging)
+  - GET /logs/:taskId (Manager sees summary)
+  - POST /ai/summary
+  - POST /ai/feedback
+- Role-based and company-based access enforced
+- Modular architecture: routes, controllers, models, services, middleware
+
+### 6. Functional Flows (UHWs 1–10)
+1. **UHW-1**: Intern Daily Logs → daily logging interface, stored in `daily_logs`
+2. **UHW-2**: File Upload Handling → secure, validated attachment uploads
+3. **UHW-3**: Gamification → streaks, badges, progress bars from logs/subtasks
+4. **UHW-4**: AI-Generated Summaries → weekly summaries, actionable suggestions
+5. **UHW-5**: Manager Dashboard Display → multi-intern summary + gamification metrics
+6. **UHW-6**: Feedback Loop → manager rates AI suggestions, improves AI
+7. **UHW-7**: Analytics / Reporting → visual trends: logging, engagement, time saved
+8. **UHW-8**: Notifications & Communication → email/Slack reminders, weekly digests
+9. **UHW-9**: Role-Based Access Control → Intern / Manager / Company Admin, company-scoped
+10. **UHW-10**: Execution & Regression → automated and manual test verification
+
+**Data Flow**
+Manager assigns idea → stored in `tasks` → intern sees task → collaborates with AI → generates 12-week subtasks → daily logs created → AI generates weekly summary → manager views summary + gamification → manager feedback loops to AI
+
+### 7. Testing & QA
+- Automated regression tests for all flows
+- Manual edge case testing
+- Ensure role-based access, company scoping, task visibility, gamification accuracy
+- Validate UI responsiveness and landing page functionality
+
+### 8. Demo Data
+- 1 company, 1 manager, 2 interns for testing
+- Pre-populate some sample tasks, subtasks, logs
+
+### 9. Output Requirements
+- Fully working ForgeFlow SaaS app
+- Modular, clean code (frontend + backend)
+- Comments explaining main logic
+- Responsive design
+- Landing page optimized for global marketing and conversions

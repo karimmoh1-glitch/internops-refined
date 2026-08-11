@@ -1,0 +1,371 @@
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY || "dummy-key",
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
+
+export interface WeekMilestone {
+  weekNumber: number;
+  milestone: string;
+  deliverables: string[];
+  successCriteria: string;
+  hours: number;
+}
+
+export interface GeneratedPlan {
+  weeks: WeekMilestone[];
+}
+
+export async function generatePlan(
+  projectIdea: string,
+  totalHours: number,
+  numberOfWeeks: number
+): Promise<GeneratedPlan> {
+  const hoursPerWeek = Math.round(totalHours / numberOfWeeks);
+
+  const prompt = `You are a project planning AI for InternOps, an intern management platform.
+
+An intern has been assigned the following project:
+"${projectIdea}"
+
+Time allocation:
+- Total hours: ${totalHours}
+- Duration: ${numberOfWeeks} weeks
+- Approximately ${hoursPerWeek} hours per week
+
+Generate a structured execution plan. Each week should have:
+1. A clear milestone (1-2 sentences)
+2. 2-4 specific deliverables
+3. Success criteria (how to measure completion)
+4. Estimated hours for that week
+
+Progress from foundational learning/setup in early weeks to implementation and polish in later weeks.
+
+Respond in this exact JSON format:
+{
+  "weeks": [
+    {
+      "weekNumber": 1,
+      "milestone": "Set up development environment and understand project requirements",
+      "deliverables": ["Deliverable 1", "Deliverable 2"],
+      "successCriteria": "Environment is ready and requirements document is complete",
+      "hours": ${hoursPerWeek}
+    }
+  ]
+}
+
+Generate exactly ${numberOfWeeks} weeks. Total hours across all weeks should equal approximately ${totalHours}.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 4096,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("No response from AI");
+
+    const parsed = JSON.parse(content);
+    const weeks: WeekMilestone[] = (parsed.weeks || []).map((w: any) => ({
+      weekNumber: w.weekNumber,
+      milestone: w.milestone || "",
+      deliverables: Array.isArray(w.deliverables) ? w.deliverables : [],
+      successCriteria: w.successCriteria || "",
+      hours: w.hours || hoursPerWeek,
+    }));
+
+    if (weeks.length !== numberOfWeeks) {
+      throw new Error(`AI generated ${weeks.length} weeks instead of ${numberOfWeeks}`);
+    }
+
+    return { weeks };
+  } catch (error: any) {
+    console.error("AI plan generation failed:", error.message);
+    const weeks: WeekMilestone[] = [];
+    const phases = ["Research & Setup", "Foundation", "Core Development", "Feature Building", "Testing", "Polish & Delivery"];
+
+    for (let w = 1; w <= numberOfWeeks; w++) {
+      const phaseIdx = Math.min(Math.floor((w - 1) / Math.ceil(numberOfWeeks / phases.length)), phases.length - 1);
+      weeks.push({
+        weekNumber: w,
+        milestone: `${phases[phaseIdx]} - Week ${w}`,
+        deliverables: [
+          `Complete ${phases[phaseIdx].toLowerCase()} tasks for week ${w}`,
+          `Document progress and findings`,
+          `Prepare for next phase`,
+        ],
+        successCriteria: `Week ${w} tasks completed and documented`,
+        hours: hoursPerWeek,
+      });
+    }
+    return { weeks };
+  }
+}
+
+export async function aiChat(
+  projectContext: any,
+  messages: Array<{role: "user" | "assistant"; content: string}>,
+  mode: "brainstorm" | "plan" = "plan"
+): Promise<string> {
+  const projectIdea = projectContext?.idea || "Not specified";
+  const projectTitle = projectContext?.title || "Untitled";
+  const projectStatus = projectContext?.status || "unknown";
+  const planContent = projectContext?.currentPlan;
+  const managerComments = projectContext?.managerComments || [];
+  const logs = projectContext?.weeklyLogs || [];
+  const logFeedback = projectContext?.logComments || [];
+
+  let contextBlock = `Project: "${projectTitle}"
+Idea: "${projectIdea}"
+Status: ${projectStatus}
+Minimum Hours Required: ${projectContext?.minimumTotalHours || 'Not set'}`;
+
+  if (planContent) {
+    contextBlock += `\n\nCurrent Plan (${projectContext?.currentPlanStatus || 'unknown'} - v${projectContext?.versionCount || 1}):
+${planContent.weeks?.map((w: any) => `  Week ${w.weekNumber}: ${w.milestone} (${w.hours}h) - Deliverables: ${(w.deliverables || []).join(', ')} - Success Criteria: ${w.successCriteria}`).join('\n') || 'No weeks defined'}
+Total Planned Hours: ${planContent.totalPlannedHours || 'N/A'} (${planContent.hoursPerDay || '?'}h/day, ${planContent.daysPerWeek || '?'} days/week, ${planContent.numberOfWeeks || '?'} weeks)`;
+  } else {
+    contextBlock += '\n\nNo plan created yet.';
+  }
+
+  if (managerComments.length > 0) {
+    contextBlock += `\n\nManager Comments/Revision Feedback:\n${managerComments.map((c: string, i: number) => `  ${i + 1}. "${c}"`).join('\n')}`;
+  }
+
+  if (logs.length > 0) {
+    contextBlock += `\n\nWork Logs:\n${logs.slice(-10).map((l: any) => `  Week ${l.weekNumber}${l.subtaskIndex !== null && l.subtaskIndex !== undefined ? ` [Subtask ${l.subtaskIndex}]` : ''} (${new Date(l.createdAt).toLocaleDateString()}): "${l.logText}"`).join('\n')}`;
+  }
+
+  if (logFeedback.length > 0) {
+    contextBlock += `\n\nManager Log Feedback:\n${logFeedback.slice(-5).map((c: string, i: number) => `  ${i + 1}. "${c}"`).join('\n')}`;
+  }
+
+  let systemMessage: string;
+
+  if (mode === "brainstorm") {
+    systemMessage = `You are an ENERGETIC and CREATIVE AI brainstorming partner for InternOps! Think of yourself as that brilliant friend who gets genuinely excited about ideas and always sees interesting angles others miss.
+
+${contextBlock}
+
+YOUR PERSONALITY:
+- You're enthusiastic and playful — you genuinely love exploring ideas!
+- You use vivid analogies and metaphors to explain concepts (e.g., "Think of your API like a restaurant menu — each endpoint is a dish, and the request body is how you customize your order")
+- You ask thought-provoking "What if...?" questions to push thinking further
+- You use emojis sparingly but naturally to add warmth (1-2 per response max)
+- You format ideas clearly with **bold headers** for sections, numbered lists for options, and > blockquotes for key insights
+- You reference creative frameworks when helpful (SCAMPER: Substitute, Combine, Adapt, Modify, Put to other use, Eliminate, Reverse)
+
+YOUR ROLE AS A THOUGHT PARTNER:
+- Explore different approaches and architectures, always giving real trade-offs
+- When discussing technologies, be opinionated but fair — "I'd lean toward X because..., but Y shines when..."
+- Break down complex problems into bite-sized pieces using analogies
+- Suggest resources, tutorials, or references when relevant
+- Ask probing questions to deepen understanding — don't just agree with everything
+- Challenge assumptions kindly: "That could work! Though I wonder — have you considered..."
+- Help think about edge cases, user experience, and scalability
+- Use the Six Thinking Hats concept: sometimes be the optimist, sometimes the devil's advocate
+
+CONVERSATION STYLE:
+- Start responses with an engaging hook, not just "That's a great idea"
+- Mix short punchy observations with deeper analysis
+- When listing options, give each a memorable one-line pitch
+- End responses with a thought-provoking question or a "next step nudge" to keep momentum
+- Keep responses focused and readable — use whitespace and formatting well
+
+IMPORTANT RULES:
+- NEVER include action tags like [ACTION:GENERATE_PLAN], [ACTION:MODIFY_PLAN], or [ACTION:DELETE_PLAN]. This is brainstorm mode — no plan actions.
+- Keep the conversation exploratory and open-ended
+- If the intern wants to create a formal plan, suggest they switch to Plan mode
+- Be a creative catalyst, not just an answer machine`;
+  } else {
+    systemMessage = `You are an experienced AI project mentor for InternOps — think of yourself as a senior developer who's guided hundreds of interns through successful projects. You combine practical wisdom with genuine care for the intern's growth.
+
+${contextBlock}
+
+You are the intern's AI mentor. You are the PRIMARY way the intern creates and manages their project plan. The intern works with you on the left panel, and the right panel displays the results as a read-only view.
+
+YOUR MENTOR PERSONALITY:
+- Speak from experience: "In my experience...", "I've seen projects like this succeed when..."
+- Be honest and direct — sugar-coating doesn't help anyone
+- Celebrate good thinking, but flag risks early
+- Teach the WHY behind planning decisions, not just the WHAT
+- Use occasional emojis for warmth (1-2 per response max)
+
+YOUR CAPABILITIES:
+- DURATION PLANNING: Help the intern decide how to spread their project over time. This is the first step. Ask about their availability and preferences.
+- PLAN GENERATION: Create detailed execution plans with weekly milestones, deliverables, success criteria, and hour allocations
+- PLAN MODIFICATION: Edit any aspect of the plan — change milestones, deliverables, hours, add/remove weeks, restructure
+- PLAN DELETION: Clear the plan so the intern can start over
+- RISK ASSESSMENT: Proactively flag risks per week ("Week 3 looks heavy — I'd add a buffer day")
+- DEPENDENCY AWARENESS: Point out task dependencies ("You'll need the API done before frontend integration in Week 4")
+- SCOPE MANAGEMENT: Warn about scope creep, suggest MVP cuts when hours are tight
+- BEST PRACTICES: Share real-world patterns ("In production teams, we usually allocate 20% of time to testing")
+- TIME ESTIMATION COACHING: Teach realistic estimation ("Add 30% buffer — things always take longer than expected, especially auth and integrations")
+- MILESTONE VALIDATION: Question unrealistic milestones ("4 hours for a full auth system is tight — here's what's realistic...")
+- PROGRESS COACHING: When the plan is active, analyze work logs vs plan and give honest pacing feedback
+- REVISION GUIDANCE: When manager sends back revisions, explain WHY and help strategize fixes
+
+PROACTIVE MENTORING:
+- If manager comments/revisions exist, address them FIRST — acknowledge the feedback, explain what needs to change, and suggest specific plan modifications
+- If the plan status is "revision_requested", immediately help the intern understand the manager's concerns and propose solutions
+- Flag any week where deliverables seem too ambitious for the allocated hours
+- Point out missing dependencies between weeks
+- Suggest where to add buffer time for unexpected issues
+
+DURATION PLANNING FLOW (when no plan exists):
+1. Ask the intern about their availability: hours per day, days per week
+2. Help them figure out how many weeks to spread the project over
+3. Make sure the total hours meet the minimum requirement
+4. Discuss realistic pacing — front-load learning, back-load polish
+5. Once they agree on a schedule, generate the plan
+
+When the intern asks you to take an action on the plan, respond with helpful guidance AND include a special action tag. The system detects these tags and executes automatically:
+- To generate a plan with specific time params: Include [ACTION:GENERATE_PLAN:hoursPerDay,daysPerWeek,numberOfWeeks] (e.g., [ACTION:GENERATE_PLAN:4,5,8])
+- To generate a plan with defaults: Include [ACTION:GENERATE_PLAN]
+- To modify the plan: Include [ACTION:MODIFY_PLAN] followed by the modification instruction
+- To delete/restart the plan: Include [ACTION:DELETE_PLAN]
+
+IMPORTANT RULES:
+- DO NOT include action tags unless the intern clearly wants to take action. For discussion, advice, or questions, respond normally.
+- When generating a plan, ALWAYS try to extract time parameters from the conversation. Use [ACTION:GENERATE_PLAN:H,D,W] format with their preferences.
+- When the intern says things like "I can work 3 hours a day, 4 days a week for 10 weeks", extract those numbers and use [ACTION:GENERATE_PLAN:3,4,10]
+- If no time preferences are stated and the intern just says "generate a plan", use [ACTION:GENERATE_PLAN] with defaults
+- After generating, remind the intern they can ask you to modify anything
+
+Be the mentor every intern deserves — experienced, honest, supportive, and invested in their success.`;
+  }
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemMessage },
+        ...messages,
+      ],
+      max_completion_tokens: 3072,
+    });
+    return response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
+  } catch (error: any) {
+    console.error("AI chat failed:", error.message);
+    return "I'm having trouble connecting right now. Please try again in a moment.";
+  }
+}
+
+export async function summarizeLog(logText: string): Promise<string> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{
+        role: "user",
+        content: `Summarize this weekly work log into 2-3 concise bullet points:\n\n"${logText}"\n\nRespond with just the bullet points, no extra text.`
+      }],
+      max_completion_tokens: 256,
+    });
+    return response.choices[0]?.message?.content || logText;
+  } catch {
+    return logText;
+  }
+}
+
+export async function modifyPlan(
+  currentPlan: any,
+  instruction: string,
+  projectIdea: string
+): Promise<any> {
+  const prompt = `You are an AI plan editor for InternOps. You must modify the current execution plan based on the intern's instruction.
+
+Project: "${projectIdea}"
+
+Current Plan:
+${JSON.stringify(currentPlan, null, 2)}
+
+Instruction from intern: "${instruction}"
+
+Modify the plan according to the instruction. Keep the same JSON structure. You can:
+- Change milestones, deliverables, success criteria
+- Adjust hours per week
+- Add or remove weeks
+- Reorder tasks
+- Update any field
+
+IMPORTANT: Maintain the same JSON structure with these fields:
+- hoursPerDay, daysPerWeek, numberOfWeeks, totalPlannedHours
+- weeks array with: weekNumber, milestone, deliverables (array), successCriteria, hours
+
+Recalculate totalPlannedHours as the sum of all week hours.
+Update numberOfWeeks to match the actual number of weeks.
+
+Respond with ONLY the modified JSON, no explanation.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 4096,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("No response from AI");
+
+    const parsed = JSON.parse(content);
+    if (!parsed.weeks || !Array.isArray(parsed.weeks)) {
+      throw new Error("Invalid plan structure");
+    }
+
+    parsed.weeks = parsed.weeks.map((w: any, idx: number) => ({
+      weekNumber: w.weekNumber || idx + 1,
+      milestone: w.milestone || "",
+      deliverables: Array.isArray(w.deliverables) ? w.deliverables : [],
+      successCriteria: w.successCriteria || "",
+      hours: w.hours || 0,
+    }));
+
+    parsed.numberOfWeeks = parsed.weeks.length;
+    parsed.totalPlannedHours = parsed.weeks.reduce((sum: number, w: any) => sum + (w.hours || 0), 0);
+    parsed.hoursPerDay = parsed.hoursPerDay || currentPlan.hoursPerDay;
+    parsed.daysPerWeek = parsed.daysPerWeek || currentPlan.daysPerWeek;
+
+    return parsed;
+  } catch (error: any) {
+    console.error("AI plan modification failed:", error.message);
+    return currentPlan;
+  }
+}
+
+export async function generateRevisionGuidance(
+  managerComment: string,
+  currentPlan: any,
+  projectIdea: string
+): Promise<string> {
+  const prompt = `You are an AI assistant helping an intern understand and implement their manager's revision feedback.
+
+Project: "${projectIdea}"
+
+Manager's revision comment: "${managerComment}"
+
+Current plan summary:
+${currentPlan?.weeks?.map((w: any) => `Week ${w.weekNumber}: ${w.milestone} (${w.hours}h)`).join('\n') || 'No plan available'}
+
+Based on the manager's comment, provide:
+1. A clear explanation of what changes the manager wants
+2. 3-5 specific, actionable steps the intern should take to address the feedback
+3. Any suggestions for improving the plan beyond what the manager mentioned
+
+Keep your response concise and actionable. Use bullet points.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      max_completion_tokens: 1024,
+    });
+    return response.choices[0]?.message?.content || "Unable to generate guidance. Please review the manager's comments manually.";
+  } catch (error: any) {
+    console.error("AI revision guidance failed:", error.message);
+    return "Unable to generate guidance right now. Please review the manager's comments and make the requested changes to your plan.";
+  }
+}

@@ -1,0 +1,98 @@
+import { useState, useCallback, useEffect } from "react";
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "intern";
+  companyId: string | null;
+}
+
+interface AuthState {
+  token: string;
+  user: AuthUser;
+}
+
+export function useAuth() {
+  const [auth, setAuth] = useState<AuthState | null>(() => {
+    const stored = localStorage.getItem("internops_auth");
+    return stored ? JSON.parse(stored) : null;
+  });
+
+  useEffect(() => {
+    if (auth) {
+      localStorage.setItem("internops_auth", JSON.stringify(auth));
+    } else {
+      localStorage.removeItem("internops_auth");
+    }
+  }, [auth]);
+
+  const persistAuth = useCallback((state: AuthState) => {
+    localStorage.setItem("internops_auth", JSON.stringify(state));
+    setAuth(state);
+  }, []);
+
+  const login = useCallback(async (email: string, password: string, expectedRole?: "admin" | "intern") => {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, expectedRole }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Login failed");
+    }
+    const data = await res.json();
+    const state: AuthState = { token: data.token, user: data.user };
+    persistAuth(state);
+    return state.user;
+  }, [persistAuth]);
+
+  const completeSignup = useCallback(async (token: string, name: string, password: string) => {
+    const res = await fetch(`/api/auth/complete-signup/${token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, password }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Signup completion failed");
+    }
+    const data = await res.json();
+    const state: AuthState = { token: data.token, user: data.user };
+    persistAuth(state);
+    return state.user;
+  }, [persistAuth]);
+
+  const acceptInvite = useCallback(async (token: string, name: string, password: string) => {
+    const res = await fetch(`/api/invitations/accept/${token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, password }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Failed to accept invitation");
+    }
+    const data = await res.json();
+    const state: AuthState = { token: data.token, user: data.user };
+    persistAuth(state);
+    return state.user;
+  }, [persistAuth]);
+
+  const signOut = useCallback(() => {
+    setAuth(null);
+    localStorage.removeItem("internops_auth");
+    localStorage.removeItem("internops_user");
+  }, []);
+
+  return {
+    user: auth?.user ?? null,
+    token: auth?.token ?? null,
+    isAuthenticated: !!auth,
+    login,
+    completeSignup,
+    acceptInvite,
+    signOut,
+  };
+}

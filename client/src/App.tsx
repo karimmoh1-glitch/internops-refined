@@ -1,0 +1,146 @@
+import { Switch, Route, useLocation } from "wouter";
+import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/use-role";
+import NotFound from "@/pages/not-found";
+import Landing from "@/pages/landing";
+import Home from "@/pages/home";
+import InternLogin from "@/pages/intern-login";
+import Signup from "@/pages/signup";
+import CompleteSignup from "@/pages/complete-signup";
+import AcceptInvite from "@/pages/accept-invite";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
+import InternDashboard from "@/pages/intern-dashboard";
+import AdminDashboard from "@/pages/admin-dashboard";
+import ChatPage from "@/pages/chat";
+import AppNav from "@/components/app-nav";
+import { useEffect } from "react";
+
+function DashboardForRole({ user }: { user: any }) {
+  if (user.role === "admin") return <AdminDashboard user={user} />;
+  return <InternDashboard user={user} />;
+}
+
+function AuthenticatedView({ user, signOut }: { user: any; signOut: () => void }) {
+  return (
+    <>
+      <AppNav user={user} onSignOut={signOut} />
+      <DashboardForRole user={user} />
+    </>
+  );
+}
+
+function AuthenticatedChat({ user, signOut }: { user: any; signOut: () => void }) {
+  return (
+    <>
+      <AppNav user={user} onSignOut={signOut} />
+      <ChatPage user={user} />
+    </>
+  );
+}
+
+function AppContent() {
+  const { user, login, completeSignup, acceptInvite, signOut } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  const managerLogin = (email: string, password: string) => login(email, password, "admin");
+  const internLogin = (email: string, password: string) => login(email, password, "intern");
+
+  useEffect(() => {
+    if (user && (location === "/login" || location === "/manager-login" || location === "/intern-login" || location === "/signup" || location === "/forgot-password")) {
+      setLocation("/");
+    }
+  }, [user, location, setLocation]);
+
+  return (
+    <Switch>
+      <Route path="/">
+        {user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <Landing />
+        )}
+      </Route>
+      <Route path="/login">
+        {user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <Home onLogin={managerLogin} />
+        )}
+      </Route>
+      <Route path="/manager-login">
+        {user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <Home onLogin={managerLogin} />
+        )}
+      </Route>
+      <Route path="/intern-login">
+        {user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <InternLogin onLogin={internLogin} />
+        )}
+      </Route>
+      <Route path="/signup">
+        {user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <Signup />
+        )}
+      </Route>
+      <Route path="/verify-signup/:token">
+        {(params) =>
+          user ? (
+            <AuthenticatedView user={user} signOut={signOut} />
+          ) : (
+            <CompleteSignup token={params.token} onComplete={completeSignup} />
+          )
+        }
+      </Route>
+      <Route path="/invite/:token">
+        {(params) =>
+          user ? (
+            <AuthenticatedView user={user} signOut={signOut} />
+          ) : (
+            <AcceptInvite token={params.token} onAccept={acceptInvite} />
+          )
+        }
+      </Route>
+      <Route path="/forgot-password">
+        {user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <ForgotPassword />
+        )}
+      </Route>
+      <Route path="/chat">
+        {user ? (
+          <AuthenticatedChat user={user} signOut={signOut} />
+        ) : (
+          <Landing />
+        )}
+      </Route>
+      <Route path="/reset-password/:token">
+        {(params) => <ResetPassword token={params.token} />}
+      </Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <AppContent />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

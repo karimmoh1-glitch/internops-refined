@@ -1,0 +1,235 @@
+You are a senior full-stack engineer.
+
+Build a COMPLETE, FULLY FUNCTIONAL production-style web application called "ForgeFlow".
+
+ForgeFlow is an AI-powered intern management platform:
+
+Interns log daily work → AI generates weekly summaries → managers review and give feedback → analytics track growth → gamification drives engagement.
+
+IMPORTANT:
+
+- This must be FULLY WORKING.
+- ALL buttons must function.
+- Authentication must work.
+- Data must persist.
+- Frontend and backend must be fully connected.
+- NO placeholder-only logic.
+- Generate real working code.
+
+--------------------------------------------------
+
+TECH STACK:
+
+Backend:
+- Node.js
+- Express.js
+- JWT Authentication
+- Modular MVC architecture
+
+Frontend:
+- HTML + CSS + JavaScript
+- Responsive layout
+- Dashboard UI
+
+Database:
+- SQLite (local working database)
+- Easily upgradable to PostgreSQL later
+
+Architecture:
+
+- Hybrid modular system
+- Event-driven design
+- AI service abstraction layer
+
+--------------------------------------------------
+
+USER ROLES:
+
+- Intern
+- Manager
+- Admin
+
+Implement role-based middleware.
+
+--------------------------------------------------
+
+UHW-1: INTERN LOGGING
+
+Page:
+- Daily log form
+
+Fields:
+- text notes
+- links
+- attachment placeholder
+- submit button (must save data)
+
+API:
+
+POST /api/logs
+GET /api/logs
+
+Logs saved in DB.
+
+--------------------------------------------------
+
+UHW-2: FILE HANDLING
+
+- Simulate file upload handling
+- Validate allowed types
+- Structure ready for S3 integration
+
+--------------------------------------------------
+
+UHW-3: GAMIFICATION
+
+Track:
+
+- streak count
+- badges
+- progress indicators
+
+Display on dashboard.
+
+--------------------------------------------------
+
+UHW-4: AI SUMMARIES
+
+Endpoint:
+
+POST /api/summaries/generate
+
+Create aiService.js:
+
+- Aggregate weekly logs
+- Generate summary text
+- Generate actionable next steps
+
+Return:
+
+{
+ summary: "...",
+ nextSteps: [...]
+}
+
+Support human-in-loop editing.
+
+--------------------------------------------------
+
+UHW-5: MANAGER DASHBOARD
+
+Page shows:
+
+- multiple interns
+- weekly summaries
+- next steps
+- gamification metrics
+
+Buttons:
+
+- refresh
+- generate summary
+
+Must work.
+
+--------------------------------------------------
+
+UHW-6: FEEDBACK LOOP
+
+Managers can:
+
+- rate AI suggestions (1–5)
+- add comments
+
+POST /api/feedback
+
+Store feedback linked to AI output.
+
+--------------------------------------------------
+
+UHW-7: ANALYTICS
+
+Track:
+
+- login activity
+- log submissions
+- feedback scores
+- dashboard usage
+
+Expose:
+
+GET /api/analytics
+
+--------------------------------------------------
+
+UHW-8: NOTIFICATIONS
+
+Prepare service structure for:
+
+- Slack integration
+- Email notification
+
+Provide working mock implementation.
+
+--------------------------------------------------
+
+UHW-9: ADMIN PANEL
+
+Admin can:
+
+- view users
+- assign roles
+- enable feature toggles
+
+--------------------------------------------------
+
+UHW-10: QA / REGRESSION READY
+
+- error handling
+- clean modular services
+- structured routes
+- event logging
+
+--------------------------------------------------
+
+PROJECT STRUCTURE:
+
+/server.js
+/database.db
+/routes
+/controllers
+/models
+/services
+/middleware
+/public
+
+--------------------------------------------------
+
+UI PAGES:
+
+/public/index.html (landing)
+/public/login.html
+/public/register.html
+/public/intern.html
+/public/manager.html
+/public/admin.html
+
+--------------------------------------------------
+
+SETUP:
+
+Include package.json.
+
+App must run with:
+
+npm install
+npm start
+
+--------------------------------------------------
+
+OUTPUT:
+
+Generate FULL WORKING CODE for ALL files.
+NO pseudocode.
+NO unfinished parts.
+All buttons functional.

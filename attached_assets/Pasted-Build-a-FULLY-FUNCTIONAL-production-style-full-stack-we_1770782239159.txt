@@ -1,0 +1,193 @@
+Build a FULLY FUNCTIONAL production-style full-stack web application called "ForgeFlow".
+
+ForgeFlow is an AI-powered intern management platform where interns log work, AI generates summaries, and managers manage interns efficiently.
+
+IMPORTANT:
+
+- The app MUST be fully functional.
+- ALL buttons must work.
+- Authentication must work.
+- Data must persist.
+- Frontend and backend must be connected.
+- Do NOT generate placeholder-only code.
+
+--------------------------------------------------
+
+TECH STACK:
+
+Backend:
+- Node.js
+- Express.js
+- REST API architecture
+- JWT Authentication
+
+Frontend:
+- HTML + CSS + JavaScript (simple and clean)
+- Responsive layout
+
+Database:
+- SQLite (fully working locally)
+- Structured so PostgreSQL upgrade later is easy
+
+--------------------------------------------------
+
+FEATURES:
+
+1. AUTHENTICATION SYSTEM
+
+Working login/register:
+
+POST /api/auth/register
+POST /api/auth/login
+
+- password hashing
+- JWT token
+- role-based users:
+    - intern
+    - manager
+    - admin
+
+Login page must redirect based on role.
+
+--------------------------------------------------
+
+2. INTERN LOGGING SYSTEM
+
+Intern page:
+
+- form with:
+    - text notes
+    - links
+    - attachment placeholder
+    - submit button (must work)
+
+Backend:
+
+POST /api/logs
+GET /api/logs
+
+Logs stored in database.
+
+--------------------------------------------------
+
+3. AI SUMMARY SYSTEM
+
+Endpoint:
+
+POST /api/summaries/generate
+
+Function:
+
+- Collect logs
+- Call aiService module
+- Generate:
+
+{
+  summary: "text",
+  nextSteps: ["step1","step2"]
+}
+
+Use placeholder AI logic if real AI unavailable.
+
+--------------------------------------------------
+
+4. MANAGER DASHBOARD
+
+Page must show:
+
+- list of interns
+- weekly summaries
+- next-step suggestions
+- progress indicators
+- gamification:
+    - streak counter
+    - badge display
+
+Buttons must:
+
+- refresh data
+- trigger summary generation
+
+--------------------------------------------------
+
+5. FEEDBACK LOOP
+
+Managers can:
+
+- rate suggestions (1-5 stars)
+- submit feedback
+
+POST /api/feedback
+
+Data stored in DB.
+
+--------------------------------------------------
+
+6. ANALYTICS SYSTEM
+
+Track:
+
+- login activity
+- log submissions
+- feedback ratings
+
+Expose:
+
+GET /api/analytics
+
+--------------------------------------------------
+
+7. ADMIN PANEL
+
+Admin can:
+
+- view users
+- assign roles
+- enable/disable features
+
+--------------------------------------------------
+
+PROJECT STRUCTURE:
+
+/server.js
+/database.db
+/routes
+/controllers
+/models
+/services
+/middleware
+/public
+
+--------------------------------------------------
+
+UI PAGES:
+
+/public/login.html
+/public/register.html
+/public/intern.html
+/public/manager.html
+/public/admin.html
+/public/index.html
+
+--------------------------------------------------
+
+QUALITY:
+
+- Clean modular architecture
+- Error handling
+- Fully connected frontend to backend
+- Working navigation between pages
+- Working buttons and forms
+- Data saved in SQLite
+- Server runs with:
+
+npm install
+npm start
+
+--------------------------------------------------
+
+OUTPUT:
+
+Generate ALL files fully implemented.
+NO pseudocode.
+NO placeholders without functionality.

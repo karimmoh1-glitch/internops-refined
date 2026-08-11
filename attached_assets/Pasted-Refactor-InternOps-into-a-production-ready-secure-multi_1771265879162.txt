@@ -1,0 +1,170 @@
+Refactor InternOps into a production-ready, secure multi-tenant SaaS platform.
+
+Implement the following system cleanly and modularly.
+
+⸻
+
+AUTHENTICATION MODEL
+	1.	Only Company Admin can sign up.
+Signup form must include:
+	•	Company Name
+	•	Admin Name
+	•	Work Email
+	•	Password
+	2.	When admin signs up:
+	•	Create company record
+	•	Hash password using bcrypt
+	•	Create user with role = “admin”
+	•	Associate user with company_id
+	•	Automatically log in using JWT
+	3.	Interns cannot sign up publicly.
+	4.	Admin can invite interns:
+	•	Enter intern name + email
+	•	Generate secure invitation token (expires in 48 hours)
+	•	Store token in invitations table
+	•	Provide invite link: /accept-invite/:token
+	5.	Intern accepts invite:
+	•	Set password
+	•	Account created with role = “intern”
+	•	Assign company_id from invitation
+	•	Mark token as used
+	6.	No user can manually select their role.
+
+⸻
+
+SECURITY REQUIREMENTS
+	•	Use bcrypt for password hashing
+	•	Use JWT for authentication
+	•	Store JWT secret in environment variables
+	•	Token expiration: 24 hours
+	•	Protect all routes using middleware
+	•	Enforce company isolation on all database queries
+
+⸻
+
+DATABASE STRUCTURE
+
+TABLE companies:
+	•	id
+	•	name
+	•	created_at
+
+TABLE users:
+	•	id
+	•	name
+	•	email (unique)
+	•	password_hash
+	•	role (admin | intern)
+	•	company_id
+	•	created_at
+
+TABLE invitations:
+	•	id
+	•	email
+	•	company_id
+	•	token
+	•	expires_at
+	•	used (boolean)
+
+TABLE logs:
+	•	id
+	•	intern_id
+	•	week_number
+	•	short_input
+	•	ai_summary
+	•	ai_suggestions
+	•	created_at
+
+TABLE manager_feedback:
+	•	id
+	•	intern_id
+	•	manager_id
+	•	week_number
+	•	comment
+	•	created_at
+
+TABLE notifications:
+	•	id
+	•	user_id
+	•	message
+	•	read (boolean)
+	•	created_at
+
+⸻
+
+AI DAILY LOG FLOW
+	1.	Intern writes short log (1–3 lines).
+	2.	Click “Enhance with AI”.
+	3.	Backend sends short_input to AI service.
+	4.	AI returns:
+	•	structured summary (bullet points)
+	•	optional improvement suggestions
+	5.	Display both fields as editable.
+	6.	Intern reviews and clicks “Submit”.
+	7.	Save both summary and suggestions.
+
+On Manager dashboard:
+
+Display:
+
+Intern Summary:
+	•	structured summary
+
+AI Suggestions:
+	•	improvement suggestions (clearly labeled as AI-generated)
+
+Do NOT inflate or hallucinate achievements.
+
+⸻
+
+MANAGER FEEDBACK SYSTEM
+	1.	Weekly required manager comment per intern.
+	2.	Manager can comment anytime on any log.
+	3.	When comment is created:
+	•	Create notification for intern.
+	•	Mark weekly requirement as satisfied.
+
+⸻
+
+ROLE-BASED ACCESS
+
+Admin:
+	•	Invite interns
+	•	Assign project ideas
+	•	View all interns in company
+	•	Leave feedback
+
+Intern:
+	•	View assigned project only
+	•	Submit daily logs
+	•	View manager feedback
+	•	Cannot see other interns
+
+⸻
+
+UI REQUIREMENTS
+	•	Clean admin signup page
+	•	Secure login page
+	•	Invite intern page
+	•	Accept invite page
+	•	Intern dashboard
+	•	Admin dashboard
+	•	Notification indicator
+	•	Weekly feedback required indicator
+
+⸻
+
+ARCHITECTURE
+
+Use:
+	•	Express backend
+	•	React frontend
+	•	PostgreSQL (preferred)
+	•	Modular file structure
+	•	Separate AI service file
+
+Keep code clean, production-ready, and scalable.
+
+⸻
+
+Build this as a full authentication and workflow upgrade.

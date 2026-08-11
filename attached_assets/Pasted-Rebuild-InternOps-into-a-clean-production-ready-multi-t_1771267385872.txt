@@ -1,0 +1,255 @@
+Rebuild InternOps into a clean, production-ready multi-tenant SaaS platform with secure authentication, structured project workflow, AI collaboration, and manager oversight.
+
+This is a full rebuild of the core workflow. Do not partially modify existing logic. Refactor cleanly and consistently.
+
+⸻
+
+	1.	AUTHENTICATION SYSTEM
+
+⸻
+
+Architecture:
+	•	Company-based multi-tenant SaaS
+	•	Only Company Admin can sign up
+	•	Interns are invite-only
+
+Admin Signup:
+	•	Company Name
+	•	Admin Name
+	•	Work Email
+	•	Password
+Actions:
+	•	Create company record
+	•	Hash password using bcrypt
+	•	Create user with role = “admin”
+	•	Associate user with company_id
+	•	Auto-login using JWT
+
+Interns:
+	•	Cannot sign up publicly
+	•	Admin invites intern via email
+	•	Generate secure invitation token (expires in 48 hours)
+	•	Intern sets password via invite link
+	•	Role automatically = “intern”
+	•	Company_id inherited
+	•	Token marked as used
+
+Security:
+	•	JWT auth
+	•	JWT secret stored in environment variable
+	•	Token expiration: 24 hours
+	•	Protect all routes via middleware
+	•	Enforce company_id on every query
+
+⸻
+
+	2.	ROLE-BASED LOGIN REDIRECTION
+
+⸻
+
+Single login page.
+
+After login:
+	•	If role = “admin” → redirect to /admin-dashboard
+	•	If role = “intern” → redirect to /intern-dashboard
+
+No separate login systems.
+
+⸻
+
+	3.	PROJECT ASSIGNMENT WORKFLOW
+
+⸻
+
+Admin Dashboard:
+	•	Select intern
+	•	Enter short project idea
+	•	Assign project
+
+Create table:
+
+projects:
+	•	id
+	•	intern_id
+	•	company_id
+	•	project_idea
+	•	status (idea_assigned | plan_pending | approved | active)
+	•	created_at
+
+When assigned:
+status = idea_assigned
+
+⸻
+
+	4.	AI 12-WEEK PLAN GENERATION
+
+⸻
+
+Intern Dashboard:
+
+If project status = idea_assigned:
+Show button:
+“Generate 12-Week Plan”
+
+AI generates:
+	•	12 weeks
+	•	Each week includes:
+	•	objective
+	•	3–5 structured subtasks
+
+Save in:
+
+project_plans:
+	•	id
+	•	project_id
+	•	week_number
+	•	objective
+	•	tasks (JSON)
+	•	created_at
+
+After generation:
+status = plan_pending
+
+⸻
+
+	5.	MANAGER PLAN APPROVAL
+
+⸻
+
+Admin Dashboard:
+
+If status = plan_pending:
+	•	View full 12-week plan
+	•	Approve
+	•	Request changes
+
+If approved:
+status = active
+
+If changes requested:
+status = idea_assigned
+
+Intern cannot log execution until status = active.
+
+⸻
+
+	6.	EXECUTION PHASE (ACTIVE PROJECT)
+
+⸻
+
+Intern Dashboard:
+
+Show:
+	•	12-week roadmap
+	•	Highlight current week
+	•	Daily logging interface
+
+Daily Log Flow:
+	1.	Intern writes short log (1–3 lines)
+	2.	Click “Enhance with AI”
+	3.	AI returns:
+	•	structured_summary (bullet points)
+	•	optional improvement_suggestions
+	4.	Fields are editable
+	5.	Intern submits
+
+Save in:
+
+logs:
+	•	id
+	•	intern_id
+	•	week_number
+	•	short_input
+	•	ai_summary
+	•	ai_suggestions
+	•	created_at
+
+AI must:
+	•	Not hallucinate
+	•	Not exaggerate achievements
+	•	Keep suggestions labeled clearly as “AI Suggestions”
+
+⸻
+
+	7.	MANAGER FEEDBACK SYSTEM
+
+⸻
+
+Manager can:
+	•	Comment on any log
+	•	Must submit at least 1 comment per intern per week
+
+Create:
+
+manager_feedback:
+	•	id
+	•	intern_id
+	•	manager_id
+	•	week_number
+	•	comment
+	•	created_at
+
+When comment created:
+	•	Create notification for intern
+
+⸻
+
+	8.	NOTIFICATION SYSTEM
+
+⸻
+
+notifications:
+	•	id
+	•	user_id
+	•	message
+	•	read (boolean)
+	•	created_at
+
+Trigger notifications on:
+	•	Manager feedback
+	•	Plan approval
+	•	Plan change request
+
+⸻
+
+	9.	ROLE PERMISSIONS
+
+⸻
+
+Admin:
+	•	Invite interns
+	•	Assign projects
+	•	View all interns in company
+	•	Approve plans
+	•	Leave feedback
+
+Intern:
+	•	View only assigned project
+	•	Generate plan
+	•	Log daily progress
+	•	View feedback
+	•	Cannot see other interns
+
+⸻
+
+	10.	ARCHITECTURE
+
+⸻
+
+Use:
+	•	Express backend
+	•	React frontend
+	•	PostgreSQL database
+	•	Modular structure:
+	•	authService
+	•	projectService
+	•	aiService
+	•	notificationService
+
+Clean folder separation.
+No debug logs.
+Production-ready code.
+
+⸻
+
+This must be a stable, cohesive implementation of the full InternOps workflow.

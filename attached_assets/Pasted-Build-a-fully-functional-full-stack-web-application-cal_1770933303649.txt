@@ -1,0 +1,215 @@
+Build a fully functional, full-stack web application called InternOps. It is a global platform for managing interns, managers, and companies. Make it investor-ready and fully functional.
+
+Use:
+
+- Backend: Node.js + Express.js
+- Database: SQLite (scalable multi-company design)
+- Authentication: JWT + bcrypt
+- Frontend: HTML/CSS/JS (clean, minimal, professional)
+- Modular architecture
+
+---
+
+# 1️⃣ ROLES
+
+Three roles:
+
+- admin (system owner)
+- manager
+- intern
+
+Default admin account:
+
+- username/email: nifraz
+- password: nifraz
+- Create automatically if not exists
+
+---
+
+# 2️⃣ MULTI-COMPANY SUPPORT
+
+- Each company isolated
+- Admin can create/view companies
+- Managers assigned to a company
+- Interns assigned to managers
+- Dashboards show company-specific data
+
+---
+
+# 3️⃣ LANDING PAGE
+
+- Clean, minimal, professional
+- App name: InternOps
+- Tagline: "Manage interns, tasks, and AI collaboration seamlessly"
+- Two main centered buttons:
+    1. **Login** → opens modal/page with three role options: Admin, Manager, Intern
+        - Each redirects to respective login page
+        - Login hints:
+            - Admin: Email "Admin email (example: nifraz)", Password "Admin password"
+            - Manager: Email "Manager email (sent after admin approval)", Password "Password received via email"
+            - Intern: Email "Intern email (approved by manager)", Password "Password sent to your email"
+        - Show status indicators: Pending, Approved, Rejected
+    2. **Sign Up** → opens modal/page with two role options: Manager, Intern
+        - Each role shows role-specific signup form (Name + Email)
+        - Manager signup → admin approval
+        - Intern signup → manager approval
+        - Helper text explaining approval process
+- Fully mobile-friendly
+- No extra widgets, ads, or clutter
+
+---
+
+# 4️⃣ SIGNUP & APPROVAL FLOW
+
+- Admin approves managers, generates password → email sent
+- Manager approves interns, generates password → email sent
+- Admin can create managers/interns manually
+- Role-based dashboards reflect approvals
+- Clear helper text and UI guidance for pending approval
+
+---
+
+# 5️⃣ LOGIN SYSTEM
+
+- Separate login pages per role
+- JWT authentication + secure sessions
+- Redirects after login:
+    - Admin → admin-dashboard.html
+    - Manager → manager-dashboard.html
+    - Intern → intern-dashboard.html
+- Show status messages if account pending/rejected
+- Login placeholders & helper text included as above
+
+---
+
+# 6️⃣ ADMIN DASHBOARD
+
+- Approve manager signup requests
+- Create manager/intern accounts manually
+- Assign interns to managers
+- View users per company
+- Analytics: total managers, interns, tasks completed, AI engagement
+- Buttons fully functional
+
+---
+
+# 7️⃣ MANAGER DASHBOARD
+
+- Approve intern signup requests
+- Create tasks/ideas from short manager input
+- Assign tasks to specific interns (show only interns assigned to this manager)
+- AI integration ready: manager idea → AI suggests 12-week task plan
+- Dashboard shows intern progress, task status, notifications
+- Gamification: badges, streaks, progress bars
+
+---
+
+# 8️⃣ INTERN DASHBOARD
+
+- See only assigned tasks
+- Collaborate with AI to generate structured 12-week plans
+- Daily weekday logging of progress
+- Dashboard shows tasks, AI suggestions, progress bars, gamification
+
+---
+
+# 9️⃣ DATABASE STRUCTURE
+
+## Users table
+
+- id
+- name
+- email (unique)
+- password_hash
+- role ("admin","manager","intern")
+- created_by
+- assigned_manager_id (for interns)
+- company_id
+- created_at
+
+## SignupRequests table
+
+- id
+- name
+- email
+- requested_role
+- status ("pending","approved","rejected")
+- requested_to (admin/manager)
+- company_id
+- created_at
+
+## Tasks table
+
+- id
+- title
+- description
+- created_by (manager id)
+- assigned_to (intern id)
+- status ("pending","in progress","completed")
+- start_date
+- end_date
+- created_at
+
+---
+
+# 10️⃣ EMAIL SYSTEM
+
+- Generate secure password on approval
+- Send login email to user
+- Include links to login page
+- Use mock email service if real email unavailable
+
+---
+
+# 11️⃣ SECURITY
+
+- Password hashing: bcrypt
+- JWT secret in environment variable
+- Role-based middleware
+- Input validation
+
+---
+
+# 12️⃣ FRONTEND & UX
+
+- Landing page as described above
+- Clean dashboards for all roles
+- Task assignment shows only manager’s interns
+- Status indicators: pending, approved, rejected
+- Real-time updates (AJAX/Socket.io optional)
+- Gamification: badges, streaks, progress bars
+- Mobile-friendly
+
+---
+
+# 13️⃣ ANALYTICS & DEMO MODE
+
+- Admin: total users, tasks completed, AI engagement
+- Manager: intern task progress, AI plan adoption
+- Demo mode: populate dashboards with sample data for investor presentation
+- Export: tasks/progress to PDF/Excel
+
+---
+
+# 14️⃣ FUTURE-PROOF & AI READY
+
+- AI converts manager idea → 12-week task plan
+- Multi-company SaaS architecture for scaling
+- Ready for integrations: Slack, Teams, email notifications
+- Modular code for future features
+
+---
+
+# 🔥 Outcome
+
+This will produce:
+
+- Single login button → role selection
+- Separate signup button → intern or manager
+- Admin → manager → intern hierarchical workflow
+- Manager task creation & assignment
+- Intern AI collaboration + daily logging
+- Dashboards with analytics & gamification
+- Investor-ready demo mode
+- Clean, professional UI, mobile-friendly
+- Multi-company SaaS ready

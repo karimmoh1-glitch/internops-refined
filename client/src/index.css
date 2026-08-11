@@ -1,0 +1,174 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: #FFFFFF;
+  --color-foreground: #333333;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #333333;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #333333;
+  --color-primary: #EF7878;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #337AB7;
+  --color-secondary-foreground: #FFFFFF;
+  --color-muted: #F5F5F5;
+  --color-muted-foreground: #777777;
+  --color-accent: #EF7878;
+  --color-accent-foreground: #FFFFFF;
+  --color-destructive: #D9534F;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #CCCCCC;
+  --color-input: #CCCCCC;
+  --color-ring: #EF7878;
+  
+  --font-sans: "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+  --font-heading: "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+  
+  --radius: 4px;
+}
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 20%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 20%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 20%;
+  --primary: 0 80% 70%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 60% 46%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 47%;
+  --accent: 0 80% 70%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 2 64% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 80%;
+  --input: 0 0% 80%;
+  --ring: 0 80% 70%;
+  --radius: 4px;
+}
+
+.dark {
+  /* Dark mode mappings for future proofing, though landing might stay light */
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 48%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold tracking-tight text-slate-900;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out forwards;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.2s ease-out forwards;
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.15s ease-out forwards;
+}
+
+@keyframes spark {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  }
+}
+
+.animate-spark {
+  animation: spark 1.2s ease-in-out infinite;
+}
+
+.slim-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.slim-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+.slim-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.slim-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

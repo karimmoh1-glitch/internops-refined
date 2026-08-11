@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForgeFlow MVP</title>
+<style>
+  /* Reset */
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+
+  body { line-height: 1.6; background: #f5f7fa; color: #333; }
+
+  /* Header */
+  header { background: #1e3a8a; color: #fff; padding: 60px 20px; text-align: center; }
+  header h1 { font-size: 2.8em; margin-bottom: 10px; }
+  header p { font-size: 1.2em; margin-bottom: 20px; }
+  header button { padding: 12px 25px; font-size: 1em; background: #10b981; color: #fff; border: none; border-radius: 5px; cursor: pointer; transition: 0.3s; }
+  header button:hover { background: #059669; }
+
+  /* Section styles */
+  section { padding: 60px 20px; text-align: center; }
+  h2 { font-size: 2em; margin-bottom: 30px; color: #1e3a8a; }
+
+  /* Features */
+  .features { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+  .feature-card { background: #fff; padding: 25px; border-radius: 10px; width: 250px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: 0.3s; }
+  .feature-card:hover { transform: translateY(-5px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
+  .feature-card h3 { margin-bottom: 15px; color: #10b981; }
+  .feature-card p { font-size: 0.95em; }
+
+  /* Metrics */
+  .metrics { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+  .metric-card { background: #fff; padding: 20px; border-radius: 10px; width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .metric-card h3 { font-size: 1.3em; color: #1e3a8a; margin-bottom: 10px; }
+  .metric-card p { font-size: 1.1em; color: #10b981; }
+
+  /* Workflow */
+  .workflow { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+  .workflow-step { background: #fff; padding: 25px; border-radius: 10px; width: 250px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .workflow-step h3 { margin-bottom: 15px; color: #10b981; }
+  .workflow-step p { font-size: 0.95em; }
+
+  /* CTA Section */
+  .cta { background: #10b981; color: #fff; padding: 60px 20px; }
+  .cta input[type="email"] { padding: 12px; width: 250px; border: none; border-radius: 5px; margin-right: 10px; }
+  .cta button { padding: 12px 20px; border: none; border-radius: 5px; background: #fff; color: #10b981; font-weight: bold; cursor: pointer; transition: 0.3s; }
+  .cta button:hover { background: #e5e7eb; }
+
+  /* Footer */
+  footer { background: #1e3a8a; color: #fff; padding: 30px 20px; text-align: center; }
+  footer a { color: #10b981; margin: 0 10px; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .features, .metrics, .workflow { flex-direction: column; align-items: center; }
+    .feature-card, .metric-card, .workflow-step { width: 80%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <h1>ForgeFlow MVP</h1>
+  <p>AI-Powered Intern Management for Time-Saving and Efficiency</p>
+  <button>Request Access / Join Pilot</button>
+</header>
+
+<!-- Features Section -->
+<section id="features">
+  <h2>Features</h2>
+  <div class="features">
+    <div class="feature-card">
+      <h3>Intern Logging</h3>
+      <p>Daily work input with attachments, links, and optional notes for full activity tracking.</p>
+    </div>
+    <div class="feature-card">
+      <h3>AI Summaries</h3>
+      <p>Automatic weekly summaries with actionable next-step suggestions for managers.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Manager Dashboard</h3>
+      <p>Interactive dashboards showing intern progress, engagement, and AI insights in real-time.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Gamification</h3>
+      <p>Progress streaks, badges, and engagement triggers to motivate interns consistently.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Metrics Section -->
+<section id="metrics">
+  <h2>Pilot Metrics</h2>
+  <div class="metrics">
+    <div class="metric-card">
+      <h3>Logging Rate</h3>
+      <p>≥70%</p>
+    </div>
+    <div class="metric-card">
+      <h3>AI Usefulness</h3>
+      <p>≥4/5</p>
+    </div>
+    <div class="metric-card">
+      <h3>Dashboard Engagement</h3>
+      <p>≥80%</p>
+    </div>
+    <div class="metric-card">
+      <h3>Time Saved</h3>
+      <p>≥1 hr/week</p>
+    </div>
+  </div>
+</section>
+
+<!-- Workflow Section -->
+<section id="workflow">
+  <h2>How It Works</h2>
+  <div class="workflow">
+    <div class="workflow-step">
+      <h3>Step 1: Intern Logs</h3>
+      <p>Interns submit daily updates, attachments, and optional notes.</p>
+    </div>
+    <div class="workflow-step">
+      <h3>Step 2: AI Summaries</h3>
+      <p>AI generates weekly summaries and actionable next steps.</p>
+    </div>
+    <div class="workflow-step">
+      <h3>Step 3: Manager Review</h3>
+      <p>Managers review progress on dashboards and provide guidance.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta">
+  <h2>Join the Pilot</h2>
+  <p>Sign up now to get early access and start managing interns efficiently!</p>
+  <form>
+    <input type="email" placeholder="Your email" required>
+    <button type="submit">Join Pilot</button>
+  </form>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>&copy; 2026 ForgeFlow MVP | <a href="#">Privacy</a> | <a href="#">Terms</a> | <a href="#">Contact</a></p>
+</footer>
+
+</body>
+</html>

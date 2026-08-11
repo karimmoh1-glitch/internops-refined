@@ -1,0 +1,99 @@
+Build a FULLY FUNCTIONAL production-ready full-stack web application called "ForgeFlow".
+
+Requirements:
+
+1. Overview:
+- AI-powered intern management system.
+- Manager (System Admin) gives a short idea → AI expands it into a 12-week task plan with subtasks.
+- Interns collaborate with AI daily, log their work Monday–Friday.
+- Manager can view progress, summaries, and provide feedback.
+- Remove "Try Free" button.
+- No standard login for intern — role switching via simple buttons is enough.
+- Manager = System Admin, has separate login option on home screen.
+- Users can Sign Out and switch roles between Intern and Manager.
+
+2. Tech Stack:
+- Frontend: React (Vite) + TailwindCSS
+- Backend: Node.js + Express
+- Database: SQLite (local persistent DB)
+- API: RESTful
+- State Management: React Context or React Query
+- Modular architecture
+
+3. Database Tables:
+- users (id, name, role: "intern" | "manager")
+- tasks (id, title, idea_text, ai_generated_plan JSON, created_by_manager, created_at)
+- subtasks (id, task_id, week_number, title, description, status)
+- daily_logs (id, task_id, intern_name, date, description, attachments)
+- ai_feedback (id, task_id, manager_rating, manager_comments)
+
+4. Features:
+
+A. Home Screen:
+- Buttons: "Enter as Intern", "Manager Dashboard Login"
+- No “Try Free” button
+- Role switching via Sign Out
+
+B. Manager Dashboard:
+- Create task with short idea text
+- Call AI generator (placeholder function generate12WeekPlan) to produce 12-week plan
+- View tasks, weekly breakdown, intern logs, completion percentage
+- View AI-generated weekly summaries
+- Provide feedback on AI suggestions
+
+C. Intern Dashboard:
+- View assigned tasks
+- View 12-week plan with subtasks
+- Daily logging system: text area for description, optional file attachment
+- Enforce weekday logging (Monday–Friday)
+- View AI collaboration suggestions for next steps
+- Gamification: streaks, badges, weekly progress
+
+D. API Routes:
+- POST /tasks/create
+- GET /tasks
+- POST /logs/create
+- GET /logs/:taskId
+- POST /ai/summary
+- POST /ai/feedback
+
+E. Full Functional Buttons:
+- All forms submit and save data
+- Role switching works
+- Navigation functional
+
+F. UI Pages:
+- Landing page
+- Manager Dashboard
+- Intern Dashboard
+- Task Detail View
+
+G. Backend:
+- Modular Express routes, controllers, models
+- SQLite database with schema as above
+- Placeholder AI service functions for generating 12-week plans and weekly summaries
+- Role-based access middleware (intern/manager)
+
+H. Project Structure:
+- /client (React frontend)
+- /server (Node.js backend)
+- /db (SQLite database)
+- /server/routes
+- /server/controllers
+- /server/models
+- /server/services
+- /server/middleware
+- /client/src/pages
+- /client/src/components
+
+I. Startup Instructions:
+- Backend: npm install, node server.js
+- Frontend: npm install, npm run dev
+
+5. Output Requirements:
+- FULL WORKING code — no pseudocode
+- Clean, readable, modular
+- All 10 UHW workflows integrated
+- Functional AI collaboration, logging, gamification, dashboards, feedback
+- Seed demo data for testing
+- Include comments explaining main logic
