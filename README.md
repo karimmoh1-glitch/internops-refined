@@ -118,6 +118,5 @@ None of this is configured in this repository — it requires an actual domain a
 
 ## What's intentionally not included
 
-- **No CI pipeline file** (e.g. GitHub Actions) is checked in yet. The build is verified locally (`npx tsc --noEmit && npm run build`); wiring that into a `.github/workflows/ci.yml` that runs on every PR is a natural next step once this repo has real collaborators to protect against.
 - **No error monitoring (Sentry, etc.) wired in** — see the Deployment table above for why, and how to add it.
 - **No CAPTCHA/Turnstile on the public application form** — the endpoint is rate-limited server-side, which covers the most common abuse pattern, but a determined attacker with rotating IPs isn't stopped by that alone. Add Cloudflare Turnstile if the public form sees real abuse.
