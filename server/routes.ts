@@ -48,6 +48,10 @@ function signToken(userId: string, role: string, companyId: string | null): stri
   return jwt.sign({ userId, role, companyId }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 }
 
+function getBaseUrl(): string {
+  return (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+}
+
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -124,7 +128,7 @@ export async function registerRoutes(
         used: false,
       });
 
-      const baseUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : (process.env.APP_URL || 'http://localhost:3000');
+      const baseUrl = getBaseUrl();
       const verifyLink = `${baseUrl}/verify-signup/${token}`;
       console.log(`\n========================================`);
       console.log(`📧 SIGNUP VERIFICATION LINK`);
@@ -276,7 +280,7 @@ export async function registerRoutes(
         used: false,
       });
 
-      const baseUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : (process.env.APP_URL || 'http://localhost:3000');
+      const baseUrl = getBaseUrl();
       const resetLink = `${baseUrl}/reset-password/${token}`;
       console.log(`\n========================================`);
       console.log(`🔑 PASSWORD RESET LINK`);
@@ -363,7 +367,7 @@ export async function registerRoutes(
         used: false,
       });
 
-      const baseUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : (process.env.APP_URL || 'http://localhost:3000');
+      const baseUrl = getBaseUrl();
       const inviteLink = `${baseUrl}/invite/${token}`;
       console.log(`\n========================================`);
       console.log(`📧 INTERN INVITE LINK`);
