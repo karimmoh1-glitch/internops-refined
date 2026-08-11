@@ -546,7 +546,7 @@ function InternProjectDetail({ project }: { project: any }) {
               <GitHubRepoInput value={editGithubUrl} onChange={setEditGithubUrl} />
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1" data-testid={`button-cancel-edit-${project.id}`}>Cancel</Button>
-                <Button onClick={() => editProjectMutation.mutate()} disabled={!editTitle.trim() || !editIdea.trim() || !editMinHours || editProjectMutation.isPending} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" data-testid={`button-save-edit-${project.id}`}>
+                <Button onClick={() => editProjectMutation.mutate()} disabled={!editTitle.trim() || !editIdea.trim() || !editMinHours || editProjectMutation.isPending} className="flex-1 bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid={`button-save-edit-${project.id}`}>
                   {editProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
                 </Button>
               </div>
@@ -774,7 +774,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               <p className="text-gray-500 text-sm mt-1" data-testid="text-dashboard-title">Manager Dashboard</p>
             </div>
             <div className="flex items-center gap-3">
-              <Button onClick={() => setShowInviteModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-open-invite">
+              <Button onClick={() => setShowInviteModal(true)} className="bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-open-invite">
                 <UserPlus className="w-4 h-4 mr-2" />Invite Intern
               </Button>
               <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50" data-testid="button-open-assign">
@@ -914,7 +914,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <>
                   <p className="text-gray-500 text-lg mb-1">No interns yet</p>
                   <p className="text-gray-400 text-sm mb-3">Invite your first intern to get started.</p>
-                  <Button onClick={() => setShowInviteModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Button onClick={() => setShowInviteModal(true)} className="bg-[#EF7878] hover:bg-[#e05555] text-white">
                     <UserPlus className="w-4 h-4 mr-2" />Invite Intern
                   </Button>
                 </>
@@ -1014,7 +1014,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                         variant={p === pagination.page ? "default" : "outline"}
                         size="sm"
                         onClick={() => pagination.setPage(p)}
-                        className={`h-7 w-7 text-xs p-0 ${p === pagination.page ? "bg-blue-600 text-white" : ""}`}
+                        className={`h-7 w-7 text-xs p-0 ${p === pagination.page ? "bg-[#EF7878] text-white" : ""}`}
                       >
                         {p}
                       </Button>
@@ -1052,7 +1052,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <Input type="email" placeholder="intern@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="border-gray-300" data-testid="input-invite-email" />
               </div>
-              <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || inviteMutation.isPending} className="w-full bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-send-invite">
+              <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || inviteMutation.isPending} className="w-full bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-send-invite">
                 {inviteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</>) : "Send Invitation"}
               </Button>
               {copiedLink && (
@@ -1098,7 +1098,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Total Hours</label>
                 <Input type="number" min="1" placeholder="e.g., 160" value={assignMinHours} onChange={(e) => setAssignMinHours(e.target.value)} className="border-gray-300" data-testid="input-assign-hours" />
               </div>
-              <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-assign-project">
+              <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-assign-project">
                 {assignProjectMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Assigning...</>) : "Assign Project"}
               </Button>
             </div>
