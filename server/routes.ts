@@ -1544,15 +1544,21 @@ export async function registerRoutes(
       const company = await storage.getCompanyById(companyId);
       const interns = await storage.getInternsByCompany(companyId);
       const allProjects = await storage.getProjectsByCompany(companyId);
+      // This is the main dashboard endpoint, hit on every page load — two
+      // bulk queries here instead of two queries per project (previously
+      // getPlanVersionsByProject + getWeeklyLogsByProject inside the loop).
+      const projectIds = allProjects.map(p => p.id);
+      const allVersions = await storage.getPlanVersionsByProjectIds(projectIds);
+      const allLogs = await storage.getWeeklyLogsByProjectIds(projectIds);
 
-      const internSummaries = await Promise.all(interns.map(async (intern) => {
+      const internSummaries = interns.map((intern) => {
         const internProjects = allProjects.filter(p => p.internId === intern.id);
 
-        const projectDetails = await Promise.all(internProjects.map(async (project) => {
-          const versions = await storage.getPlanVersionsByProject(project.id);
-          const logs = await storage.getWeeklyLogsByProject(project.id);
+        const projectDetails = internProjects.map((project) => {
+          const versions = allVersions.filter(v => v.projectId === project.id);
+          const logs = allLogs.filter(l => l.projectId === project.id);
           return { ...project, versions, weeklyLogs: logs };
-        }));
+        });
 
         return {
           id: intern.id,
@@ -1560,7 +1566,7 @@ export async function registerRoutes(
           email: intern.email,
           projects: projectDetails,
         };
-      }));
+      });
 
       res.json({
         company: { id: company?.id, name: company?.name, slug: company?.slug, acceptingApplications: company?.acceptingApplications },
@@ -1848,14 +1854,18 @@ export async function registerRoutes(
       const logActivity = await storage.getLogActivityByCompany(companyId);
       const interns = await storage.getInternsByCompany(companyId);
       const allProjects = await storage.getProjectsByCompany(companyId);
+      // One query for the latest plan version of every project, instead of
+      // one query per project per metric below (previously up to 2x N
+      // queries for N projects across completionRates + hoursComparison).
+      const latestVersions = await storage.getLatestPlanVersionsByProjectIds(allProjects.map(p => p.id));
 
       // Completion rates per intern
-      const completionRates = await Promise.all(interns.map(async (intern) => {
+      const completionRates = interns.map((intern) => {
         const internProjects = allProjects.filter(p => p.internId === intern.id);
         let totalSubtasks = 0;
         let completedSubtasks = 0;
         for (const project of internProjects) {
-          const latestVersion = await storage.getLatestPlanVersion(project.id);
+          const latestVersion = latestVersions.get(project.id);
           const weeks: any[] = (latestVersion?.contentJson as any)?.weeks || [];
           const projectLogs = allLogs.filter((l: any) => l.projectId === project.id);
           const subtasksWithLogs = new Set<string>();
@@ -1876,15 +1886,15 @@ export async function registerRoutes(
           internName: intern.name.split(" ")[0],
           completionRate: totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0,
         };
-      }));
+      });
 
       // Hours comparison per intern
-      const hoursComparison = await Promise.all(interns.map(async (intern) => {
+      const hoursComparison = interns.map((intern) => {
         const internProjects = allProjects.filter(p => p.internId === intern.id);
         let totalPlanned = 0;
         let totalLogged = 0;
         for (const project of internProjects) {
-          const latestVersion = await storage.getLatestPlanVersion(project.id);
+          const latestVersion = latestVersions.get(project.id);
           totalPlanned += (latestVersion?.contentJson as any)?.totalPlannedHours || 0;
           totalLogged += allLogs.filter((l: any) => l.projectId === project.id).length;
         }
@@ -1893,7 +1903,7 @@ export async function registerRoutes(
           planned: totalPlanned,
           logged: totalLogged,
         };
-      }));
+      });
 
       res.json({
         statusCounts,
@@ -1910,15 +1920,20 @@ export async function registerRoutes(
     try {
       const userId = (req as any).userId;
       const internProjects = await storage.getProjectsByIntern(userId);
+      const projectIds = internProjects.map(p => p.id);
+      // Two bulk queries instead of two queries per project (previously
+      // getLatestPlanVersion + getWeeklyLogsByProject inside the loop below).
+      const latestVersions = await storage.getLatestPlanVersionsByProjectIds(projectIds);
+      const allLogs = await storage.getWeeklyLogsByProjectIds(projectIds);
 
       // Personal progress per week across all projects
       const progressByWeek: { week: number; completed: number; total: number }[] = [];
       const activityByWeek: { week: number; logs: number }[] = [];
 
       for (const project of internProjects) {
-        const latestVersion = await storage.getLatestPlanVersion(project.id);
+        const latestVersion = latestVersions.get(project.id);
         const weeks: any[] = (latestVersion?.contentJson as any)?.weeks || [];
-        const projectLogs = await storage.getWeeklyLogsByProject(project.id);
+        const projectLogs = allLogs.filter((l: any) => l.projectId === project.id);
 
         const subtasksWithLogs = new Set<string>();
         projectLogs.forEach((l: any) => {
