@@ -997,13 +997,14 @@ export async function registerRoutes(
     try {
       const pv = await storage.getPlanVersionById(req.params.id as string);
       if (!pv) return res.status(404).json({ message: "Plan version not found" });
-      if (pv.status !== "draft") {
-        return res.status(400).json({ message: "Only draft plans can be edited" });
-      }
 
       const project = await storage.getProjectById(pv.projectId);
       if (!project || project.internId !== (req as any).userId) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (pv.status !== "draft") {
+        return res.status(400).json({ message: "Only draft plans can be edited" });
       }
 
       const { contentJson } = req.body;
@@ -1022,13 +1023,14 @@ export async function registerRoutes(
     try {
       const pv = await storage.getPlanVersionById(req.params.id as string);
       if (!pv) return res.status(404).json({ message: "Plan version not found" });
-      if (pv.status !== "draft") {
-        return res.status(400).json({ message: "Only draft plans can be submitted" });
-      }
 
       const project = await storage.getProjectById(pv.projectId);
       if (!project || project.internId !== (req as any).userId) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (pv.status !== "draft") {
+        return res.status(400).json({ message: "Only draft plans can be submitted" });
       }
 
       await storage.updatePlanVersionStatus(pv.id, "submitted");
@@ -1057,13 +1059,14 @@ export async function registerRoutes(
     try {
       const pv = await storage.getPlanVersionById(req.params.id as string);
       if (!pv) return res.status(404).json({ message: "Plan version not found" });
-      if (pv.status !== "submitted") {
-        return res.status(400).json({ message: "Only submitted plans can be approved" });
-      }
 
       const project = await storage.getProjectById(pv.projectId);
       if (!project || project.companyId !== (req as any).companyId) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (pv.status !== "submitted") {
+        return res.status(400).json({ message: "Only submitted plans can be approved" });
       }
 
       const { comment } = req.body || {};
@@ -1101,13 +1104,14 @@ export async function registerRoutes(
     try {
       const pv = await storage.getPlanVersionById(req.params.id as string);
       if (!pv) return res.status(404).json({ message: "Plan version not found" });
-      if (pv.status !== "submitted") {
-        return res.status(400).json({ message: "Only submitted plans can be sent back for revision" });
-      }
 
       const project = await storage.getProjectById(pv.projectId);
       if (!project || project.companyId !== (req as any).companyId) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (pv.status !== "submitted") {
+        return res.status(400).json({ message: "Only submitted plans can be sent back for revision" });
       }
 
       const { comment } = req.body;
