@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { parseErrorMessage } from "@/lib/api-error";
 
 export interface AuthUser {
   id: string;
@@ -39,8 +40,7 @@ export function useAuth() {
       body: JSON.stringify({ email, password, expectedRole }),
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.message || "Login failed");
+      throw new Error(await parseErrorMessage(res, "Login failed"));
     }
     const data = await res.json();
     const state: AuthState = { token: data.token, user: data.user };
@@ -55,8 +55,7 @@ export function useAuth() {
       body: JSON.stringify({ name, password }),
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.message || "Signup completion failed");
+      throw new Error(await parseErrorMessage(res, "Signup completion failed"));
     }
     const data = await res.json();
     const state: AuthState = { token: data.token, user: data.user };
@@ -71,8 +70,7 @@ export function useAuth() {
       body: JSON.stringify({ name, password }),
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.message || "Failed to accept invitation");
+      throw new Error(await parseErrorMessage(res, "Failed to accept invitation"));
     }
     const data = await res.json();
     const state: AuthState = { token: data.token, user: data.user };

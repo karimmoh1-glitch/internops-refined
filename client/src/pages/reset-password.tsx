@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { parseErrorMessage } from "@/lib/api-error";
 import { Link } from "wouter";
 import { ArrowLeft, Eye, EyeOff, KeyRound, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 
@@ -25,8 +26,8 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
     const validate = async () => {
       try {
         const res = await fetch(`/api/auth/verify-reset/${token}`);
+        if (!res.ok) throw new Error(await parseErrorMessage(res, "Invalid or expired reset link"));
         const data = await res.json();
-        if (!res.ok) throw new Error(data.message);
         setValid(true);
         setEmail(data.email);
       } catch (err: any) {
@@ -58,8 +59,7 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(await parseErrorMessage(res, "Failed to reset password"));
       setSuccess(true);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to reset password", variant: "destructive" });
