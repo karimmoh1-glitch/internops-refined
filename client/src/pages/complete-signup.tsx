@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { parseErrorMessage } from "@/lib/api-error";
 import { Link } from "wouter";
 import { UserPlus, ArrowLeft, Eye, EyeOff, CheckCircle2, XCircle, Loader2, Check, X } from "lucide-react";
 
@@ -51,8 +52,7 @@ export default function CompleteSignup({ token, onComplete }: CompleteSignupProp
     fetch(`/api/auth/verify-signup/${token}`)
       .then(async (res) => {
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.message);
+          throw new Error(await parseErrorMessage(res, "Invalid signup link"));
         }
         return res.json();
       })

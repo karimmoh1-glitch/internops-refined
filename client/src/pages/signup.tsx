@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { parseErrorMessage } from "@/lib/api-error";
 import { Link } from "wouter";
 import { Mail, ArrowLeft, Shield, CheckCircle2 } from "lucide-react";
 
@@ -24,8 +25,7 @@ export default function Signup() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName: companyName.trim(), email: email.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Signup failed");
+      if (!res.ok) throw new Error(await parseErrorMessage(res, "Signup failed"));
       setEmailSent(true);
     } catch (error: any) {
       toast({ title: "Signup failed", description: error.message, variant: "destructive" });

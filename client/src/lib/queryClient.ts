@@ -10,10 +10,15 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+  if (res.ok) return;
+  let message = res.statusText || "Something went wrong. Please try again.";
+  try {
+    const data = await res.json();
+    if (data?.message) message = data.message;
+  } catch {
+    // non-JSON error body (e.g. a proxy/HTML error page) — keep the fallback
   }
+  throw new Error(message);
 }
 
 export async function apiRequest(

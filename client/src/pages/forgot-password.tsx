@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { parseErrorMessage } from "@/lib/api-error";
 import { Link } from "wouter";
 import { ArrowLeft, Mail, CheckCircle } from "lucide-react";
 
@@ -23,8 +24,7 @@ export default function ForgotPassword() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(await parseErrorMessage(res, "Something went wrong"));
       setSent(true);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Something went wrong", variant: "destructive" });
