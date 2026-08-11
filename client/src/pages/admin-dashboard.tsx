@@ -773,7 +773,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               <h1 className="text-2xl font-bold text-gray-900" data-testid="text-company-name">{company?.name || "Company"}</h1>
               <p className="text-gray-500 text-sm mt-1" data-testid="text-dashboard-title">Manager Dashboard</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center flex-wrap gap-3">
               <Button onClick={() => setShowInviteModal(true)} className="bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-open-invite">
                 <UserPlus className="w-4 h-4 mr-2" />Invite Intern
               </Button>
