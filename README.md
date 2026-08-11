@@ -55,6 +55,10 @@ See [`.env.example`](.env.example) for the full list with descriptions. Summary:
 
 **Local port note**: macOS's built-in AirPlay Receiver often holds port 5000. If `npm run dev` fails with `EADDRINUSE`, set `PORT` to something else (e.g. `3001`) in `.env`.
 
+### Demo data
+
+`npm run db:seed` populates a realistic demo organization — a manager account and three interns at different project stages (one active with logged work and feedback, one with a plan submitted awaiting review, one just assigned), plus a couple of sample applications. It refuses to run against `NODE_ENV=production` and no-ops if it's already been run. See [`DEMO.md`](DEMO.md) for a full walkthrough script and the demo account credentials.
+
 ## Scripts
 
 | Command | Description |
@@ -64,6 +68,7 @@ See [`.env.example`](.env.example) for the full list with descriptions. Summary:
 | `npm start` | Run the production build |
 | `npm run db:push` | Push the Drizzle schema to the database |
 | `npm run db:studio` | Open Drizzle Studio |
+| `npm run db:seed` | Populate realistic demo data (development only) |
 
 ## Project Structure
 
