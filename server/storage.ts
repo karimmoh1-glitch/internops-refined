@@ -3,7 +3,7 @@ import { db } from "./db";
 import { lt } from "drizzle-orm";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
-  channels, channelMembers, channelMessages,
+  channels, channelMembers, channelMessages, userDevices, auditLogs,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -21,6 +21,8 @@ import {
   type ChannelMessage, type InsertChannelMessage,
   type PasswordResetToken, type InsertPasswordResetToken,
   type SignupToken, type InsertSignupToken,
+  type UserDevice, type InsertUserDevice,
+  type AuditLog, type InsertAuditLog,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -122,6 +124,18 @@ export interface IStorage {
   createSignupToken(data: InsertSignupToken): Promise<SignupToken>;
   getSignupToken(token: string): Promise<SignupToken | undefined>;
   markSignupTokenUsed(token: string): Promise<void>;
+
+  // Devices
+  createUserDevice(data: InsertUserDevice): Promise<UserDevice>;
+  getUserDeviceByDeviceId(deviceId: string): Promise<UserDevice | undefined>;
+  getUserDevicesByUser(userId: string): Promise<UserDevice[]>;
+  touchUserDevice(deviceId: string): Promise<void>;
+  renameUserDevice(id: string, userId: string, name: string): Promise<UserDevice | undefined>;
+  revokeUserDevice(id: string, userId: string): Promise<UserDevice | undefined>;
+
+  // Audit log
+  createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogsByCompany(companyId: string, limit?: number): Promise<AuditLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -713,6 +727,46 @@ export class DatabaseStorage implements IStorage {
 
   async markSignupTokenUsed(token: string): Promise<void> {
     await db.update(signupTokensTable).set({ used: true }).where(eq(signupTokensTable.token, token));
+  }
+
+  async createUserDevice(data: InsertUserDevice): Promise<UserDevice> {
+    const [created] = await db.insert(userDevices).values(data).returning();
+    return created;
+  }
+
+  async getUserDeviceByDeviceId(deviceId: string): Promise<UserDevice | undefined> {
+    const [found] = await db.select().from(userDevices).where(eq(userDevices.deviceId, deviceId));
+    return found;
+  }
+
+  async getUserDevicesByUser(userId: string): Promise<UserDevice[]> {
+    return db.select().from(userDevices).where(eq(userDevices.userId, userId)).orderBy(desc(userDevices.lastSeenAt));
+  }
+
+  async touchUserDevice(deviceId: string): Promise<void> {
+    await db.update(userDevices).set({ lastSeenAt: new Date() }).where(eq(userDevices.deviceId, deviceId));
+  }
+
+  async renameUserDevice(id: string, userId: string, name: string): Promise<UserDevice | undefined> {
+    const [updated] = await db.update(userDevices).set({ name })
+      .where(and(eq(userDevices.id, id), eq(userDevices.userId, userId))).returning();
+    return updated;
+  }
+
+  async revokeUserDevice(id: string, userId: string): Promise<UserDevice | undefined> {
+    const [updated] = await db.update(userDevices).set({ revokedAt: new Date() })
+      .where(and(eq(userDevices.id, id), eq(userDevices.userId, userId))).returning();
+    return updated;
+  }
+
+  async createAuditLog(data: InsertAuditLog): Promise<AuditLog> {
+    const [created] = await db.insert(auditLogs).values(data).returning();
+    return created;
+  }
+
+  async getAuditLogsByCompany(companyId: string, limit = 100): Promise<AuditLog[]> {
+    return db.select().from(auditLogs).where(eq(auditLogs.companyId, companyId))
+      .orderBy(desc(auditLogs.createdAt)).limit(limit);
   }
 }
 

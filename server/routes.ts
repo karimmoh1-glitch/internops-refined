@@ -70,25 +70,100 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
 });
 
-function signToken(userId: string, role: string, companyId: string | null): string {
-  return jwt.sign({ userId, role, companyId }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+function signToken(userId: string, role: string, companyId: string | null, deviceId: string): string {
+  return jwt.sign({ userId, role, companyId, deviceId }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 }
 
 function getBaseUrl(): string {
   return (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
+// Coarse, display-only parsing — never used for security decisions.
+// Device identity/trust is entirely the server-generated deviceId below.
+function parseUserAgent(ua: string | undefined): { platform: string; browser: string } {
+  const s = ua || "";
+  let platform = "Unknown";
+  if (/iPhone|iPad|iPod/.test(s)) platform = "iOS";
+  else if (/Android/.test(s)) platform = "Android";
+  else if (/Mac OS X/.test(s)) platform = "macOS";
+  else if (/Windows/.test(s)) platform = "Windows";
+  else if (/Linux/.test(s)) platform = "Linux";
+
+  let browser = "Unknown";
+  if (/Edg\//.test(s)) browser = "Edge";
+  else if (/OPR\//.test(s)) browser = "Opera";
+  else if (/Chrome\//.test(s)) browser = "Chrome";
+  else if (/CriOS\//.test(s)) browser = "Chrome";
+  else if (/Firefox\//.test(s)) browser = "Firefox";
+  else if (/Safari\//.test(s)) browser = "Safari";
+
+  return { platform, browser };
+}
+
+// Mints a new device record for a freshly-issued session. The returned
+// deviceId is a random server-generated token embedded in the JWT — never
+// derived from the User-Agent, which is only parsed here for a
+// human-readable label in the devices UI.
+async function createDeviceForLogin(userId: string, req: Request): Promise<string> {
+  const deviceId = crypto.randomBytes(24).toString("hex");
+  const { platform, browser } = parseUserAgent(req.headers["user-agent"]);
+  await storage.createUserDevice({
+    userId,
+    deviceId,
+    name: `${browser} on ${platform}`,
+    platform,
+    browser,
+  });
+  return deviceId;
+}
+
+async function logAudit(params: {
+  actorUserId: string | null;
+  companyId: string | null;
+  action: string;
+  targetType?: string;
+  targetId?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    await storage.createAuditLog({
+      actorUserId: params.actorUserId,
+      companyId: params.companyId,
+      action: params.action,
+      targetType: params.targetType || null,
+      targetId: params.targetId || null,
+      metadata: params.metadata || null,
+    } as any);
+  } catch (err) {
+    // Audit logging must never break the request it's describing.
+    console.error("Failed to write audit log:", err);
+  }
+}
+
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Authentication required" });
   }
   try {
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; companyId: string | null };
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; companyId: string | null; deviceId?: string };
+
+    // Tokens minted before device tracking existed have no deviceId claim;
+    // treat those as trusted (nothing to revoke) rather than locking
+    // everyone out on deploy.
+    if (decoded.deviceId) {
+      const device = await storage.getUserDeviceByDeviceId(decoded.deviceId);
+      if (device && device.revokedAt) {
+        return res.status(401).json({ message: "This device's access has been revoked" });
+      }
+      storage.touchUserDevice(decoded.deviceId).catch(() => {});
+    }
+
     (req as any).userId = decoded.userId;
     (req as any).userRole = decoded.role;
     (req as any).companyId = decoded.companyId;
+    (req as any).deviceId = decoded.deviceId || null;
     next();
   } catch {
     return res.status(401).json({ message: "Invalid or expired token" });
@@ -228,7 +303,8 @@ export async function registerRoutes(
       const generalChannel = await storage.ensureGeneralChannel(company.id);
       await storage.addChannelMember(generalChannel.id, user.id);
 
-      const jwtToken = signToken(user.id, user.role, user.companyId);
+      const deviceId = await createDeviceForLogin(user.id, req);
+      const jwtToken = signToken(user.id, user.role, user.companyId, deviceId);
       res.status(201).json({
         token: jwtToken,
         user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
@@ -262,7 +338,8 @@ export async function registerRoutes(
         return res.status(403).json({ message: "This login is for interns only. Please use the manager login page." });
       }
 
-      const token = signToken(user.id, user.role, user.companyId);
+      const deviceId = await createDeviceForLogin(user.id, req);
+      const token = signToken(user.id, user.role, user.companyId, deviceId);
       res.json({
         token,
         user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
@@ -489,7 +566,8 @@ export async function registerRoutes(
         sendNewInternJoinedEmail(admin.email, name.trim(), joinedCompany?.name || "your company").catch(() => {});
       }
 
-      const token = signToken(user.id, user.role, user.companyId);
+      const deviceId = await createDeviceForLogin(user.id, req);
+      const token = signToken(user.id, user.role, user.companyId, deviceId);
       res.status(201).json({
         token,
         user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
@@ -1904,6 +1982,64 @@ export async function registerRoutes(
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Device management — every user manages their own list of devices/
+  // sessions (the ones that have logged into their account). This is the
+  // real, server-enforced mechanism behind "revoke a device": revoking
+  // sets revokedAt, and requireAuth rejects that device's token on its
+  // very next request regardless of the JWT's remaining natural expiry.
+  app.get("/api/devices", requireAuth, async (req, res) => {
+    try {
+      const devices = await storage.getUserDevicesByUser((req as any).userId);
+      const currentDeviceId = (req as any).deviceId;
+      res.json(devices.map(d => ({ ...d, isCurrent: d.deviceId === currentDeviceId })));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get devices" });
+    }
+  });
+
+  app.put("/api/devices/:id", requireAuth, async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name?.trim()) {
+        return res.status(400).json({ message: "Device name is required" });
+      }
+      const updated = await storage.renameUserDevice(req.params.id as string, (req as any).userId, name.trim());
+      if (!updated) return res.status(404).json({ message: "Device not found" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to rename device" });
+    }
+  });
+
+  app.delete("/api/devices/:id", requireAuth, async (req, res) => {
+    try {
+      const revoked = await storage.revokeUserDevice(req.params.id as string, (req as any).userId);
+      if (!revoked) return res.status(404).json({ message: "Device not found" });
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId: (req as any).companyId,
+        action: "device.revoked",
+        targetType: "device",
+        targetId: revoked.id,
+        metadata: { deviceName: revoked.name },
+      });
+      res.json({ message: "Device access revoked" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to revoke device" });
+    }
+  });
+
+  app.get("/api/audit-logs", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.json([]);
+      const logs = await storage.getAuditLogsByCompany(companyId);
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get audit logs" });
+    }
   });
 
   return httpServer;

@@ -1,0 +1,253 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Laptop, Smartphone, Pencil, Check, X, ShieldAlert, History, User as UserIcon } from "lucide-react";
+
+interface SettingsProps {
+  user: { id: string; name: string; email: string; role: string; companyId: string | null };
+}
+
+interface Device {
+  id: string;
+  name: string | null;
+  platform: string | null;
+  browser: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  revokedAt: string | null;
+  isCurrent: boolean;
+}
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+  });
+}
+
+function DeviceRow({ device }: { device: Device }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(device.name || "");
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const renameMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PUT", `/api/devices/${device.id}`, { name: name.trim() });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/devices"] });
+      setEditing(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Couldn't rename device", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("DELETE", `/api/devices/${device.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/devices"] });
+      toast({ title: "Device access revoked" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Couldn't revoke device", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const isMobile = device.platform === "iOS" || device.platform === "Android";
+  const Icon = isMobile ? Smartphone : Laptop;
+
+  if (device.revokedAt) return null;
+
+  return (
+    <div className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg" data-testid={`device-${device.id}`}>
+      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5 text-gray-500" />
+      </div>
+      <div className="flex-1 min-w-0">
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-8 text-sm max-w-xs"
+              autoFocus
+              data-testid={`input-rename-device-${device.id}`}
+            />
+            <button onClick={() => renameMutation.mutate()} disabled={!name.trim() || renameMutation.isPending} className="p-1 text-green-600 hover:bg-green-50 rounded" data-testid={`button-save-rename-${device.id}`}>
+              <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => { setEditing(false); setName(device.name || ""); }} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-gray-900 truncate" data-testid={`text-device-name-${device.id}`}>{device.name || "Unnamed device"}</p>
+            {device.isCurrent && <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">This device</Badge>}
+            <button onClick={() => setEditing(true)} className="p-1 text-gray-300 hover:text-gray-500" data-testid={`button-rename-device-${device.id}`}>
+              <Pencil className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-gray-500 mt-0.5">
+          First seen {formatDate(device.firstSeenAt)} &middot; Last active {formatDate(device.lastSeenAt)}
+        </p>
+      </div>
+      {!device.isCurrent && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-red-200 text-red-600 hover:bg-red-50 shrink-0"
+          onClick={() => setConfirmRevoke(true)}
+          data-testid={`button-revoke-device-${device.id}`}
+        >
+          Revoke
+        </Button>
+      )}
+      <AlertDialog open={confirmRevoke} onOpenChange={setConfirmRevoke}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke this device?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{device.name || "Unnamed device"}&rdquo; will be signed out immediately and won't be able to access your account until it logs in again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => { revokeMutation.mutate(); setConfirmRevoke(false); }}
+              data-testid={`button-confirm-revoke-${device.id}`}
+            >
+              Revoke access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function DevicesTab() {
+  const { data: devices = [], isLoading } = useQuery<Device[]>({ queryKey: ["/api/devices"] });
+
+  if (isLoading) {
+    return <div className="text-sm text-gray-400 py-8 text-center">Loading devices...</div>;
+  }
+
+  const active = devices.filter((d) => !d.revokedAt);
+
+  if (active.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <ShieldAlert className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+        <p className="text-sm text-gray-500">No devices on record yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-gray-500 mb-4">
+        These are the devices that have signed in to your account. Revoking a device signs it out immediately.
+      </p>
+      {active.map((d) => <DeviceRow key={d.id} device={d} />)}
+    </div>
+  );
+}
+
+function AuditLogTab() {
+  const { data: logs = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/audit-logs"] });
+
+  if (isLoading) {
+    return <div className="text-sm text-gray-400 py-8 text-center">Loading activity...</div>;
+  }
+
+  if (logs.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <History className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+        <p className="text-sm text-gray-500">No security events recorded yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {logs.map((log: any) => (
+        <div key={log.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg text-sm" data-testid={`audit-log-${log.id}`}>
+          <span className="text-gray-800 font-mono text-xs">{log.action}</span>
+          <span className="text-gray-400 text-xs">{formatDate(log.createdAt)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Settings({ user }: SettingsProps) {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900" data-testid="text-settings-title">Settings</h1>
+          <p className="text-gray-500 text-sm mt-1">Manage your profile, devices, and security</p>
+        </div>
+
+        <Tabs defaultValue="profile" className="w-full">
+          <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="profile" data-testid="tab-profile"><UserIcon className="w-4 h-4 mr-1.5" />Profile</TabsTrigger>
+            <TabsTrigger value="devices" data-testid="tab-devices"><Laptop className="w-4 h-4 mr-1.5" />Devices</TabsTrigger>
+            {user.role === "admin" && (
+              <TabsTrigger value="activity" data-testid="tab-activity"><History className="w-4 h-4 mr-1.5" />Activity Log</TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="profile" className="mt-4">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
+                <p className="text-sm text-gray-900 mt-1" data-testid="text-profile-name">{user.name}</p>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Email</label>
+                <p className="text-sm text-gray-900 mt-1" data-testid="text-profile-email">{user.email}</p>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Role</label>
+                <p className="text-sm text-gray-900 mt-1 capitalize" data-testid="text-profile-role">{user.role === "admin" ? "Manager" : user.role}</p>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="devices" className="mt-4">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <DevicesTab />
+            </div>
+          </TabsContent>
+
+          {user.role === "admin" && (
+            <TabsContent value="activity" className="mt-4">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <AuditLogTab />
+              </div>
+            </TabsContent>
+          )}
+        </Tabs>
+      </div>
+    </div>
+  );
+}
