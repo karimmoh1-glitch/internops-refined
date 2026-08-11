@@ -149,6 +149,11 @@ export default function Landing() {
             <div className="w-6 h-6 bg-gradient-to-br from-[#EF7878] to-[#e05555] rounded flex items-center justify-center text-white font-bold text-xs">I</div>
             InternOps
           </div>
+          <div className="flex items-center gap-5 text-xs text-zinc-500">
+            <Link href="/privacy" className="hover:text-zinc-300 transition-colors no-underline" data-testid="link-privacy">Privacy</Link>
+            <Link href="/terms" className="hover:text-zinc-300 transition-colors no-underline" data-testid="link-terms">Terms</Link>
+            <Link href="/contact" className="hover:text-zinc-300 transition-colors no-underline" data-testid="link-contact">Contact</Link>
+          </div>
           <p className="text-xs text-zinc-600">&copy; 2026 InternOps. All rights reserved.</p>
         </div>
       </footer>

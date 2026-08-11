@@ -12,6 +12,9 @@ import Signup from "@/pages/signup";
 import CompleteSignup from "@/pages/complete-signup";
 import AcceptInvite from "@/pages/accept-invite";
 import Apply from "@/pages/apply";
+import Privacy from "@/pages/privacy";
+import Terms from "@/pages/terms";
+import Contact from "@/pages/contact";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import InternDashboard from "@/pages/intern-dashboard";
@@ -154,6 +157,9 @@ function AppContent() {
       <Route path="/reset-password/:token">
         {(params) => <ResetPassword token={params.token} />}
       </Route>
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
     </Switch>
   );
