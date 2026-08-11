@@ -13,6 +13,7 @@ import crypto from "crypto";
 import multer, { type StorageEngine } from "multer";
 import path from "path";
 import fs from "fs";
+import rateLimit from "express-rate-limit";
 
 declare global {
   namespace Express {
@@ -22,8 +23,33 @@ declare global {
   }
 }
 
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET must be set in production. Refusing to start with a known, insecure default secret — anyone could forge valid auth tokens.",
+  );
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const JWT_EXPIRY = "24h";
+
+// Public, unauthenticated endpoints that create accounts, sessions, or
+// consume single-use tokens are the highest-value targets for automated
+// abuse (credential stuffing, token brute-forcing, spam signups).
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts. Please try again later." },
+});
+
+const strictAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts. Please try again later." },
+});
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -103,7 +129,7 @@ export async function registerRoutes(
   });
 
   // Step 1: Manager registers with email + company name → gets verification email
-  app.post("/api/auth/signup", async (req, res) => {
+  app.post("/api/auth/signup", strictAuthLimiter, async (req, res) => {
     try {
       const { companyName, email } = req.body;
       if (!companyName || !email) {
@@ -165,7 +191,7 @@ export async function registerRoutes(
   });
 
   // Step 3: Complete signup — set name + password, create company + user
-  app.post("/api/auth/complete-signup/:token", async (req, res) => {
+  app.post("/api/auth/complete-signup/:token", authLimiter, async (req, res) => {
     try {
       const { name, password } = req.body;
       if (!name || !password) {
@@ -212,7 +238,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", strictAuthLimiter, async (req, res) => {
     try {
       const { email, password, expectedRole } = req.body;
       if (!email || !password) {
@@ -257,7 +283,7 @@ export async function registerRoutes(
   });
 
   // Forgot password: send reset email
-  app.post("/api/auth/forgot-password", async (req, res) => {
+  app.post("/api/auth/forgot-password", strictAuthLimiter, async (req, res) => {
     try {
       const { email } = req.body;
       if (!email) {
@@ -310,7 +336,7 @@ export async function registerRoutes(
   });
 
   // Reset password with token
-  app.post("/api/auth/reset-password/:token", async (req, res) => {
+  app.post("/api/auth/reset-password/:token", authLimiter, async (req, res) => {
     try {
       const { password } = req.body;
       if (!password) {
@@ -423,7 +449,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/invitations/accept/:token", async (req, res) => {
+  app.post("/api/invitations/accept/:token", authLimiter, async (req, res) => {
     try {
       const { name, password } = req.body;
       if (!name || !password) {

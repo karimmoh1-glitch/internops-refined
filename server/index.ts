@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -6,12 +7,50 @@ import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
+const isProduction = process.env.NODE_ENV === "production";
+
+// Production deployments (Railway/Render/Fly/etc.) terminate TLS at a
+// single reverse proxy in front of this app. Without this, req.ip and
+// express-rate-limit both see the proxy's IP for every request instead
+// of the real client's, which defeats per-client rate limiting entirely.
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
 
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
 }
+
+// Content-Security-Policy is only enforced in production: the dev server
+// injects inline scripts for Vite's HMR/React-refresh runtime, which a
+// CSP would block. The production build (see dist/public/index.html) only
+// ever emits external <script src> tags, so a strict policy is safe there.
+app.use(
+  helmet({
+    contentSecurityPolicy: isProduction
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            frameAncestors: ["'self'"],
+            upgradeInsecureRequests: [],
+          },
+        }
+      : false,
+    // Google Fonts requests are cross-origin; the default `require-corp`
+    // embedder policy blocks resources that don't send a matching CORP
+    // header, which Google Fonts does not.
+    crossOriginEmbedderPolicy: false,
+  }),
+);
 
 app.use(
   express.json({
