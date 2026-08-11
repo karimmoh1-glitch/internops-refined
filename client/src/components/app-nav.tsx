@@ -165,7 +165,7 @@ export default function AppNav({ user, onSignOut, onOpenCommandPalette }: AppNav
           </div>
 
           <div className="flex items-center gap-2 px-2 py-1.5 transition-all duration-200" data-testid="text-user-info">
-            <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium text-xs transition-all duration-200">
+            <div className="w-7 h-7 bg-[#EF7878]/15 rounded-full flex items-center justify-center text-[#EF7878] font-medium text-xs transition-all duration-200">
               {user.name[0]?.toUpperCase() || "?"}
             </div>
             <span className="text-sm text-slate-600 hidden sm:inline" data-testid="text-user-name">
