@@ -6,6 +6,9 @@ import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
   sendManagerVerificationEmail, sendPasswordResetEmail,
+  sendApplicationReceivedEmail, sendNewApplicationAdminEmail,
+  sendApplicationApprovedEmail, sendApplicationRejectedEmail,
+  getAdminNotificationEmails,
 } from "./services/emailService";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -76,6 +79,25 @@ function signToken(userId: string, role: string, companyId: string | null, devic
 
 function getBaseUrl(): string {
   return (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+}
+
+// Generates a URL-safe slug for a company's public application page,
+// appending a short random suffix on collision rather than failing signup
+// over a cosmetic URL detail.
+async function generateUniqueCompanySlug(name: string): Promise<string> {
+  const base = name.trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "company";
+
+  let slug = base;
+  let attempt = 0;
+  while (await storage.getCompanyBySlug(slug)) {
+    attempt++;
+    slug = `${base}-${crypto.randomBytes(3).toString("hex")}`;
+    if (attempt > 5) break;
+  }
+  return slug;
 }
 
 // Coarse, display-only parsing — never used for security decisions.
@@ -286,7 +308,8 @@ export async function registerRoutes(
         return res.status(400).json({ message: "An account with this email already exists" });
       }
 
-      const company = await storage.createCompany({ name: signupToken.companyName });
+      const slug = await generateUniqueCompanySlug(signupToken.companyName);
+      const company = await storage.createCompany({ name: signupToken.companyName, slug });
       const passwordHash = await bcrypt.hash(password, 10);
 
       const user = await storage.createUser({
@@ -574,6 +597,233 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to accept invitation" });
+    }
+  });
+
+  // Public: lets the /apply/:slug page render a company name and confirm
+  // applications are open, without exposing anything else about the company.
+  app.get("/api/companies/:slug/public", async (req, res) => {
+    try {
+      const company = await storage.getCompanyBySlug(req.params.slug as string);
+      if (!company || !company.acceptingApplications) {
+        return res.status(404).json({ message: "This company isn't accepting applications right now" });
+      }
+      res.json({ name: company.name, slug: company.slug, acceptingApplications: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to load company" });
+    }
+  });
+
+  // Public: submit an internship application. Distinct from
+  // /api/invitations/accept — this is applicant-initiated and always
+  // requires admin review before an account is created.
+  app.post("/api/applications", strictAuthLimiter, async (req, res) => {
+    try {
+      const { slug, name, email, password, skills, motivation, githubUrl, linkedinUrl, portfolioUrl } = req.body;
+      if (!slug || !name?.trim() || !email?.trim() || !password) {
+        return res.status(400).json({ message: "Name, email, and password are required" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const company = await storage.getCompanyBySlug(slug);
+      if (!company || !company.acceptingApplications) {
+        return res.status(404).json({ message: "This company isn't accepting applications right now" });
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const existingUser = await storage.getUserByEmail(normalizedEmail);
+      if (existingUser) {
+        return res.status(400).json({ message: "An account with this email already exists. Try logging in instead." });
+      }
+      const existingApplication = await storage.getPendingApplicationByEmail(company.id, normalizedEmail);
+      if (existingApplication) {
+        return res.status(400).json({ message: "You already have a pending application with this company" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const application = await storage.createApplication({
+        companyId: company.id,
+        name: name.trim(),
+        email: normalizedEmail,
+        passwordHash,
+        skills: skills?.trim() || null,
+        motivation: motivation?.trim() || null,
+        githubUrl: githubUrl?.trim() || null,
+        linkedinUrl: linkedinUrl?.trim() || null,
+        portfolioUrl: portfolioUrl?.trim() || null,
+        status: "pending",
+      } as any);
+
+      sendApplicationReceivedEmail(normalizedEmail, name.trim(), company.name).catch(() => {});
+
+      const reviewLink = `${getBaseUrl()}/?view=applications`;
+      const admins = (await storage.getUsersByCompany(company.id)).filter((u) => u.role === "admin");
+      for (const admin of admins) {
+        await storage.createNotification({
+          userId: admin.id,
+          title: "New Application",
+          message: `${name.trim()} applied to join ${company.name}.`,
+          read: false,
+          link: "/?view=applications",
+        });
+        sendNewApplicationAdminEmail(admin.email, name.trim(), normalizedEmail, company.name, reviewLink, { skills, motivation }).catch(() => {});
+      }
+      for (const platformEmail of getAdminNotificationEmails()) {
+        sendNewApplicationAdminEmail(platformEmail, name.trim(), normalizedEmail, company.name, reviewLink, { skills, motivation }).catch(() => {});
+      }
+
+      res.status(201).json({ message: "Application received", id: application.id });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to submit application" });
+    }
+  });
+
+  app.get("/api/applications", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.json([]);
+      const apps = await storage.getApplicationsByCompany(companyId);
+      res.json(apps.map(({ passwordHash, ...rest }) => rest));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get applications" });
+    }
+  });
+
+  app.get("/api/applications/:id", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const application = await storage.getApplicationById(req.params.id as string);
+      if (!application || application.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+      const { passwordHash, ...rest } = application;
+      res.json(rest);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get application" });
+    }
+  });
+
+  app.post("/api/applications/:id/approve", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const application = await storage.getApplicationById(req.params.id as string);
+      if (!application || application.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+      if (application.status === "approved") {
+        return res.status(400).json({ message: "Application already approved" });
+      }
+      const existingUser = await storage.getUserByEmail(application.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "An account with this email already exists" });
+      }
+
+      const user = await storage.createUser({
+        name: application.name,
+        email: application.email,
+        passwordHash: application.passwordHash,
+        role: "intern",
+        companyId: application.companyId,
+      });
+
+      const generalChannel = await storage.ensureGeneralChannel(application.companyId);
+      await storage.addChannelMember(generalChannel.id, user.id);
+
+      await storage.updateApplicationStatus(application.id, "approved", (req as any).userId);
+
+      const company = await storage.getCompanyById(application.companyId);
+      const loginLink = `${getBaseUrl()}/intern-login`;
+      sendApplicationApprovedEmail(application.email, application.name, company?.name || "your company", loginLink).catch(() => {});
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId: application.companyId,
+        action: "application.approved",
+        targetType: "application",
+        targetId: application.id,
+        metadata: { applicantEmail: application.email },
+      });
+
+      res.json({ message: "Application approved", userId: user.id });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to approve application" });
+    }
+  });
+
+  app.post("/api/applications/:id/reject", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const application = await storage.getApplicationById(req.params.id as string);
+      if (!application || application.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+      const { notes } = req.body || {};
+
+      await storage.updateApplicationStatus(application.id, "rejected", (req as any).userId, notes?.trim() || undefined);
+
+      const company = await storage.getCompanyById(application.companyId);
+      sendApplicationRejectedEmail(application.email, application.name, company?.name || "your company").catch(() => {});
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId: application.companyId,
+        action: "application.rejected",
+        targetType: "application",
+        targetId: application.id,
+        metadata: { applicantEmail: application.email },
+      });
+
+      res.json({ message: "Application rejected" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to reject application" });
+    }
+  });
+
+  app.post("/api/applications/:id/request-info", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const application = await storage.getApplicationById(req.params.id as string);
+      if (!application || application.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+      const { notes } = req.body;
+      if (!notes?.trim()) {
+        return res.status(400).json({ message: "Notes explaining what's needed are required" });
+      }
+
+      await storage.updateApplicationStatus(application.id, "needs_information", (req as any).userId, notes.trim());
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId: application.companyId,
+        action: "application.info_requested",
+        targetType: "application",
+        targetId: application.id,
+      });
+
+      res.json({ message: "Marked as needing more information" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update application" });
+    }
+  });
+
+  app.put("/api/company/accepting-applications", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.status(400).json({ message: "No company" });
+      const { accepting } = req.body;
+
+      // Companies created before public applications existed have no slug.
+      // Backfill one on first use instead of leaving the admin stuck with
+      // no public URL to turn this on.
+      const company = await storage.getCompanyById(companyId);
+      if (company && !company.slug) {
+        const slug = await generateUniqueCompanySlug(company.name);
+        await storage.setCompanySlug(companyId, slug);
+      }
+
+      const updated = await storage.updateCompanyAcceptingApplications(companyId, !!accepting);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update setting" });
     }
   });
 
@@ -1313,7 +1563,7 @@ export async function registerRoutes(
       }));
 
       res.json({
-        company: { id: company?.id, name: company?.name },
+        company: { id: company?.id, name: company?.name, slug: company?.slug, acceptingApplications: company?.acceptingApplications },
         interns: internSummaries,
         totalProjects: allProjects.length,
         activeProjects: allProjects.filter(p => p.status === "active").length,

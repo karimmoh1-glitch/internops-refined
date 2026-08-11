@@ -9,7 +9,21 @@ export interface EmailMessage {
 
 const sentEmails: EmailMessage[] = [];
 
-const FROM_EMAIL = "InternOps <noreply@internops.dev>";
+function getFromEmail(): string {
+  return process.env.EMAIL_FROM || "InternOps <noreply@internops.dev>";
+}
+
+// Platform-level recipients notified on every new application, in addition
+// to the applying company's own admin users (who are notified separately,
+// via their real account emails, same as every other admin notification in
+// this file). Configured entirely through environment — never hardcoded,
+// so this file has no knowledge of any specific person's address.
+export function getAdminNotificationEmails(): string[] {
+  return (process.env.ADMIN_NOTIFICATION_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
 
 function getResendClient(): { client: Resend; fromEmail: string } | null {
   const apiKey = process.env.RESEND_API_KEY;
@@ -19,7 +33,7 @@ function getResendClient(): { client: Resend; fromEmail: string } | null {
   }
   return {
     client: new Resend(apiKey),
-    fromEmail: FROM_EMAIL,
+    fromEmail: getFromEmail(),
   };
 }
 
@@ -151,6 +165,66 @@ export function sendNewInternJoinedEmail(adminEmail: string, internName: string,
     subject: "New Intern Joined: " + internName,
     body: internName + " joined " + companyName,
     html: emailWrapper("New Intern Joined", "<p><strong>" + internName + "</strong> joined <strong>" + companyName + "</strong>.</p>"),
+  });
+}
+
+export function sendApplicationReceivedEmail(applicantEmail: string, applicantName: string, companyName: string): Promise<void> {
+  return sendEmail({
+    to: applicantEmail,
+    subject: "Your InternOps application has been received",
+    body: "Hi " + applicantName + ",\n\nYour application to " + companyName + " has been received and is pending review. We'll email you as soon as there's an update.",
+    html: emailWrapper("Application received",
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + applicantName + ",</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Thanks for applying to <strong>" + companyName + "</strong>. Your application has been received and is now pending review.</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">We'll email you as soon as there's an update — no action is needed from you right now.</p>"
+    ),
+  });
+}
+
+export function sendNewApplicationAdminEmail(adminEmail: string, applicantName: string, applicantEmail: string, companyName: string, reviewLink: string, details: { skills?: string | null; motivation?: string | null }): Promise<void> {
+  const detailRows = [
+    details.skills ? "<p style=\"color:#52525b;font-size:14px;line-height:1.6\"><strong>Skills:</strong> " + details.skills + "</p>" : "",
+    details.motivation ? "<p style=\"color:#52525b;font-size:14px;line-height:1.6\"><strong>Why they want to join:</strong> " + details.motivation + "</p>" : "",
+  ].join("");
+  return sendEmail({
+    to: adminEmail,
+    subject: "New application: " + applicantName + " — " + companyName,
+    body: applicantName + " (" + applicantEmail + ") applied to " + companyName + ". Review: " + reviewLink,
+    html: emailWrapper("New internship application",
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\"><strong>" + applicantName + "</strong> (" + applicantEmail + ") applied to <strong>" + companyName + "</strong>.</p>" +
+      detailRows +
+      "<div style=\"text-align:center;margin:24px 0\">" +
+        "<a href=\"" + reviewLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Review Application</a>" +
+      "</div>"
+    ),
+  });
+}
+
+export function sendApplicationApprovedEmail(applicantEmail: string, applicantName: string, companyName: string, loginLink: string): Promise<void> {
+  return sendEmail({
+    to: applicantEmail,
+    subject: "You're in! Your " + companyName + " application was approved",
+    body: "Hi " + applicantName + ",\n\nGreat news — your application to " + companyName + " has been approved. Log in to get started: " + loginLink,
+    html: emailWrapper("Application approved!",
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + applicantName + ",</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Great news — your application to <strong>" + companyName + "</strong> has been approved.</p>" +
+      "<div style=\"text-align:center;margin:24px 0\">" +
+        "<a href=\"" + loginLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Log In</a>" +
+      "</div>"
+    ),
+  });
+}
+
+export function sendApplicationRejectedEmail(applicantEmail: string, applicantName: string, companyName: string): Promise<void> {
+  return sendEmail({
+    to: applicantEmail,
+    subject: "Update on your " + companyName + " application",
+    body: "Hi " + applicantName + ",\n\nThank you for your interest in " + companyName + ". After careful review, we won't be moving forward with your application at this time. We appreciate the time you took to apply and wish you the best in your search.",
+    html: emailWrapper("Application update",
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + applicantName + ",</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Thank you for your interest in <strong>" + companyName + "</strong>. After careful review, we won't be moving forward with your application at this time.</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">We appreciate the time you took to apply, and wish you the best in your search.</p>"
+    ),
   });
 }
 

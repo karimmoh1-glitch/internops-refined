@@ -118,7 +118,7 @@ export default function InternLogin({ onLogin }: InternLoginProps) {
               <div className="flex items-start gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
                 <Mail className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" />
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  New intern? Ask your manager for an invite link to create your account.
+                  New intern? Ask your manager for an invite link, or apply directly if their company has a public application page open.
                 </p>
               </div>
             </div>

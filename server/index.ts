@@ -1,3 +1,8 @@
+// Loads .env for local development only. Production platforms (Railway/
+// Render/Fly/etc.) inject real environment variables directly, and dotenv
+// never overrides an already-set process.env value, so this is a no-op
+// there — it only matters when no .env file exists to begin with.
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";

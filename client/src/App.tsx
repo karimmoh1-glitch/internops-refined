@@ -11,6 +11,7 @@ import InternLogin from "@/pages/intern-login";
 import Signup from "@/pages/signup";
 import CompleteSignup from "@/pages/complete-signup";
 import AcceptInvite from "@/pages/accept-invite";
+import Apply from "@/pages/apply";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import InternDashboard from "@/pages/intern-dashboard";
@@ -117,6 +118,15 @@ function AppContent() {
             <AuthenticatedView user={user} signOut={signOut} />
           ) : (
             <AcceptInvite token={params.token} onAccept={acceptInvite} />
+          )
+        }
+      </Route>
+      <Route path="/apply/:slug">
+        {(params) =>
+          user ? (
+            <AuthenticatedView user={user} signOut={signOut} />
+          ) : (
+            <Apply slug={params.slug} />
           )
         }
       </Route>
