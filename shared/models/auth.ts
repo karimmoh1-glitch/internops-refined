@@ -16,6 +16,7 @@ export const sessions = pgTable(
 export const companies = pgTable("companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  githubToken: varchar("github_token"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -47,6 +48,7 @@ export const projects = pgTable("projects", {
   idea: text("idea").notNull(),
   minimumTotalHours: integer("minimum_total_hours").notNull(),
   status: varchar("status").notNull().default("assigned"),
+  githubRepoUrl: text("github_repo_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -54,7 +56,7 @@ export const planVersions = pgTable("plan_versions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
   versionNumber: integer("version_number").notNull(),
-  contentJson: jsonb("content_json").notNull(),
+  contentJson: jsonb("content_json").$type<Record<string, unknown>>().notNull(),
   status: varchar("status").notNull().default("draft"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -74,6 +76,7 @@ export const weeklyLogs = pgTable("weekly_logs", {
   subtaskIndex: integer("subtask_index"),
   dayNumber: integer("day_number"),
   logText: text("log_text").notNull(),
+  commitRef: text("commit_ref"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
