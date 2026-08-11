@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import LogoMark from "@/components/logo-mark";
 
 export default function Landing() {
   return (
@@ -13,7 +14,7 @@ export default function Landing() {
       <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5 text-xl font-bold font-heading text-white" data-testid="link-logo">
-            <div className="w-8 h-8 bg-gradient-to-br from-[#EF7878] to-[#e05555] rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-[#EF7878]/20">I</div>
+            <LogoMark size={32} />
             InternOps
           </div>
           <div className="flex items-center gap-3">
@@ -146,7 +147,7 @@ export default function Landing() {
       <footer className="bg-[#09090b] border-t border-white/5 py-8">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-base font-bold text-white font-heading">
-            <div className="w-6 h-6 bg-gradient-to-br from-[#EF7878] to-[#e05555] rounded flex items-center justify-center text-white font-bold text-xs">I</div>
+            <LogoMark size={24} rounded="md" />
             InternOps
           </div>
           <div className="flex items-center gap-5 text-xs text-zinc-500">

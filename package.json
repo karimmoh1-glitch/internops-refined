@@ -7,7 +7,8 @@
     "start": "NODE_ENV=production node dist/index.cjs",
     "build": "tsx script/build.ts",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx script/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

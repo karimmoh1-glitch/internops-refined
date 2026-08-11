@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { LogOut, Bell, CheckCheck, X, Command, MessageSquare } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import LogoMark from "@/components/logo-mark";
 
 interface AppNavProps {
   user: { id: string; name: string; role: string };
@@ -59,9 +60,7 @@ export default function AppNav({ user, onSignOut, onOpenCommandPalette }: AppNav
     <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-heading font-bold text-lg text-slate-900 no-underline hover:opacity-80 transition-opacity" data-testid="link-home">
-          <div className="w-7 h-7 bg-[#EF7878] rounded flex items-center justify-center text-white font-bold text-sm">
-            I
-          </div>
+          <LogoMark size={28} rounded="md" />
           InternOps
         </Link>
         <div className="flex items-center gap-3">

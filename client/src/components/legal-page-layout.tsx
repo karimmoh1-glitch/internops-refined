@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import LogoMark from "@/components/logo-mark";
 
 export default function LegalPageLayout({ title, updated, children }: { title: string; updated: string; children: ReactNode }) {
   return (
@@ -8,7 +9,7 @@ export default function LegalPageLayout({ title, updated, children }: { title: s
       <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline" data-testid="link-home">
-            <div className="w-8 h-8 bg-gradient-to-br from-[#EF7878] to-[#e05555] rounded-lg flex items-center justify-center text-white font-bold text-lg">I</div>
+            <LogoMark size={32} />
             InternOps
           </Link>
           <Link href="/" className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors no-underline">
