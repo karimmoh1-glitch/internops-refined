@@ -1,27 +1,23 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { ArrowLeft, Compass } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600 mb-4">
-            The page you're looking for doesn't exist.
-          </p>
-
-          <Link href="/">
-            <Button data-testid="button-go-home">Go to Home</Button>
-          </Link>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center px-6 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-6">
+        <Compass className="w-6 h-6 text-[#EF7878]" />
+      </div>
+      <h1 className="text-6xl font-bold font-heading text-white mb-3" data-testid="text-404-title">404</h1>
+      <p className="text-zinc-400 mb-8 max-w-sm">
+        This page doesn't exist, or it moved. Let's get you back on track.
+      </p>
+      <Link href="/">
+        <Button className="bg-gradient-to-r from-[#EF7878] to-[#e05555] hover:from-[#e86868] hover:to-[#d54545] text-white" data-testid="button-go-home">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to InternOps
+        </Button>
+      </Link>
     </div>
   );
 }
