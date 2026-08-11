@@ -7,6 +7,7 @@ import { rm, readFile } from "fs/promises";
 const allowlist = [
   "@octokit/rest",
   "bcryptjs",
+  "dotenv",
   "drizzle-orm",
   "drizzle-zod",
   "express",

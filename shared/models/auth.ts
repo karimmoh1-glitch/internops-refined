@@ -16,6 +16,8 @@ export const sessions = pgTable(
 export const companies = pgTable("companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  slug: varchar("slug").unique(),
+  acceptingApplications: boolean("accepting_applications").notNull().default(false),
   githubToken: varchar("github_token"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -39,6 +41,30 @@ export const invitations = pgTable("invitations", {
   used: boolean("used").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Public applications to a company's internship program (distinct from
+// invitations: an invitation is admin-initiated for a specific known
+// person; an application is applicant-initiated via the company's public
+// apply page, and requires admin review before an account is created).
+export const applications = pgTable("applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  name: text("name").notNull(),
+  email: varchar("email").notNull(),
+  passwordHash: varchar("password_hash").notNull(),
+  skills: text("skills"),
+  motivation: text("motivation"),
+  githubUrl: text("github_url"),
+  linkedinUrl: text("linkedin_url"),
+  portfolioUrl: text("portfolio_url"),
+  status: varchar("status").notNull().default("pending"), // pending | under_review | approved | rejected | needs_information
+  reviewerNotes: text("reviewer_notes"),
+  reviewedByUserId: varchar("reviewed_by_user_id").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_applications_company_status").on(table.companyId, table.status),
+]);
 
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -199,6 +225,7 @@ export const auditLogs = pgTable("audit_logs", {
   index("idx_audit_logs_company_created").on(table.companyId, table.createdAt),
 ]);
 
+export const insertApplicationSchema = createInsertSchema(applications).omit({ id: true, createdAt: true, reviewedAt: true });
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertInvitationSchema = createInsertSchema(invitations).omit({ id: true, createdAt: true });
@@ -220,6 +247,8 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: tru
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
+export type Application = typeof applications.$inferSelect;
+export type InsertApplication = z.infer<typeof insertApplicationSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Invitation = typeof invitations.$inferSelect;

@@ -18,6 +18,7 @@ import CommandPalette, { useAdminCommands } from "@/components/command-palette";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ProjectStatusPieChart, CompletionRateBarChart, WeeklyActivityLineChart, HoursComparisonChart } from "@/components/analytics-charts";
 import GitHubPanel, { GitHubTokenSettings, GitHubRepoInput } from "@/components/github-panel";
+import ApplicationsPanel from "@/components/applications-panel";
 
 interface AdminDashboardProps {
   user: { id: string; name: string; role: string; companyId: string | null };
@@ -880,6 +881,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             )}
           </div>
         )}
+
+        <ApplicationsPanel companyId={user.companyId} />
 
         <div ref={internOverviewRef} data-testid="intern-overview-section">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">

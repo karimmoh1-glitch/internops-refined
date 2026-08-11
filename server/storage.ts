@@ -3,11 +3,12 @@ import { db } from "./db";
 import { lt } from "drizzle-orm";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
-  channels, channelMembers, channelMessages, userDevices, auditLogs,
+  channels, channelMembers, channelMessages, userDevices, auditLogs, applications,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Invitation, type InsertInvitation,
+  type Application, type InsertApplication,
   type Project, type InsertProject,
   type PlanVersion, type InsertPlanVersion,
   type Comment, type InsertComment,
@@ -35,6 +36,9 @@ export interface IStorage {
 
   createCompany(data: InsertCompany): Promise<Company>;
   getCompanyById(id: string): Promise<Company | undefined>;
+  getCompanyBySlug(slug: string): Promise<Company | undefined>;
+  updateCompanyAcceptingApplications(id: string, accepting: boolean): Promise<Company | undefined>;
+  setCompanySlug(id: string, slug: string): Promise<Company | undefined>;
 
   createInvitation(data: InsertInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
@@ -136,6 +140,13 @@ export interface IStorage {
   // Audit log
   createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
   getAuditLogsByCompany(companyId: string, limit?: number): Promise<AuditLog[]>;
+
+  // Applications
+  createApplication(data: InsertApplication): Promise<Application>;
+  getApplicationById(id: string): Promise<Application | undefined>;
+  getApplicationsByCompany(companyId: string): Promise<Application[]>;
+  getPendingApplicationByEmail(companyId: string, email: string): Promise<Application | undefined>;
+  updateApplicationStatus(id: string, status: string, reviewedByUserId: string, reviewerNotes?: string): Promise<Application | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -176,6 +187,21 @@ export class DatabaseStorage implements IStorage {
   async getCompanyById(id: string): Promise<Company | undefined> {
     const [company] = await db.select().from(companies).where(eq(companies.id, id));
     return company;
+  }
+
+  async getCompanyBySlug(slug: string): Promise<Company | undefined> {
+    const [company] = await db.select().from(companies).where(eq(companies.slug, slug));
+    return company;
+  }
+
+  async updateCompanyAcceptingApplications(id: string, accepting: boolean): Promise<Company | undefined> {
+    const [updated] = await db.update(companies).set({ acceptingApplications: accepting }).where(eq(companies.id, id)).returning();
+    return updated;
+  }
+
+  async setCompanySlug(id: string, slug: string): Promise<Company | undefined> {
+    const [updated] = await db.update(companies).set({ slug }).where(eq(companies.id, id)).returning();
+    return updated;
   }
 
   async createInvitation(data: InsertInvitation): Promise<Invitation> {
@@ -767,6 +793,38 @@ export class DatabaseStorage implements IStorage {
   async getAuditLogsByCompany(companyId: string, limit = 100): Promise<AuditLog[]> {
     return db.select().from(auditLogs).where(eq(auditLogs.companyId, companyId))
       .orderBy(desc(auditLogs.createdAt)).limit(limit);
+  }
+
+  async createApplication(data: InsertApplication): Promise<Application> {
+    const [created] = await db.insert(applications).values(data).returning();
+    return created;
+  }
+
+  async getApplicationById(id: string): Promise<Application | undefined> {
+    const [found] = await db.select().from(applications).where(eq(applications.id, id));
+    return found;
+  }
+
+  async getApplicationsByCompany(companyId: string): Promise<Application[]> {
+    return db.select().from(applications).where(eq(applications.companyId, companyId))
+      .orderBy(desc(applications.createdAt));
+  }
+
+  async getPendingApplicationByEmail(companyId: string, email: string): Promise<Application | undefined> {
+    const [found] = await db.select().from(applications).where(
+      and(eq(applications.companyId, companyId), eq(applications.email, email), eq(applications.status, "pending"))
+    );
+    return found;
+  }
+
+  async updateApplicationStatus(id: string, status: string, reviewedByUserId: string, reviewerNotes?: string): Promise<Application | undefined> {
+    const [updated] = await db.update(applications).set({
+      status,
+      reviewedByUserId,
+      reviewedAt: new Date(),
+      ...(reviewerNotes !== undefined ? { reviewerNotes } : {}),
+    }).where(eq(applications.id, id)).returning();
+    return updated;
   }
 }
 
