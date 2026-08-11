@@ -187,7 +187,7 @@ function ChannelSidebar({
   };
 
   return (
-    <div className="w-64 bg-slate-800 text-white flex flex-col shrink-0 h-full">
+    <div className="w-full md:w-64 bg-slate-800 text-white flex flex-col shrink-0 h-full">
       <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
         <MessageSquare className="w-5 h-5 text-indigo-400" />
         <h2 className="font-semibold text-sm">Messages</h2>
