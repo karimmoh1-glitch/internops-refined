@@ -16,6 +16,7 @@ import ResetPassword from "@/pages/reset-password";
 import InternDashboard from "@/pages/intern-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ChatPage from "@/pages/chat";
+import SettingsPage from "@/pages/settings";
 import AppNav from "@/components/app-nav";
 import { useEffect } from "react";
 
@@ -38,6 +39,15 @@ function AuthenticatedChat({ user, signOut }: { user: any; signOut: () => void }
     <>
       <AppNav user={user} onSignOut={signOut} />
       <ChatPage user={user} />
+    </>
+  );
+}
+
+function AuthenticatedSettings({ user, signOut }: { user: any; signOut: () => void }) {
+  return (
+    <>
+      <AppNav user={user} onSignOut={signOut} />
+      <SettingsPage user={user} />
     </>
   );
 }
@@ -120,6 +130,13 @@ function AppContent() {
       <Route path="/chat">
         {user ? (
           <AuthenticatedChat user={user} signOut={signOut} />
+        ) : (
+          <Landing />
+        )}
+      </Route>
+      <Route path="/settings">
+        {user ? (
+          <AuthenticatedSettings user={user} signOut={signOut} />
         ) : (
           <Landing />
         )}

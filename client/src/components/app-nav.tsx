@@ -164,7 +164,11 @@ export default function AppNav({ user, onSignOut, onOpenCommandPalette }: AppNav
             )}
           </div>
 
-          <div className="flex items-center gap-2 px-2 py-1.5 transition-all duration-200" data-testid="text-user-info">
+          <Link
+            href="/settings"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-all duration-200 no-underline"
+            data-testid="text-user-info"
+          >
             <div className="w-7 h-7 bg-[#EF7878]/15 rounded-full flex items-center justify-center text-[#EF7878] font-medium text-xs transition-all duration-200">
               {user.name[0]?.toUpperCase() || "?"}
             </div>
@@ -174,7 +178,7 @@ export default function AppNav({ user, onSignOut, onOpenCommandPalette }: AppNav
             <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full capitalize hidden sm:inline" data-testid="text-user-role">
               {user.role === "admin" ? "Manager" : user.role}
             </span>
-          </div>
+          </Link>
           <Button
             variant="ghost"
             size="sm"

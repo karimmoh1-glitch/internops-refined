@@ -169,6 +169,36 @@ export const channelMessages = pgTable("channel_messages", {
   index("idx_channel_messages_channel_created").on(table.channelId, table.createdAt),
 ]);
 
+export const userDevices = pgTable("user_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  // Random token minted server-side at login and embedded as a JWT claim.
+  // Never derived from user-agent/IP/localStorage — those are spoofable
+  // client-controlled values and must never be authorization inputs.
+  deviceId: varchar("device_id").notNull().unique(),
+  name: text("name"),
+  platform: text("platform"),
+  browser: text("browser"),
+  firstSeenAt: timestamp("first_seen_at").defaultNow(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+}, (table) => [
+  index("idx_user_devices_user").on(table.userId),
+]);
+
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorUserId: varchar("actor_user_id").references(() => users.id),
+  companyId: varchar("company_id").references(() => companies.id),
+  action: varchar("action").notNull(),
+  targetType: varchar("target_type"),
+  targetId: varchar("target_id"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_audit_logs_company_created").on(table.companyId, table.createdAt),
+]);
+
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertInvitationSchema = createInsertSchema(invitations).omit({ id: true, createdAt: true });
@@ -185,6 +215,8 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ i
 export const insertChannelSchema = createInsertSchema(channels).omit({ id: true, createdAt: true });
 export const insertChannelMemberSchema = createInsertSchema(channelMembers).omit({ id: true, joinedAt: true });
 export const insertChannelMessageSchema = createInsertSchema(channelMessages).omit({ id: true, createdAt: true });
+export const insertUserDeviceSchema = createInsertSchema(userDevices).omit({ id: true, firstSeenAt: true, lastSeenAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
@@ -218,3 +250,7 @@ export type ChannelMember = typeof channelMembers.$inferSelect;
 export type InsertChannelMember = z.infer<typeof insertChannelMemberSchema>;
 export type ChannelMessage = typeof channelMessages.$inferSelect;
 export type InsertChannelMessage = z.infer<typeof insertChannelMessageSchema>;
+export type UserDevice = typeof userDevices.$inferSelect;
+export type InsertUserDevice = z.infer<typeof insertUserDeviceSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
