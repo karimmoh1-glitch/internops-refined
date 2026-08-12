@@ -9,7 +9,6 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import InternLogin from "@/pages/intern-login";
 import Signup from "@/pages/signup";
-import CompleteSignup from "@/pages/complete-signup";
 import AcceptInvite from "@/pages/accept-invite";
 import Apply from "@/pages/apply";
 import Privacy from "@/pages/privacy";
@@ -77,7 +76,7 @@ function AuthenticatedSettings({ user, signOut }: { user: any; signOut: () => vo
 }
 
 function AppContent() {
-  const { user, login, completeSignup, acceptInvite, signOut } = useAuth();
+  const { user, login, signup, acceptInvite, signOut } = useAuth();
   const [location, setLocation] = useLocation();
 
   const managerLogin = (email: string, password: string) => login(email, password, "admin");
@@ -123,17 +122,8 @@ function AppContent() {
         {user ? (
           <AuthenticatedView user={user} signOut={signOut} />
         ) : (
-          <Signup />
+          <Signup onSignup={signup} />
         )}
-      </Route>
-      <Route path="/verify-signup/:token">
-        {(params) =>
-          user ? (
-            <AuthenticatedView user={user} signOut={signOut} />
-          ) : (
-            <CompleteSignup token={params.token} onComplete={completeSignup} />
-          )
-        }
       </Route>
       <Route path="/invite/:token">
         {(params) =>

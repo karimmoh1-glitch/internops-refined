@@ -48,14 +48,14 @@ export function useAuth() {
     return state.user;
   }, [persistAuth]);
 
-  const completeSignup = useCallback(async (token: string, name: string, password: string) => {
-    const res = await fetch(`/api/auth/complete-signup/${token}`, {
+  const signup = useCallback(async (name: string, email: string, password: string) => {
+    const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, password }),
+      body: JSON.stringify({ name, email, password }),
     });
     if (!res.ok) {
-      throw new Error(await parseErrorMessage(res, "Signup completion failed"));
+      throw new Error(await parseErrorMessage(res, "Signup failed"));
     }
     const data = await res.json();
     const state: AuthState = { token: data.token, user: data.user };
@@ -89,7 +89,7 @@ export function useAuth() {
     token: auth?.token ?? null,
     isAuthenticated: !!auth,
     login,
-    completeSignup,
+    signup,
     acceptInvite,
     signOut,
   };

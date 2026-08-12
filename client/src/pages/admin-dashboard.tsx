@@ -830,7 +830,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [copiedLink, setCopiedLink] = useState("");
+  const [invitePassword, setInvitePassword] = useState("");
+  const [createdIntern, setCreatedIntern] = useState<{ name: string; email: string; password: string } | null>(null);
   const [assignInternId, setAssignInternId] = useState("");
   const [assignTitle, setAssignTitle] = useState("");
   const [assignIdea, setAssignIdea] = useState("");
@@ -886,14 +887,13 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   }, [isLoading, dashboard]);
 
   const inviteMutation = useMutation({
-    mutationFn: async () => { const res = await apiRequest("POST", "/api/invitations", { name: inviteName, email: inviteEmail }); return res.json(); },
+    mutationFn: async () => { const res = await apiRequest("POST", "/api/interns", { name: inviteName, email: inviteEmail, password: invitePassword }); return res.json(); },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/invitations"] });
-      const link = data.inviteLink;
-      setCopiedLink(link);
-      toast({ title: "Invitation sent!", description: "Invite link is ready to copy." });
-      setInviteName(""); setInviteEmail("");
+      queryClient.invalidateQueries({ queryKey: ["/api/interns"] });
+      setCreatedIntern({ name: data.name, email: data.email, password: invitePassword });
+      toast({ title: "Intern account created", description: `${data.name} can log in immediately.` });
+      setInviteName(""); setInviteEmail(""); setInvitePassword("");
     },
     onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
@@ -1018,7 +1018,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             </div>
             <div className="flex items-center flex-wrap gap-3">
               <Button onClick={() => setShowInviteModal(true)} className="bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-open-invite">
-                <UserPlus className="w-4 h-4 mr-2" />Invite Intern
+                <UserPlus className="w-4 h-4 mr-2" />Add Intern
               </Button>
               <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50" data-testid="button-open-assign">
                 <Briefcase className="w-4 h-4 mr-2" />Assign Project
@@ -1164,9 +1164,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               ) : (
                 <>
                   <p className="text-gray-500 text-lg mb-1">No interns yet</p>
-                  <p className="text-gray-400 text-sm mb-3">Invite your first intern to get started.</p>
+                  <p className="text-gray-400 text-sm mb-3">Add your first intern to get started.</p>
                   <Button onClick={() => setShowInviteModal(true)} className="bg-[#EF7878] hover:bg-[#e05555] text-white">
-                    <UserPlus className="w-4 h-4 mr-2" />Invite Intern
+                    <UserPlus className="w-4 h-4 mr-2" />Add Intern
                   </Button>
                 </>
               )}
@@ -1303,33 +1303,61 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="modal-invite">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Invite Intern</h3>
-              <button onClick={() => { setShowInviteModal(false); setCopiedLink(""); }} className="text-gray-400 hover:text-gray-600" data-testid="button-close-invite"><X className="w-5 h-5" /></button>
+              <h3 className="text-lg font-semibold text-gray-900">Add Intern</h3>
+              <button onClick={() => { setShowInviteModal(false); setCreatedIntern(null); }} className="text-gray-400 hover:text-gray-600" data-testid="button-close-invite"><X className="w-5 h-5" /></button>
             </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <Input placeholder="Intern's full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} className="border-gray-300" data-testid="input-invite-name" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <Input type="email" placeholder="intern@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="border-gray-300" data-testid="input-invite-email" />
-              </div>
-              <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || inviteMutation.isPending} className="w-full bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-send-invite">
-                {inviteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</>) : "Send Invitation"}
-              </Button>
-              {copiedLink && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3" data-testid="invite-link-display">
-                  <p className="text-green-800 text-sm font-medium mb-2">Invite link created!</p>
-                  <div className="flex items-center gap-2">
-                    <input readOnly value={copiedLink} className="flex-1 text-xs bg-white border border-green-200 rounded px-2 py-1 text-gray-700" data-testid="text-invite-link" />
-                    <Button size="sm" variant="outline" onClick={() => copyLink(copiedLink)} className="border-green-300 text-green-700 hover:bg-green-100" data-testid="button-copy-link">
-                      <Copy className="w-3 h-3" />
-                    </Button>
+            {createdIntern ? (
+              <div className="p-5 space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4" data-testid="invite-link-display">
+                  <p className="text-green-800 text-sm font-medium mb-3">Account created — {createdIntern.name} can log in right now.</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between gap-2 bg-white border border-green-200 rounded px-3 py-2">
+                      <span className="text-gray-500">Email</span>
+                      <span className="text-gray-900 font-medium" data-testid="text-created-intern-email">{createdIntern.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 bg-white border border-green-200 rounded px-3 py-2">
+                      <span className="text-gray-500">Password</span>
+                      <span className="text-gray-900 font-medium" data-testid="text-created-intern-password">{createdIntern.password}</span>
+                    </div>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full mt-3 border-green-300 text-green-700 hover:bg-green-100"
+                    onClick={() => copyLink(`Email: ${createdIntern.email}\nPassword: ${createdIntern.password}`)}
+                    data-testid="button-copy-link"
+                  >
+                    <Copy className="w-3 h-3 mr-1.5" /> Copy credentials
+                  </Button>
                 </div>
-              )}
-            </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setCreatedIntern(null)}
+                  data-testid="button-add-another-intern"
+                >
+                  Add Another Intern
+                </Button>
+              </div>
+            ) : (
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <Input placeholder="Intern's full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} className="border-gray-300" data-testid="input-invite-name" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <Input type="email" placeholder="intern@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="border-gray-300" data-testid="input-invite-email" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <Input type="password" placeholder="At least 6 characters" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} className="border-gray-300" data-testid="input-invite-password" />
+                </div>
+                <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || invitePassword.length < 6 || inviteMutation.isPending} className="w-full bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-send-invite">
+                  {inviteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>) : "Create Account"}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
