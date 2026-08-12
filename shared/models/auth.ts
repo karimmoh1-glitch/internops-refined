@@ -30,6 +30,11 @@ export const users = pgTable("users", {
   role: varchar("role").notNull().default("intern"),
   companyId: varchar("company_id").references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow(),
+  // Null = active. Set = blocked from login and every authenticated
+  // request, checked immediately (not just at next login) — same pattern
+  // as userDevices.revokedAt below. History (tasks, logs, chat) is left
+  // intact; deactivating never deletes data.
+  deactivatedAt: timestamp("deactivated_at"),
 });
 
 export const invitations = pgTable("invitations", {

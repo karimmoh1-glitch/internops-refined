@@ -194,6 +194,14 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
       storage.touchUserDevice(decoded.deviceId).catch(() => {});
     }
 
+    // Checked on every request, not just at login, so deactivating an
+    // intern mid-session cuts their access immediately rather than
+    // waiting for their token to expire or for them to log in again.
+    const user = await storage.getUser(decoded.userId);
+    if (!user || user.deactivatedAt) {
+      return res.status(401).json({ message: "This account has been deactivated" });
+    }
+
     (req as any).userId = decoded.userId;
     (req as any).userRole = decoded.role;
     (req as any).companyId = decoded.companyId;
@@ -318,6 +326,10 @@ export async function registerRoutes(
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) {
         return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      if (user.deactivatedAt) {
+        return res.status(403).json({ message: "This account has been deactivated. Contact your manager." });
       }
 
       if (expectedRole === "admin" && user.role !== "admin") {
@@ -798,9 +810,58 @@ export async function registerRoutes(
       const companyId = (req as any).companyId;
       if (!companyId) return res.json([]);
       const interns = await storage.getInternsByCompany(companyId);
-      res.json(interns.map(i => ({ id: i.id, name: i.name, email: i.email, role: i.role, createdAt: i.createdAt })));
+      res.json(interns.map(i => ({ id: i.id, name: i.name, email: i.email, role: i.role, createdAt: i.createdAt, deactivatedAt: i.deactivatedAt })));
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to get interns" });
+    }
+  });
+
+  // Deactivate blocks login immediately (checked on every request, not
+  // just at login) but never deletes the intern's tasks, logs, or chat
+  // history. Reactivating restores access with everything intact.
+  app.post("/api/interns/:id/deactivate", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+      const updated = await storage.setUserDeactivated(intern.id, true);
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "intern.deactivated",
+        targetType: "user",
+        targetId: intern.id,
+      });
+
+      res.json({ id: updated?.id, name: updated?.name, email: updated?.email, deactivatedAt: updated?.deactivatedAt });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to deactivate intern" });
+    }
+  });
+
+  app.post("/api/interns/:id/reactivate", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+      const updated = await storage.setUserDeactivated(intern.id, false);
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "intern.reactivated",
+        targetType: "user",
+        targetId: intern.id,
+      });
+
+      res.json({ id: updated?.id, name: updated?.name, email: updated?.email, deactivatedAt: updated?.deactivatedAt });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to reactivate intern" });
     }
   });
 
@@ -1955,6 +2016,7 @@ export async function registerRoutes(
           id: intern.id,
           name: intern.name,
           email: intern.email,
+          deactivatedAt: intern.deactivatedAt,
           projects: projectDetails,
         };
       });

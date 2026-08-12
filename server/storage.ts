@@ -34,6 +34,7 @@ export interface IStorage {
   getUsersByCompany(companyId: string): Promise<User[]>;
   getInternsByCompany(companyId: string): Promise<User[]>;
   updateUserPassword(id: string, passwordHash: string): Promise<void>;
+  setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
 
   createCompany(data: InsertCompany): Promise<Company>;
   getCompanyById(id: string): Promise<Company | undefined>;
@@ -191,6 +192,14 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserPassword(id: string, passwordHash: string): Promise<void> {
     await db.update(users).set({ passwordHash }).where(eq(users.id, id));
+  }
+
+  async setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ deactivatedAt: deactivated ? new Date() : null })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
   }
 
   async createCompany(data: InsertCompany): Promise<Company> {

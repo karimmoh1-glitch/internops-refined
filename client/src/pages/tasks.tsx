@@ -24,6 +24,7 @@ interface TaskUser {
   id: string;
   name: string;
   role: string;
+  deactivatedAt?: string | null;
 }
 
 interface Task {
@@ -417,7 +418,7 @@ function CreateTaskDialog({
               <Select value={assigneeId} onValueChange={setAssigneeId}>
                 <SelectTrigger data-testid="select-task-assignee"><SelectValue placeholder="Choose intern" /></SelectTrigger>
                 <SelectContent>
-                  {interns.map((i) => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
+                  {interns.filter((i) => !i.deactivatedAt).map((i) => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
