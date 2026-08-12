@@ -106,7 +106,7 @@ export default function Landing() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
-                { step: "01", title: "Sign Up", desc: "Create your company account in seconds.", icon: UserPlus, color: "from-blue-500 to-blue-600", glow: "shadow-blue-500/20" },
+                { step: "01", title: "Sign Up", desc: "Create your account in seconds.", icon: UserPlus, color: "from-blue-500 to-blue-600", glow: "shadow-blue-500/20" },
                 { step: "02", title: "Invite Interns", desc: "Send secure invite links via email.", icon: Users, color: "from-indigo-500 to-indigo-600", glow: "shadow-indigo-500/20" },
                 { step: "03", title: "Assign Projects", desc: "Set goals. AI helps interns plan.", icon: Zap, color: "from-violet-500 to-violet-600", glow: "shadow-violet-500/20" },
                 { step: "04", title: "Track & Review", desc: "Monitor progress. Give feedback.", icon: BarChart3, color: "from-purple-500 to-purple-600", glow: "shadow-purple-500/20" },

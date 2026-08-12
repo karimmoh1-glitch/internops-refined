@@ -1,6 +1,8 @@
 # InternOps Demo Script
 
-A ~7-minute walkthrough of the real, working product. Everything below is a real database action — nothing is mocked.
+A ~10-minute walkthrough of the real, working product. Everything below is a real database action — nothing is mocked.
+
+InternOps runs as a single fixed workspace for **EDAI** — signing up only asks for an email, never a company name. Every manager account joins the same EDAI workspace automatically.
 
 ## Setup (once)
 
@@ -33,9 +35,9 @@ Development-only — never enable these in a production deployment.
 
 Open the app logged out. Point out the hero, the three feature cards, and the "How It Works" steps — this is the real marketing page a prospective company would see, not a mockup.
 
-### 2. The public application (`/apply/internops-demo`)
+### 2. The public application (`/apply/edai`)
 
-This is the demo org's live public application page — the exact URL a manager gets from their dashboard to share with candidates. Show the form (name, email, password, skills, motivation, links) without submitting — or submit a real test application to show step 3 for real.
+This is EDAI's live public application page — the exact URL a manager gets from their dashboard to share with candidates. Show the form (name, email, password, skills, motivation, links) without submitting — or submit a real test application to show step 3 for real.
 
 > **If you submit one live**: it becomes a real row in the `applications` table, visible immediately in the manager dashboard's Applications panel with a "Pending" badge.
 
@@ -49,18 +51,30 @@ Log in as `demo-manager@internops.local`. The dashboard opens directly to the Ap
 
 ### 4. Manager: the dashboard proper
 
+Right below the header stats is the real-data overview: **Attention Required** (blocked and overdue tasks, tasks awaiting review), **Due Today**, and **Recent Activity** — all derived from actual task rows, never fabricated. Below that, the **AI Organization Assistant** — ask it "what's blocked?" or "give me a briefing" and it answers from that same real data (falls back to a plain data summary instead of a canned answer if no `OPENAI_API_KEY` is set — never fakes an AI response).
+
 Scroll to Intern Overview. Three interns, three different real states:
 - **Jordan Lee** — just assigned, no plan yet
 - **Maya Patel** — plan submitted, sitting in the "Review Now" queue at the top of the dashboard
-- **Alex Johnson** — active project, 50% complete, real logged work
+- **Alex Johnson** — active project, 50% complete, real logged work, and a blocked task
+
+Click Alex Johnson's name to open their intern profile: completion stats and a full chronological work-history timeline merging task events and work logs.
 
 Expand Maya's plan in "Review Now": three real AI-generated weekly milestones, each with deliverables and success criteria. Approve it (or request a revision with a comment) — this is a real status transition, not a demo animation.
 
+### 4b. Manager: assigning and reviewing a task
+
+Go to `/tasks` (the checklist icon in the nav). Click **New Task**, assign it to any intern, set a priority. This is the generic task system — separate from the AI-planned project flow — used for day-to-day work items. Once an intern submits one for review, it lands in the In Review filter here with Approve / Request Changes actions.
+
 ### 5. Intern: doing the work
 
-Sign out, log in as `alex@internops.local`. This is deliberately a much simpler screen than the manager's — "what do I need to do" front and center. Open the InternOps Website Redesign project: an approved plan, broken into weeks and days, each subtask loggable individually. Point out the existing log entries and the manager's inline feedback on them.
+Sign out, log in as `alex@internops.local`. The dashboard opens on **Today**: due-today tasks, what's in progress (including the blocked "Set up analytics pipeline" task with its reason), recently completed work, and any manager feedback — all real, all from `/api/tasks/mine`. Below that is the existing project workspace.
+
+Open the InternOps Website Redesign project: an approved plan, broken into weeks and days, each subtask loggable individually. Point out the existing log entries and the manager's inline feedback on them.
 
 Optionally: expand a not-yet-logged subtask, type real work into "What did you do for this task?", hit Log. Watch the completion percentage and the weekly chart update immediately.
+
+On `/tasks`, try the full task lifecycle as Alex: **Start** a To Do task, **Submit** it with a description (or mark it **Blocked** with a reason instead — that surfaces immediately on the manager's Attention Required panel and their AI assistant's answers).
 
 ### 6. Manager: closing the loop
 

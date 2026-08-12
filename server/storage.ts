@@ -3,7 +3,7 @@ import { db } from "./db";
 import { lt } from "drizzle-orm";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
-  channels, channelMembers, channelMessages, userDevices, auditLogs, applications,
+  channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -24,6 +24,7 @@ import {
   type SignupToken, type InsertSignupToken,
   type UserDevice, type InsertUserDevice,
   type AuditLog, type InsertAuditLog,
+  type Task, type InsertTask,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -150,6 +151,16 @@ export interface IStorage {
   getApplicationsByCompany(companyId: string): Promise<Application[]>;
   getPendingApplicationByEmail(companyId: string, email: string): Promise<Application | undefined>;
   updateApplicationStatus(id: string, status: string, reviewedByUserId: string, reviewerNotes?: string): Promise<Application | undefined>;
+
+  // Tasks
+  createTask(data: InsertTask): Promise<Task>;
+  getTaskById(id: string): Promise<Task | undefined>;
+  getTasksByCompany(companyId: string): Promise<Task[]>;
+  getTasksByAssignee(assigneeId: string): Promise<Task[]>;
+  getTasksByProjectIds(projectIds: string[]): Promise<Task[]>;
+  updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null }): Promise<Task | undefined>;
+  updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null }): Promise<Task | undefined>;
+  deleteTask(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -854,6 +865,56 @@ export class DatabaseStorage implements IStorage {
       ...(reviewerNotes !== undefined ? { reviewerNotes } : {}),
     }).where(eq(applications.id, id)).returning();
     return updated;
+  }
+
+  async createTask(data: InsertTask): Promise<Task> {
+    const [created] = await db.insert(tasks).values(data).returning();
+    return created;
+  }
+
+  async getTaskById(id: string): Promise<Task | undefined> {
+    const [found] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return found;
+  }
+
+  async getTasksByCompany(companyId: string): Promise<Task[]> {
+    return db.select().from(tasks).where(eq(tasks.companyId, companyId)).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksByAssignee(assigneeId: string): Promise<Task[]> {
+    return db.select().from(tasks).where(eq(tasks.assigneeId, assigneeId)).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksByProjectIds(projectIds: string[]): Promise<Task[]> {
+    if (projectIds.length === 0) return [];
+    return db.select().from(tasks).where(inArray(tasks.projectId, projectIds)).orderBy(desc(tasks.createdAt));
+  }
+
+  async updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null }): Promise<Task | undefined> {
+    const updateData: any = { updatedAt: new Date() };
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId;
+    if (data.projectId !== undefined) updateData.projectId = data.projectId;
+    if (data.priority !== undefined) updateData.priority = data.priority;
+    if (data.dueDate !== undefined) updateData.dueDate = data.dueDate;
+    const [updated] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+    return updated;
+  }
+
+  async updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null }): Promise<Task | undefined> {
+    const updateData: any = { status, updatedAt: new Date() };
+    if (extra?.submission !== undefined) updateData.submission = extra.submission;
+    if (extra?.submittedAt !== undefined) updateData.submittedAt = extra.submittedAt;
+    if (extra?.feedback !== undefined) updateData.feedback = extra.feedback;
+    if (extra?.blockedReason !== undefined) updateData.blockedReason = extra.blockedReason;
+    if (extra?.completedAt !== undefined) updateData.completedAt = extra.completedAt;
+    const [updated] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
   }
 }
 

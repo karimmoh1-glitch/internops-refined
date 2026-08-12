@@ -20,6 +20,8 @@ import ResetPassword from "@/pages/reset-password";
 import InternDashboard from "@/pages/intern-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ChatPage from "@/pages/chat";
+import TasksPage from "@/pages/tasks";
+import InternProfile from "@/pages/intern-profile";
 import SettingsPage from "@/pages/settings";
 import AppNav from "@/components/app-nav";
 import { useEffect } from "react";
@@ -43,6 +45,24 @@ function AuthenticatedChat({ user, signOut }: { user: any; signOut: () => void }
     <>
       <AppNav user={user} onSignOut={signOut} />
       <ChatPage user={user} />
+    </>
+  );
+}
+
+function AuthenticatedTasks({ user, signOut }: { user: any; signOut: () => void }) {
+  return (
+    <>
+      <AppNav user={user} onSignOut={signOut} />
+      <TasksPage user={user} />
+    </>
+  );
+}
+
+function AuthenticatedInternProfile({ user, signOut, internId }: { user: any; signOut: () => void; internId: string }) {
+  return (
+    <>
+      <AppNav user={user} onSignOut={signOut} />
+      <InternProfile internId={internId} />
     </>
   );
 }
@@ -146,6 +166,24 @@ function AppContent() {
         ) : (
           <Landing />
         )}
+      </Route>
+      <Route path="/tasks">
+        {user ? (
+          <AuthenticatedTasks user={user} signOut={signOut} />
+        ) : (
+          <Landing />
+        )}
+      </Route>
+      <Route path="/interns/:id">
+        {(params) =>
+          user && user.role === "admin" ? (
+            <AuthenticatedInternProfile user={user} signOut={signOut} internId={params.id} />
+          ) : user ? (
+            <AuthenticatedView user={user} signOut={signOut} />
+          ) : (
+            <Landing />
+          )
+        }
       </Route>
       <Route path="/settings">
         {user ? (

@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generatePlan, aiChat, summarizeLog, modifyPlan } from "./services/aiService";
+import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, type OrgDigest } from "./services/aiService";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
@@ -53,6 +53,18 @@ const strictAuthLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: "Too many attempts. Please try again later." },
 });
+// InternOps runs as a single fixed workspace for EDAI — nobody creates or
+// names a company at signup. Every manager who signs up joins this same
+// company record, created lazily on first use.
+const EDAI_COMPANY_NAME = "EDAI";
+const EDAI_COMPANY_SLUG = "edai";
+
+async function getOrCreateEdaiCompany() {
+  const existing = await storage.getCompanyBySlug(EDAI_COMPANY_SLUG);
+  if (existing) return existing;
+  return storage.createCompany({ name: EDAI_COMPANY_NAME, slug: EDAI_COMPANY_SLUG });
+}
+
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -225,12 +237,14 @@ export async function registerRoutes(
     }
   });
 
-  // Step 1: Manager registers with email + company name → gets verification email
+  // Step 1: Manager registers with just an email → gets verification email.
+  // Every manager joins the same fixed EDAI workspace — there is no company
+  // name to type and no organization to create.
   app.post("/api/auth/signup", strictAuthLimiter, async (req, res) => {
     try {
-      const { companyName, email } = req.body;
-      if (!companyName || !email) {
-        return res.status(400).json({ message: "Company name and email are required" });
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
       }
 
       const existing = await storage.getUserByEmail(email.toLowerCase().trim());
@@ -243,7 +257,7 @@ export async function registerRoutes(
 
       await storage.createSignupToken({
         email: email.toLowerCase().trim(),
-        companyName: companyName.trim(),
+        companyName: EDAI_COMPANY_NAME,
         managerName: "",
         passwordHash: "",
         token,
@@ -256,10 +270,9 @@ export async function registerRoutes(
       console.log(`\n========================================`);
       console.log(`📧 SIGNUP VERIFICATION LINK`);
       console.log(`   Email: ${email.toLowerCase().trim()}`);
-      console.log(`   Company: ${companyName.trim()}`);
       console.log(`   Link: ${verifyLink}`);
       console.log(`========================================\n`);
-      sendManagerVerificationEmail(email.toLowerCase().trim(), verifyLink, companyName.trim()).catch(() => {});
+      sendManagerVerificationEmail(email.toLowerCase().trim(), verifyLink, EDAI_COMPANY_NAME).catch(() => {});
 
       res.status(200).json({
         message: "Verification email sent! Check your inbox to complete registration.",
@@ -280,14 +293,14 @@ export async function registerRoutes(
       res.json({
         valid: true,
         email: signupToken.email,
-        companyName: signupToken.companyName,
+        companyName: EDAI_COMPANY_NAME,
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Validation failed" });
     }
   });
 
-  // Step 3: Complete signup — set name + password, create company + user
+  // Step 3: Complete signup — set name + password, join the fixed EDAI company
   app.post("/api/auth/complete-signup/:token", authLimiter, async (req, res) => {
     try {
       const { name, password } = req.body;
@@ -308,8 +321,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "An account with this email already exists" });
       }
 
-      const slug = await generateUniqueCompanySlug(signupToken.companyName);
-      const company = await storage.createCompany({ name: signupToken.companyName, slug });
+      const company = await getOrCreateEdaiCompany();
       const passwordHash = await bcrypt.hash(password, 10);
 
       const user = await storage.createUser({
@@ -1540,6 +1552,377 @@ export async function registerRoutes(
     }
   });
 
+  // --- Tasks ---
+  // Generic assigned work item, distinct from the AI-planned project/log
+  // flow above. Status transitions are exposed as dedicated action
+  // endpoints (start/submit/block/approve/etc.) rather than a raw PATCH,
+  // so each transition can carry its own validation and notification.
+
+  async function notifyAdmins(companyId: string, title: string, message: string, link?: string): Promise<void> {
+    const companyUsers = await storage.getUsersByCompany(companyId);
+    const admins = companyUsers.filter(u => u.role === "admin");
+    for (const admin of admins) {
+      await storage.createNotification({ userId: admin.id, title, message, read: false, link: link || null });
+    }
+  }
+
+  app.post("/api/tasks", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.status(400).json({ message: "Admin must belong to a company" });
+
+      const { title, description, assigneeId, projectId, priority, dueDate } = req.body;
+      if (!title?.trim() || !assigneeId) {
+        return res.status(400).json({ message: "Title and assignee are required" });
+      }
+
+      const assignee = await storage.getUser(assigneeId);
+      if (!assignee || assignee.companyId !== companyId) {
+        return res.status(400).json({ message: "Invalid assignee" });
+      }
+
+      if (projectId) {
+        const project = await storage.getProjectById(projectId);
+        if (!project || project.companyId !== companyId) {
+          return res.status(400).json({ message: "Invalid project" });
+        }
+      }
+
+      if (priority && !["low", "medium", "high"].includes(priority)) {
+        return res.status(400).json({ message: "Invalid priority" });
+      }
+
+      const task = await storage.createTask({
+        companyId,
+        title: title.trim(),
+        description: description?.trim() || null,
+        assigneeId,
+        createdByUserId: (req as any).userId,
+        projectId: projectId || null,
+        priority: priority || "medium",
+        status: "todo",
+        dueDate: dueDate ? new Date(dueDate) : null,
+      } as any);
+
+      await storage.createNotification({
+        userId: assigneeId,
+        title: "New Task Assigned",
+        message: `You've been assigned a new task: "${task.title}"`,
+        read: false,
+        link: "/?view=tasks&taskId=" + task.id,
+      });
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "task.created",
+        targetType: "task",
+        targetId: task.id,
+      });
+
+      res.status(201).json(task);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to create task" });
+    }
+  });
+
+  app.get("/api/tasks", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.json([]);
+      let taskList = await storage.getTasksByCompany(companyId);
+
+      const { assigneeId, projectId, status, priority } = req.query;
+      if (assigneeId) taskList = taskList.filter(t => t.assigneeId === assigneeId);
+      if (projectId) taskList = taskList.filter(t => t.projectId === projectId);
+      if (status) taskList = taskList.filter(t => t.status === status);
+      if (priority) taskList = taskList.filter(t => t.priority === priority);
+
+      res.json(taskList);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get tasks" });
+    }
+  });
+
+  app.get("/api/tasks/mine", requireAuth, async (req, res) => {
+    try {
+      const taskList = await storage.getTasksByAssignee((req as any).userId);
+      res.json(taskList);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get tasks" });
+    }
+  });
+
+  app.get("/api/tasks/:id", requireAuth, async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      const role = (req as any).userRole;
+      if (role !== "admin" && task.assigneeId !== (req as any).userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      res.json(task);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get task" });
+    }
+  });
+
+  app.put("/api/tasks/:id", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+
+      const { title, description, assigneeId, projectId, priority, dueDate } = req.body;
+
+      if (assigneeId) {
+        const assignee = await storage.getUser(assigneeId);
+        if (!assignee || assignee.companyId !== task.companyId) {
+          return res.status(400).json({ message: "Invalid assignee" });
+        }
+      }
+      if (projectId) {
+        const project = await storage.getProjectById(projectId);
+        if (!project || project.companyId !== task.companyId) {
+          return res.status(400).json({ message: "Invalid project" });
+        }
+      }
+      if (priority && !["low", "medium", "high"].includes(priority)) {
+        return res.status(400).json({ message: "Invalid priority" });
+      }
+
+      const updated = await storage.updateTaskDetails(task.id, {
+        ...(title !== undefined ? { title: title.trim() } : {}),
+        ...(description !== undefined ? { description: description?.trim() || null } : {}),
+        ...(assigneeId !== undefined ? { assigneeId } : {}),
+        ...(projectId !== undefined ? { projectId: projectId || null } : {}),
+        ...(priority !== undefined ? { priority } : {}),
+        ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+      });
+
+      if (assigneeId && assigneeId !== task.assigneeId) {
+        await storage.createNotification({
+          userId: assigneeId,
+          title: "Task Reassigned To You",
+          message: `You've been assigned the task: "${updated?.title}"`,
+          read: false,
+          link: "/?view=tasks&taskId=" + task.id,
+        });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update task" });
+    }
+  });
+
+  app.delete("/api/tasks/:id", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      await storage.deleteTask(task.id);
+      res.json({ message: "Task deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/start", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId || task.assigneeId !== (req as any).userId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      if (task.status !== "todo") {
+        return res.status(400).json({ message: "Only a To Do task can be started" });
+      }
+      const updated = await storage.updateTaskStatus(task.id, "in_progress");
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to start task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/submit", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId || task.assigneeId !== (req as any).userId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      if (task.status !== "in_progress" && task.status !== "blocked") {
+        return res.status(400).json({ message: "Only an in-progress or blocked task can be submitted" });
+      }
+      const { submission } = req.body;
+      if (!submission?.trim()) {
+        return res.status(400).json({ message: "Submission text is required" });
+      }
+      const updated = await storage.updateTaskStatus(task.id, "in_review", {
+        submission: submission.trim(),
+        submittedAt: new Date(),
+        blockedReason: null,
+      });
+
+      await notifyAdmins(task.companyId, "Task Submitted for Review", `A task was submitted for review: "${task.title}"`, "/?view=tasks&taskId=" + task.id);
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to submit task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/block", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId || task.assigneeId !== (req as any).userId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      if (task.status !== "todo" && task.status !== "in_progress") {
+        return res.status(400).json({ message: "Only a To Do or in-progress task can be marked blocked" });
+      }
+      const { reason } = req.body;
+      if (!reason?.trim()) {
+        return res.status(400).json({ message: "A reason is required to mark a task blocked" });
+      }
+      const updated = await storage.updateTaskStatus(task.id, "blocked", { blockedReason: reason.trim() });
+
+      await notifyAdmins(task.companyId, "Task Blocked", `"${task.title}" is blocked: ${reason.trim()}`, "/?view=tasks&taskId=" + task.id);
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to mark task blocked" });
+    }
+  });
+
+  app.post("/api/tasks/:id/unblock", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId || task.assigneeId !== (req as any).userId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      if (task.status !== "blocked") {
+        return res.status(400).json({ message: "Only a blocked task can be unblocked" });
+      }
+      const updated = await storage.updateTaskStatus(task.id, "in_progress", { blockedReason: null });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to unblock task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/approve", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      if (task.status !== "in_review") {
+        return res.status(400).json({ message: "Only a task in review can be approved" });
+      }
+      const { feedback } = req.body;
+      const updated = await storage.updateTaskStatus(task.id, "completed", {
+        completedAt: new Date(),
+        ...(feedback?.trim() ? { feedback: feedback.trim() } : {}),
+      });
+
+      await storage.createNotification({
+        userId: task.assigneeId,
+        title: "Task Approved",
+        message: `Your task "${task.title}" was approved.`,
+        read: false,
+        link: "/?view=tasks&taskId=" + task.id,
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to approve task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/request-changes", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const task = await storage.getTaskById(req.params.id as string);
+      if (!task || task.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      if (task.status !== "in_review") {
+        return res.status(400).json({ message: "Only a task in review can have changes requested" });
+      }
+      const { feedback } = req.body;
+      if (!feedback?.trim()) {
+        return res.status(400).json({ message: "Feedback explaining the requested changes is required" });
+      }
+      const updated = await storage.updateTaskStatus(task.id, "in_progress", { feedback: feedback.trim() });
+
+      await storage.createNotification({
+        userId: task.assigneeId,
+        title: "Changes Requested on Task",
+        message: `Changes were requested on "${task.title}".`,
+        read: false,
+        link: "/?view=tasks&taskId=" + task.id,
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to request changes" });
+    }
+  });
+
+  app.post("/api/ai/org-assistant", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.status(400).json({ message: "Admin must belong to a company" });
+
+      const { messages } = req.body;
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ message: "messages is required" });
+      }
+
+      const company = await storage.getCompanyById(companyId);
+      const interns = await storage.getInternsByCompany(companyId);
+      const allTasks = await storage.getTasksByCompany(companyId);
+      const now = Date.now();
+      const internNameById = new Map(interns.map((i) => [i.id, i.name]));
+
+      const toDigestTask = (t: typeof allTasks[number]) => ({
+        title: t.title,
+        internName: internNameById.get(t.assigneeId) || "Unknown",
+        status: t.status,
+        priority: t.priority,
+        dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString() : null,
+        blockedReason: t.blockedReason,
+      });
+
+      const digest: OrgDigest = {
+        companyName: company?.name || "the organization",
+        interns: interns.map((i) => {
+          const mine = allTasks.filter((t) => t.assigneeId === i.id);
+          return {
+            name: i.name,
+            totalTasks: mine.length,
+            completedTasks: mine.filter((t) => t.status === "completed").length,
+            blockedTasks: mine.filter((t) => t.status === "blocked").length,
+            overdueTasks: mine.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now).length,
+          };
+        }),
+        blockedTasks: allTasks.filter((t) => t.status === "blocked").map(toDigestTask),
+        overdueTasks: allTasks.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now).map(toDigestTask),
+        inReviewTasks: allTasks.filter((t) => t.status === "in_review").map(toDigestTask),
+        totalTasks: allTasks.length,
+        completedTasks: allTasks.filter((t) => t.status === "completed").length,
+      };
+
+      const { reply, aiGenerated } = await orgAssistantChat(digest, messages);
+      res.json({ reply, aiGenerated });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Assistant request failed" });
+    }
+  });
+
   app.get("/api/dashboard", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const companyId = (req as any).companyId;
@@ -1909,11 +2292,30 @@ export async function registerRoutes(
         };
       });
 
+      // Task status breakdown + per-intern task completion, from the real
+      // Task table (separate from the AI-planned project/log data above).
+      const allTasks = await storage.getTasksByCompany(companyId);
+      const taskStatusCounts = ["todo", "in_progress", "in_review", "completed", "blocked"].map((status) => ({
+        status,
+        count: allTasks.filter((t) => t.status === status).length,
+      })).filter((s) => s.count > 0);
+
+      const taskCompletionByIntern = interns.map((intern) => {
+        const internTasks = allTasks.filter((t) => t.assigneeId === intern.id);
+        return {
+          internName: intern.name.split(" ")[0],
+          completed: internTasks.filter((t) => t.status === "completed").length,
+          total: internTasks.length,
+        };
+      }).filter((t) => t.total > 0);
+
       res.json({
         statusCounts,
         completionRates,
         logActivity,
         hoursComparison,
+        taskStatusCounts,
+        taskCompletionByIntern,
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to load analytics" });

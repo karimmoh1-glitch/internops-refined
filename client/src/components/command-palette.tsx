@@ -107,18 +107,59 @@ export function useAdminCommands({
   onReview,
   onSignOut,
   onNavigateHome,
+  interns = [],
+  tasks = [],
+  projects = [],
+  onNavigate,
 }: {
   onInvite: () => void;
   onAssign: () => void;
   onReview: () => void;
   onSignOut: () => void;
   onNavigateHome: () => void;
+  interns?: { id: string; name: string; email: string }[];
+  tasks?: { id: string; title: string; status: string; assigneeId: string }[];
+  projects?: { id: string; title: string; status: string; internName?: string }[];
+  onNavigate?: (path: string) => void;
 }): CommandItem[] {
+  const internItems: CommandItem[] = interns.map((i) => ({
+    id: `intern-${i.id}`,
+    label: i.name,
+    description: i.email,
+    icon: UserPlus,
+    action: () => onNavigate?.(`/interns/${i.id}`),
+    group: "Interns",
+    keywords: [i.email],
+  }));
+
+  const taskItems: CommandItem[] = tasks.map((t) => ({
+    id: `task-${t.id}`,
+    label: t.title,
+    description: t.status.replace("_", " "),
+    icon: FileText,
+    action: () => onNavigate?.(`/tasks?assigneeId=${t.assigneeId}`),
+    group: "Tasks",
+    keywords: [t.status],
+  }));
+
+  const projectItems: CommandItem[] = projects.map((p) => ({
+    id: `project-${p.id}`,
+    label: p.title,
+    description: [p.internName, p.status].filter(Boolean).join(" · "),
+    icon: Briefcase,
+    action: () => onNavigate?.(`/?projectId=${p.id}`),
+    group: "Projects",
+    keywords: [p.status, p.internName || ""],
+  }));
+
   return [
     { id: "invite", label: "Invite Intern", description: "Send invitation link", icon: UserPlus, action: onInvite, group: "Actions", keywords: ["add", "new", "intern"] },
     { id: "assign", label: "Assign Project", description: "Create new project assignment", icon: Briefcase, action: onAssign, group: "Actions", keywords: ["create", "project", "new"] },
     { id: "review", label: "Review Plans", description: "View plans pending review", icon: FileText, action: onReview, group: "Actions", keywords: ["approve", "revision", "submitted"] },
     { id: "home", label: "Go to Dashboard", icon: Home, action: onNavigateHome, group: "Navigation", keywords: ["dashboard", "main"] },
+    ...internItems,
+    ...taskItems,
+    ...projectItems,
     { id: "signout", label: "Sign Out", icon: LogOut, action: onSignOut, group: "Account", keywords: ["logout", "exit"] },
   ];
 }
