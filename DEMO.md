@@ -20,7 +20,7 @@ npm run dev
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Manager | `demo-manager@internops.local` | `DemoPass123!` |
+| Manager | `manager@edai.fun` | `DemoPass123!` |
 | Intern (active project, logged work, has feedback) | `alex@internops.local` | `DemoPass123!` |
 | Intern (plan submitted, awaiting review) | `maya@internops.local` | `DemoPass123!` |
 | Intern (just assigned, nothing started) | `jordan@internops.local` | `DemoPass123!` |
@@ -43,7 +43,7 @@ This is EDAI's live public application page — the exact URL a manager gets fro
 
 ### 3. Manager: applications review
 
-Log in as `demo-manager@internops.local`. The dashboard opens directly to the Applications panel with the pending count front and center — not buried under decorative analytics.
+Log in as `manager@edai.fun`. The dashboard opens directly to the Applications panel with the pending count front and center — not buried under decorative analytics.
 
 - Point out **Priya Sharma** — a real pending application with skills, motivation, and a GitHub link — and **Sam Rivera**, already rejected with an internal reviewer note.
 - Open Priya's application, walk through Approve / Reject / the reviewer-notes field.

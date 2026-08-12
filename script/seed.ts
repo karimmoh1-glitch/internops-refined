@@ -22,9 +22,9 @@ async function main() {
 
   console.log("Seeding demo data...\n");
 
-  const existing = await storage.getUserByEmail("demo-manager@internops.local");
+  const existing = await storage.getUserByEmail("manager@edai.fun");
   if (existing) {
-    console.log("Demo data already exists (demo-manager@internops.local found). Skipping.");
+    console.log("Demo data already exists (manager@edai.fun found). Skipping.");
     console.log("To reseed from scratch, drop and recreate the database, then run `npm run db:push` again.");
     await pool.end();
     return;
@@ -47,8 +47,8 @@ async function main() {
   console.log(`Company: ${company.name} (${company.slug})`);
 
   const manager = await storage.createUser({
-    name: "Demo Manager",
-    email: "demo-manager@internops.local",
+    name: "EDAI Manager",
+    email: "manager@edai.fun",
     passwordHash,
     role: "admin",
     companyId: company.id,
@@ -234,7 +234,7 @@ async function main() {
   await storage.createNotification({
     userId: alex.id,
     title: "New Comment on Log",
-    message: "Demo Manager commented on your log entry.",
+    message: "EDAI Manager commented on your log entry.",
     read: true,
     link: "/?projectId=" + project1.id,
   });
@@ -276,7 +276,7 @@ async function main() {
 
   console.log("\nSeed complete.");
   console.log("\nDemo accounts (password for all: " + DEMO_PASSWORD + "):");
-  console.log("  Manager: demo-manager@internops.local");
+  console.log("  Manager: manager@edai.fun");
   console.log("  Intern:  alex@internops.local   (active project with logged work + feedback)");
   console.log("  Intern:  maya@internops.local   (plan submitted, awaiting review)");
   console.log("  Intern:  jordan@internops.local (just assigned, no plan yet)");
