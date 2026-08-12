@@ -48,6 +48,9 @@ export function useAuth() {
     return state.user;
   }, [persistAuth]);
 
+  // Signup no longer logs the user in — it creates a pending application
+  // that a manager must approve before any account (or login access)
+  // exists, so there's nothing to persist here.
   const signup = useCallback(async (name: string, email: string, password: string) => {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
@@ -57,11 +60,8 @@ export function useAuth() {
     if (!res.ok) {
       throw new Error(await parseErrorMessage(res, "Signup failed"));
     }
-    const data = await res.json();
-    const state: AuthState = { token: data.token, user: data.user };
-    persistAuth(state);
-    return state.user;
-  }, [persistAuth]);
+    return res.json();
+  }, []);
 
   const acceptInvite = useCallback(async (token: string, name: string, password: string) => {
     const res = await fetch(`/api/invitations/accept/${token}`, {

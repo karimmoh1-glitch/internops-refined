@@ -237,13 +237,16 @@ export async function registerRoutes(
     }
   });
 
-  // Public signup — immediate, no email verification step. This is a
-  // private internal app for EDAI (not a public SaaS signup surface).
-  // SECURITY: every account created through this public, unauthenticated
-  // route is an intern — never admin. The role is a hardcoded server-side
-  // constant, never read from the request body, so it cannot be spoofed by
-  // a client. Manager/admin accounts only ever come from the dev-only seed
-  // script — there is no public or client-controllable path to admin.
+  // Public signup — no email verification step, but also no immediate
+  // account creation. This is a private internal app for EDAI, so every
+  // public signup becomes a pending Application that a manager must
+  // approve or reject from the dashboard before a real user account (and
+  // any login access) exists. This reuses the same applications
+  // table/approve/reject routes as the public /apply page below — signup
+  // and "apply to join" are the same underlying flow.
+  // SECURITY: nothing here ever creates a role: "admin" account, and role
+  // is never read from the request body — manager accounts only ever come
+  // from the dev-only seed script or an existing admin's direct action.
   app.post("/api/auth/signup", strictAuthLimiter, async (req, res) => {
     try {
       const { name, email, password } = req.body;
@@ -255,31 +258,45 @@ export async function registerRoutes(
       }
 
       const normalizedEmail = email.toLowerCase().trim();
-      const existing = await storage.getUserByEmail(normalizedEmail);
-      if (existing) {
-        return res.status(400).json({ message: "An account with this email already exists" });
+      const existingUser = await storage.getUserByEmail(normalizedEmail);
+      if (existingUser) {
+        return res.status(400).json({ message: "An account with this email already exists. Try logging in instead." });
       }
 
       const company = await getOrCreateEdaiCompany();
-      const passwordHash = await bcrypt.hash(password, 10);
+      const existingApplication = await storage.getPendingApplicationByEmail(company.id, normalizedEmail);
+      if (existingApplication) {
+        return res.status(400).json({ message: "You already have a pending signup request awaiting approval" });
+      }
 
-      const user = await storage.createUser({
+      const passwordHash = await bcrypt.hash(password, 10);
+      const application = await storage.createApplication({
+        companyId: company.id,
         name: name.trim(),
         email: normalizedEmail,
         passwordHash,
-        role: "intern",
-        companyId: company.id,
-      });
+        skills: null,
+        motivation: null,
+        githubUrl: null,
+        linkedinUrl: null,
+        portfolioUrl: null,
+        status: "pending",
+      } as any);
 
-      // Create #general channel and add the new intern as a member
-      const generalChannel = await storage.ensureGeneralChannel(company.id);
-      await storage.addChannelMember(generalChannel.id, user.id);
+      const admins = (await storage.getUsersByCompany(company.id)).filter((u) => u.role === "admin");
+      for (const admin of admins) {
+        await storage.createNotification({
+          userId: admin.id,
+          title: "New Signup Request",
+          message: `${name.trim()} signed up and is waiting for approval.`,
+          read: false,
+          link: "/?view=applications",
+        });
+      }
 
-      const deviceId = await createDeviceForLogin(user.id, req);
-      const jwtToken = signToken(user.id, user.role, user.companyId, deviceId);
       res.status(201).json({
-        token: jwtToken,
-        user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
+        message: "Your account request has been submitted and is pending manager approval.",
+        pending: true,
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Signup failed" });

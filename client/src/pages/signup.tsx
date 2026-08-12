@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Link, useLocation } from "wouter";
-import { GraduationCap } from "lucide-react";
+import { Link } from "wouter";
+import { GraduationCap, Clock, CheckCircle2 } from "lucide-react";
 import LogoMark from "@/components/logo-mark";
 
 interface SignupProps {
@@ -12,11 +12,11 @@ interface SignupProps {
 
 export default function Signup({ onSignup }: SignupProps) {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -30,8 +30,7 @@ export default function Signup({ onSignup }: SignupProps) {
     setLoading(true);
     try {
       await onSignup(name.trim(), email.trim(), password);
-      toast({ title: "Account created", description: "Welcome to EDAI." });
-      setLocation("/");
+      setSubmitted(true);
     } catch (error: any) {
       toast({ title: "Signup failed", description: error.message, variant: "destructive" });
     } finally {
@@ -40,6 +39,47 @@ export default function Signup({ onSignup }: SignupProps) {
   };
 
   const inputClass = "bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#EF7878]/50 focus-visible:border-[#EF7878]/50";
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-[#09090b] flex flex-col">
+        <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center">
+            <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline">
+              <LogoMark size={32} />
+              InternOps
+            </Link>
+          </div>
+        </nav>
+        <main className="flex-1 flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md text-center">
+            <Clock className="w-16 h-16 text-[#EF7878] mx-auto mb-4" />
+            <h1 className="text-3xl font-bold font-heading text-white mb-3" data-testid="text-pending-title">
+              Request Submitted
+            </h1>
+            <p className="text-zinc-400 mb-6">
+              Your account request for <span className="text-white font-medium">{email}</span> is waiting on a manager to approve it. You'll be able to log in once it's approved.
+            </p>
+            <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] p-6 text-left space-y-3">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="text-zinc-300 text-sm">Request sent to the EDAI manager for review</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <Clock className="w-5 h-5 text-[#EF7878] shrink-0 mt-0.5" />
+                <p className="text-zinc-300 text-sm">Once approved, log in with the password you just set</p>
+              </div>
+            </div>
+            <p className="text-zinc-600 text-xs mt-6">
+              <Link href="/intern-login" className="text-[#EF7878] hover:underline">
+                Try logging in
+              </Link>
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#09090b] flex flex-col">
@@ -60,9 +100,9 @@ export default function Signup({ onSignup }: SignupProps) {
               Intern Signup
             </div>
             <h1 className="text-3xl font-bold font-heading text-white mb-2" data-testid="text-signup-title">
-              Create Your Account
+              Request an Account
             </h1>
-            <p className="text-zinc-500 text-sm">Join the EDAI workspace as an intern — no invite needed</p>
+            <p className="text-zinc-500 text-sm">Submit your details — a manager reviews every request before it's active</p>
           </div>
 
           <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] shadow-2xl p-6 space-y-4">
@@ -107,12 +147,12 @@ export default function Signup({ onSignup }: SignupProps) {
               className="w-full py-5 text-base bg-gradient-to-r from-[#EF7878] to-[#e05555] hover:from-[#e86868] hover:to-[#d54545] text-white"
               data-testid="button-signup"
             >
-              {loading ? "Creating account..." : "Create Account"}
+              {loading ? "Submitting..." : "Request Account"}
             </Button>
 
             <div className="text-center pt-2">
               <p className="text-sm text-zinc-500">
-                Already have an account?{" "}
+                Already approved?{" "}
                 <Link href="/intern-login" className="text-[#EF7878] hover:text-[#e86868] font-medium" data-testid="link-login">
                   Log in
                 </Link>
