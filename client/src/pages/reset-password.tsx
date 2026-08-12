@@ -77,7 +77,7 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
             <LogoMark size={32} />
             InternOps
           </Link>
-          <Link href="/manager-login">
+          <Link href="/login">
             <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-white hover:bg-white/5">
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back to Login
@@ -90,7 +90,7 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
         <div className="w-full max-w-md">
           {validating ? (
             <div className="text-center">
-              <Loader2 className="w-8 h-8 text-[#E8604F] animate-spin mx-auto mb-4" />
+              <Loader2 className="w-8 h-8 text-[#6D5EF5] animate-spin mx-auto mb-4" />
               <p className="text-zinc-400">Validating reset link...</p>
             </div>
           ) : error ? (
@@ -102,11 +102,11 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
               <p className="text-zinc-400 text-sm mb-6">{error}</p>
               <div className="space-y-3">
                 <Link href="/forgot-password">
-                  <Button className="w-full bg-gradient-to-r from-[#E8604F] to-[#e85d5d] text-white">
+                  <Button className="w-full bg-gradient-to-r from-[#6D5EF5] to-[#e85d5d] text-white">
                     Request a new link
                   </Button>
                 </Link>
-                <Link href="/manager-login">
+                <Link href="/login">
                   <Button variant="ghost" className="w-full text-zinc-500 hover:text-white">
                     Back to login
                   </Button>
@@ -120,7 +120,7 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
               </div>
               <h1 className="text-2xl font-bold font-heading text-white mb-3">Password Reset!</h1>
               <p className="text-zinc-400 text-sm mb-6">Your password has been reset successfully. You can now log in with your new password.</p>
-              <Link href="/manager-login">
+              <Link href="/login">
                 <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
                   Go to Login
                 </Button>
@@ -129,8 +129,8 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
           ) : (
             <>
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-14 h-14 bg-[#E8604F]/10 border border-[#E8604F]/20 rounded-full mb-4">
-                  <KeyRound className="w-6 h-6 text-[#E8604F]" />
+                <div className="inline-flex items-center justify-center w-14 h-14 bg-[#6D5EF5]/10 border border-[#6D5EF5]/20 rounded-full mb-4">
+                  <KeyRound className="w-6 h-6 text-[#6D5EF5]" />
                 </div>
                 <h1 className="text-3xl font-bold font-heading text-white mb-2">Set new password</h1>
                 <p className="text-zinc-500 text-sm">
@@ -148,7 +148,7 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoFocus
-                      className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#E8604F]/50 focus-visible:border-[#E8604F]/50"
+                      className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#6D5EF5]/50 focus-visible:border-[#6D5EF5]/50"
                     />
                     <button
                       type="button"
@@ -168,14 +168,14 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleReset()}
-                    className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#E8604F]/50 focus-visible:border-[#E8604F]/50"
+                    className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#6D5EF5]/50 focus-visible:border-[#6D5EF5]/50"
                   />
                 </div>
 
                 <Button
                   onClick={handleReset}
                   disabled={loading || !password.trim() || !confirmPassword.trim()}
-                  className="w-full py-5 text-base bg-gradient-to-r from-[#E8604F] to-[#e85d5d] hover:from-[#EE7A6B] hover:to-[#d54d4d] text-white"
+                  className="w-full py-5 text-base bg-gradient-to-r from-[#6D5EF5] to-[#e85d5d] hover:from-[#8B7FF7] hover:to-[#d54d4d] text-white"
                 >
                   {loading ? "Resetting..." : "Reset Password"}
                 </Button>

@@ -33,14 +33,21 @@ export function useAuth() {
     setAuth(state);
   }, []);
 
-  const login = useCallback(async (email: string, password: string, expectedRole?: "admin" | "intern") => {
+  const login = useCallback(async (email: string, password: string) => {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, expectedRole }),
+      body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
-      throw new Error(await parseErrorMessage(res, "Login failed"));
+      const body = await res.clone().json().catch(() => null);
+      const error: Error & { applicationStatus?: "pending" | "rejected" } = new Error(
+        await parseErrorMessage(res, "Login failed")
+      );
+      if (body?.applicationStatus === "pending" || body?.applicationStatus === "rejected") {
+        error.applicationStatus = body.applicationStatus;
+      }
+      throw error;
     }
     const data = await res.json();
     const state: AuthState = { token: data.token, user: data.user };

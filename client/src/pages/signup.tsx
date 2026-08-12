@@ -32,7 +32,7 @@ export default function Signup({ onSignup }: SignupProps) {
     try {
       const result = await onSignup(name.trim(), email.trim(), password);
       if (result?.bootstrapped) {
-        toast({ title: "Welcome to EDAI", description: "You're the first account, so you're set up as the manager." });
+        toast({ title: "Welcome to EDAI", description: "You're the first account, so you're set up as the admin." });
         setLocation("/");
       } else {
         setSubmitted(true);
@@ -44,7 +44,7 @@ export default function Signup({ onSignup }: SignupProps) {
     }
   };
 
-  const inputClass = "bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#E8604F]/50 focus-visible:border-[#E8604F]/50";
+  const inputClass = "bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#6D5EF5]/50 focus-visible:border-[#6D5EF5]/50";
 
   if (submitted) {
     return (
@@ -59,25 +59,25 @@ export default function Signup({ onSignup }: SignupProps) {
         </nav>
         <main className="flex-1 flex items-center justify-center px-6 py-12">
           <div className="w-full max-w-md text-center">
-            <Clock className="w-16 h-16 text-[#E8604F] mx-auto mb-4" />
+            <Clock className="w-16 h-16 text-[#6D5EF5] mx-auto mb-4" />
             <h1 className="text-3xl font-bold font-heading text-white mb-3" data-testid="text-pending-title">
               Request Submitted
             </h1>
             <p className="text-zinc-400 mb-6">
-              Your account request for <span className="text-white font-medium">{email}</span> is waiting on a manager to approve it. You'll be able to log in once it's approved.
+              Your account request for <span className="text-white font-medium">{email}</span> is waiting on an admin to approve it. You'll be able to log in once it's approved.
             </p>
             <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] p-6 text-left space-y-3">
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-zinc-300 text-sm">Request sent to the EDAI manager for review</p>
+                <p className="text-zinc-300 text-sm">Request sent to an EDAI admin for review</p>
               </div>
               <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-[#E8604F] shrink-0 mt-0.5" />
+                <Clock className="w-5 h-5 text-[#6D5EF5] shrink-0 mt-0.5" />
                 <p className="text-zinc-300 text-sm">Once approved, log in with the password you just set</p>
               </div>
             </div>
             <p className="text-zinc-600 text-xs mt-6">
-              <Link href="/intern-login" className="text-[#E8604F] hover:underline">
+              <Link href="/login" className="text-[#6D5EF5] hover:underline">
                 Try logging in
               </Link>
             </p>
@@ -101,14 +101,14 @@ export default function Signup({ onSignup }: SignupProps) {
       <main className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#E8604F]/10 border border-[#E8604F]/20 rounded-full text-sm text-[#E8604F] font-medium mb-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6D5EF5]/10 border border-[#6D5EF5]/20 rounded-full text-sm text-[#6D5EF5] font-medium mb-4">
               <GraduationCap className="w-4 h-4" />
               Intern Signup
             </div>
             <h1 className="text-3xl font-bold font-heading text-white mb-2" data-testid="text-signup-title">
               Request an Account
             </h1>
-            <p className="text-zinc-500 text-sm">Submit your details — a manager reviews every request before it's active</p>
+            <p className="text-zinc-500 text-sm">Submit your details — an admin reviews every request before it's active</p>
           </div>
 
           <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] shadow-2xl p-6 space-y-4">
@@ -150,7 +150,7 @@ export default function Signup({ onSignup }: SignupProps) {
             <Button
               onClick={handleSubmit}
               disabled={loading || !name.trim() || !email.trim() || !password.trim()}
-              className="w-full py-5 text-base bg-gradient-to-r from-[#E8604F] to-[#C94A3B] hover:from-[#EE7A6B] hover:to-[#B33D30] text-white"
+              className="w-full py-5 text-base bg-gradient-to-r from-[#6D5EF5] to-[#5142D6] hover:from-[#8B7FF7] hover:to-[#4335B0] text-white"
               data-testid="button-signup"
             >
               {loading ? "Submitting..." : "Request Account"}
@@ -158,15 +158,9 @@ export default function Signup({ onSignup }: SignupProps) {
 
             <div className="text-center pt-2">
               <p className="text-sm text-zinc-500">
-                Already approved?{" "}
-                <Link href="/intern-login" className="text-[#E8604F] hover:text-[#EE7A6B] font-medium" data-testid="link-login">
+                Already have an account?{" "}
+                <Link href="/login" className="text-[#6D5EF5] hover:text-[#8B7FF7] font-medium" data-testid="link-login">
                   Log in
-                </Link>
-              </p>
-              <p className="text-xs text-zinc-600 mt-2">
-                Manager?{" "}
-                <Link href="/manager-login" className="text-zinc-400 hover:text-zinc-300" data-testid="link-manager-login">
-                  Log in here
                 </Link>
               </p>
             </div>

@@ -268,7 +268,7 @@ function ChannelItem({
       onClick={onClick}
       className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md mx-1 transition-colors ${
         isActive
-          ? "bg-[#E8604F] text-white"
+          ? "bg-[#6D5EF5] text-white"
           : "text-slate-300 hover:bg-slate-700 hover:text-white"
       }`}
       style={{ width: "calc(100% - 8px)" }}
@@ -506,7 +506,7 @@ function MessagePane({
                 onClick={handleSend}
                 disabled={!input.trim() || sendMutation.isPending}
                 size="icon"
-                className="shrink-0 bg-[#E8604F] hover:bg-[#C94A3B]"
+                className="shrink-0 bg-[#6D5EF5] hover:bg-[#5142D6]"
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -534,7 +534,7 @@ function MessagePane({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-slate-700 truncate font-medium">{m.userName}</p>
-                    <p className="text-[10px] text-slate-400 capitalize">{m.userRole === "admin" ? "Manager" : m.userRole}</p>
+                    <p className="text-[10px] text-slate-400 capitalize">{m.userRole === "admin" ? "Admin" : m.userRole}</p>
                   </div>
                 </div>
               ))}
@@ -645,10 +645,10 @@ function CreateChannelDialog({
                   </div>
                   <span className="flex-1 text-left truncate">{u.name}</span>
                   <span className="text-[10px] text-slate-400 capitalize">
-                    {u.role === "admin" ? "Manager" : u.role}
+                    {u.role === "admin" ? "Admin" : u.role}
                   </span>
                   {selectedUsers.includes(u.id) && (
-                    <div className="w-4 h-4 bg-[#E8604F] rounded-full flex items-center justify-center">
+                    <div className="w-4 h-4 bg-[#6D5EF5] rounded-full flex items-center justify-center">
                       <span className="text-white text-[10px]">✓</span>
                     </div>
                   )}
@@ -667,7 +667,7 @@ function CreateChannelDialog({
           <Button
             onClick={() => createMutation.mutate()}
             disabled={!name.trim() || createMutation.isPending}
-            className="bg-[#E8604F] hover:bg-[#C94A3B]"
+            className="bg-[#6D5EF5] hover:bg-[#5142D6]"
           >
             {createMutation.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin mr-1" />
@@ -762,7 +762,7 @@ function NewDMDialog({
                   <div className="flex-1 text-left">
                     <p className="font-medium text-slate-700">{u.name}</p>
                     <p className="text-[10px] text-slate-400 capitalize">
-                      {u.role === "admin" ? "Manager" : u.role}
+                      {u.role === "admin" ? "Admin" : u.role}
                     </p>
                   </div>
                 </button>

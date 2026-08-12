@@ -297,7 +297,7 @@ export default function Settings({ user }: SettingsProps) {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Role</label>
-                <p className="text-sm text-gray-900 mt-1 capitalize" data-testid="text-profile-role">{user.role === "admin" ? "Manager" : user.role}</p>
+                <p className="text-sm text-gray-900 mt-1 capitalize" data-testid="text-profile-role">{user.role === "admin" ? "Admin" : user.role}</p>
               </div>
             </div>
 

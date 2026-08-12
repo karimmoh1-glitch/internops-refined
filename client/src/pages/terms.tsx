@@ -58,7 +58,7 @@ export default function Terms() {
       <p>We'll update the date at the top of this page when these terms change. Continued use after a change means you accept the updated terms.</p>
 
       <h2>Contact</h2>
-      <p>Questions about these terms can be sent through our <a href="/contact" className="text-[#E8604F] hover:underline">contact page</a>.</p>
+      <p>Questions about these terms can be sent through our <a href="/contact" className="text-[#6D5EF5] hover:underline">contact page</a>.</p>
     </LegalPageLayout>
   );
 }

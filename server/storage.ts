@@ -155,6 +155,7 @@ export interface IStorage {
   getApplicationById(id: string): Promise<Application | undefined>;
   getApplicationsByCompany(companyId: string): Promise<Application[]>;
   getPendingApplicationByEmail(companyId: string, email: string): Promise<Application | undefined>;
+  getApplicationByEmail(companyId: string, email: string): Promise<Application | undefined>;
   updateApplicationStatus(id: string, status: string, reviewedByUserId: string, reviewerNotes?: string): Promise<Application | undefined>;
 
   // Tasks
@@ -909,6 +910,16 @@ export class DatabaseStorage implements IStorage {
     const [found] = await db.select().from(applications).where(
       and(eq(applications.companyId, companyId), eq(applications.email, email), eq(applications.status, "pending"))
     );
+    return found;
+  }
+
+  // Most recent application for this email regardless of status — used at
+  // login to tell a not-yet-approved applicant why they can't log in
+  // instead of a generic "invalid credentials".
+  async getApplicationByEmail(companyId: string, email: string): Promise<Application | undefined> {
+    const [found] = await db.select().from(applications).where(
+      and(eq(applications.companyId, companyId), eq(applications.email, email))
+    ).orderBy(desc(applications.createdAt)).limit(1);
     return found;
   }
 

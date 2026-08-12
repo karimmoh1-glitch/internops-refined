@@ -1,7 +1,7 @@
 import {
   Sparkles, BarChart3, Brain,
   Shield, Users, UserPlus, ArrowRight,
-  Zap, TrendingUp, CheckCircle2, Briefcase, GraduationCap
+  Zap, TrendingUp, CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
@@ -18,16 +18,14 @@ export default function Landing() {
             InternOps
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/manager-login">
-              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-white/5" data-testid="button-manager-login">
-                <Briefcase className="w-4 h-4 mr-1.5" />
-                Manager Login
+            <Link href="/login">
+              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-white/5" data-testid="button-login">
+                Log In
               </Button>
             </Link>
-            <Link href="/intern-login">
-              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-white/5" data-testid="button-intern-login">
-                <GraduationCap className="w-4 h-4 mr-1.5" />
-                Intern Login
+            <Link href="/signup">
+              <Button size="sm" className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-signup">
+                Sign Up
               </Button>
             </Link>
           </div>
@@ -38,14 +36,14 @@ export default function Landing() {
       <section className="relative flex-1">
         {/* Glow effects */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(239,120,120,0.12),transparent)]" />
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#E8604F]/8 via-purple-500/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#6D5EF5]/8 via-purple-500/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-blue-500/5 via-indigo-500/5 to-transparent rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
 
         <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-16 md:pt-28 md:pb-24">
           {/* Badge */}
           <div className="flex justify-center mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-zinc-300 font-medium" data-testid="text-hero-badge">
-              <Sparkles className="w-3.5 h-3.5 text-[#E8604F]" />
+              <Sparkles className="w-3.5 h-3.5 text-[#6D5EF5]" />
               AI-Powered Intern Management
             </div>
           </div>
@@ -54,20 +52,20 @@ export default function Landing() {
           <h1 className="text-center text-5xl md:text-7xl font-bold font-heading text-white mb-6 leading-[1.1] tracking-tight" data-testid="text-hero-title">
             Supercharge Your
             <br />
-            <span className="bg-gradient-to-r from-[#E8604F] via-[#f0a0a0] to-[#E8604F] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#6D5EF5] via-[#f0a0a0] to-[#6D5EF5] bg-clip-text text-transparent">
               Internship Program
             </span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-center text-lg md:text-xl text-zinc-400 mb-12 leading-relaxed max-w-2xl mx-auto" data-testid="text-hero-subtitle">
-            The modern platform where managers onboard interns, assign projects, and track progress — all enhanced with AI.
+            The modern platform where admins onboard interns, assign projects, and track progress — all enhanced with AI.
           </p>
 
           {/* Single CTA */}
           <div className="flex justify-center mb-20">
             <Link href="/signup">
-              <Button size="lg" className="bg-gradient-to-r from-[#E8604F] to-[#C94A3B] hover:from-[#EE7A6B] hover:to-[#B33D30] text-white rounded-full py-6 px-10 text-base shadow-lg shadow-[#E8604F]/20 hover:shadow-xl hover:shadow-[#E8604F]/30 transition-all duration-300" data-testid="button-get-started">
+              <Button size="lg" className="bg-gradient-to-r from-[#6D5EF5] to-[#5142D6] hover:from-[#8B7FF7] hover:to-[#4335B0] text-white rounded-full py-6 px-10 text-base shadow-lg shadow-[#6D5EF5]/20 hover:shadow-xl hover:shadow-[#6D5EF5]/30 transition-all duration-300" data-testid="button-get-started">
                 Get Started Free
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -81,7 +79,7 @@ export default function Landing() {
                 <Brain className="w-5 h-5 text-white" />
               </div>
               <h3 className="text-base font-semibold text-white mb-1.5">AI Planning Assistant</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Interns build smart execution plans with AI guidance. Managers review and approve with one click.</p>
+              <p className="text-sm text-zinc-500 leading-relaxed">Interns build smart execution plans with AI guidance. Admins review and approve with one click.</p>
             </div>
             <div className="group bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-500" data-testid="card-benefit-1">
               <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-emerald-500/20">

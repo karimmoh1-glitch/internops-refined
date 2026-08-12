@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Users, UserPlus, Briefcase, AlertCircle, ChevronDown, ChevronRight,
   Loader2, X, Copy, Clock, MessageSquare, CheckCircle2, Pencil, Trash2,
-  Target, BarChart3, Filter, ListTodo, Sparkles, Send, ShieldPlus,
+  Target, BarChart3, Filter, ListTodo, Sparkles, Send, ShieldPlus, Activity,
 } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/dashboard-skeleton";
 import SearchFilterBar from "@/components/search-filter-bar";
@@ -548,7 +548,7 @@ function InternProjectDetail({ project }: { project: any }) {
               <GitHubRepoInput value={editGithubUrl} onChange={setEditGithubUrl} />
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1" data-testid={`button-cancel-edit-${project.id}`}>Cancel</Button>
-                <Button onClick={() => editProjectMutation.mutate()} disabled={!editTitle.trim() || !editIdea.trim() || !editMinHours || editProjectMutation.isPending} className="flex-1 bg-[#E8604F] hover:bg-[#C94A3B] text-white" data-testid={`button-save-edit-${project.id}`}>
+                <Button onClick={() => editProjectMutation.mutate()} disabled={!editTitle.trim() || !editIdea.trim() || !editMinHours || editProjectMutation.isPending} className="flex-1 bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid={`button-save-edit-${project.id}`}>
                   {editProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
                 </Button>
               </div>
@@ -743,7 +743,7 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
   return (
     <div data-testid="managers-section">
       <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <ShieldPlus className="w-5 h-5 text-gray-600" />Managers
+        <ShieldPlus className="w-5 h-5 text-gray-600" />Admins
       </h2>
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100">
         {managers.map((manager: any) => {
@@ -762,7 +762,7 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
                   size="sm"
                   variant="outline"
                   className="text-xs text-red-600 border-red-200 hover:bg-red-50 shrink-0"
-                  onClick={() => { if (confirm(`Demote ${manager.name} to intern? They'll lose manager access immediately and go back to the intern dashboard.`)) { demoteMutation.mutate(manager.id); } }}
+                  onClick={() => { if (confirm(`Demote ${manager.name} to intern? They'll lose admin access immediately and go back to the intern dashboard.`)) { demoteMutation.mutate(manager.id); } }}
                   disabled={demoteMutation.isPending}
                   data-testid={`button-demote-manager-${manager.id}`}
                 >
@@ -808,7 +808,7 @@ function OrgAssistantPanel() {
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply, aiGenerated: data.aiGenerated }]);
     },
     onError: (err: any) => {
-      toast({ title: "Assistant unavailable", description: err.message, variant: "destructive" });
+      toast({ title: "Pulse is unavailable", description: err.message, variant: "destructive" });
     },
   });
 
@@ -819,59 +819,66 @@ function OrgAssistantPanel() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5" data-testid="section-org-assistant">
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="w-4 h-4 text-[#E8604F]" />
-        <h3 className="font-semibold text-gray-900">AI Organization Assistant</h3>
-      </div>
-
-      {messages.length === 0 ? (
-        <div className="mb-3">
-          <p className="text-sm text-gray-500 mb-3">Ask about blockers, who's behind, or get a quick briefing — answered from your real task data.</p>
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTED_PROMPTS.map((p) => (
-              <button
-                key={p}
-                onClick={() => ask(p)}
-                className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-                data-testid={`button-suggested-prompt-${p.replace(/\s+/g, "-").toLowerCase()}`}
-              >
-                {p}
-              </button>
-            ))}
+    <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-[#6D5EF5]/40 via-[#8B7FF7]/20 to-transparent" data-testid="section-org-assistant">
+      <div className="bg-white rounded-[11px] p-5">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="w-7 h-7 rounded-lg bg-[#12101C] flex items-center justify-center shrink-0">
+            <Activity className="w-3.5 h-3.5 text-[#8B7FF7]" />
+          </div>
+          <div>
+            <h3 className="font-heading font-semibold text-gray-900 leading-tight">Pulse</h3>
+            <p className="text-[11px] text-gray-400 leading-tight">AI insights for your org</p>
           </div>
         </div>
-      ) : (
-        <div className="space-y-3 mb-3 max-h-96 overflow-y-auto">
-          {messages.map((m, i) => (
-            <div key={i} className={`text-sm ${m.role === "user" ? "text-right" : ""}`} data-testid={`assistant-message-${i}`}>
-              <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-800 border border-gray-100"}`}>
-                {m.content}
-              </div>
-            </div>
-          ))}
-          {askMutation.isPending && (
-            <div className="text-sm">
-              <div className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-gray-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking...
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
-      <div className="flex items-center gap-2">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && ask(input)}
-          placeholder="Ask about your team..."
-          className="flex-1"
-          data-testid="input-org-assistant"
-        />
-        <Button size="sm" onClick={() => ask(input)} disabled={!input.trim() || askMutation.isPending} data-testid="button-ask-assistant">
-          <Send className="w-4 h-4" />
-        </Button>
+        {messages.length === 0 ? (
+          <div className="mb-3">
+            <p className="text-sm text-gray-500 mb-3">Ask about blockers, who's behind, or get a quick briefing — answered from your real task data.</p>
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTED_PROMPTS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => ask(p)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                  data-testid={`button-suggested-prompt-${p.replace(/\s+/g, "-").toLowerCase()}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3 mb-3 max-h-96 overflow-y-auto">
+            {messages.map((m, i) => (
+              <div key={i} className={`text-sm ${m.role === "user" ? "text-right" : ""}`} data-testid={`assistant-message-${i}`}>
+                <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-[#12101C] text-white" : "bg-gray-50 text-gray-800 border border-gray-100"}`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {askMutation.isPending && (
+              <div className="text-sm">
+                <div className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-gray-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Pulse is thinking...
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && ask(input)}
+            placeholder="Ask Pulse about your team..."
+            className="flex-1 focus-visible:ring-[#6D5EF5]/50"
+            data-testid="input-org-assistant"
+          />
+          <Button size="sm" onClick={() => ask(input)} disabled={!input.trim() || askMutation.isPending} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-ask-assistant">
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -1012,7 +1019,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/interns"] });
-      toast({ title: "Promoted to manager", description: `${data.name} now has full manager access.` });
+      toast({ title: "Promoted to admin", description: `${data.name} now has full admin access.` });
     },
     onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
@@ -1113,10 +1120,10 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900" data-testid="text-company-name">{company?.name || "Company"}</h1>
-              <p className="text-gray-500 text-sm mt-1" data-testid="text-dashboard-title">Manager Dashboard</p>
+              <p className="text-gray-500 text-sm mt-1" data-testid="text-dashboard-title">Admin Dashboard</p>
             </div>
             <div className="flex items-center flex-wrap gap-3">
-              <Button onClick={() => setShowInviteModal(true)} className="bg-[#E8604F] hover:bg-[#C94A3B] text-white" data-testid="button-open-invite">
+              <Button onClick={() => setShowInviteModal(true)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-open-invite">
                 <UserPlus className="w-4 h-4 mr-2" />Add Intern
               </Button>
               <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50" data-testid="button-open-assign">
@@ -1266,7 +1273,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <>
                   <p className="text-gray-500 text-lg mb-1">No interns yet</p>
                   <p className="text-gray-400 text-sm mb-3">Add your first intern to get started.</p>
-                  <Button onClick={() => setShowInviteModal(true)} className="bg-[#E8604F] hover:bg-[#C94A3B] text-white">
+                  <Button onClick={() => setShowInviteModal(true)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white">
                     <UserPlus className="w-4 h-4 mr-2" />Add Intern
                   </Button>
                 </>
@@ -1294,7 +1301,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                               <Link
                                 href={`/interns/${intern.id}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-gray-900 font-semibold hover:text-[#E8604F] hover:underline no-underline"
+                                className="text-gray-900 font-semibold hover:text-[#6D5EF5] hover:underline no-underline"
                                 data-testid={`text-intern-name-${intern.id}`}
                               >
                                 {intern.name}
@@ -1345,12 +1352,12 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                               size="sm"
                               variant="outline"
                               className="text-xs text-indigo-700 border-indigo-200 hover:bg-indigo-50"
-                              onClick={(e) => { e.stopPropagation(); if (confirm(`Promote ${intern.name} to manager? They'll get full admin access — all interns, tasks, and settings. This can't be undone from here.`)) { promoteInternMutation.mutate(intern.id); } }}
+                              onClick={(e) => { e.stopPropagation(); if (confirm(`Promote ${intern.name} to admin? They'll get full admin access — all interns, tasks, and settings. This can't be undone from here.`)) { promoteInternMutation.mutate(intern.id); } }}
                               disabled={promoteInternMutation.isPending}
                               data-testid={`button-promote-intern-${intern.id}`}
                             >
                               {promoteInternMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ShieldPlus className="w-3 h-3 mr-1" />}
-                              Promote to Manager
+                              Promote to Admin
                             </Button>
                           )}
                           {intern.deactivatedAt ? (
@@ -1442,7 +1449,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                         variant={p === pagination.page ? "default" : "outline"}
                         size="sm"
                         onClick={() => pagination.setPage(p)}
-                        className={`h-7 w-7 text-xs p-0 ${p === pagination.page ? "bg-[#E8604F] text-white" : ""}`}
+                        className={`h-7 w-7 text-xs p-0 ${p === pagination.page ? "bg-[#6D5EF5] text-white" : ""}`}
                       >
                         {p}
                       </Button>
@@ -1518,7 +1525,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                   <Input type="password" placeholder="At least 6 characters" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} className="border-gray-300" data-testid="input-invite-password" />
                 </div>
-                <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || invitePassword.length < 6 || inviteMutation.isPending} className="w-full bg-[#E8604F] hover:bg-[#C94A3B] text-white" data-testid="button-send-invite">
+                <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || invitePassword.length < 6 || inviteMutation.isPending} className="w-full bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-send-invite">
                   {inviteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>) : "Create Account"}
                 </Button>
               </div>
@@ -1554,7 +1561,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Total Hours</label>
                 <Input type="number" min="1" placeholder="e.g., 160" value={assignMinHours} onChange={(e) => setAssignMinHours(e.target.value)} className="border-gray-300" data-testid="input-assign-hours" />
               </div>
-              <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-[#E8604F] hover:bg-[#C94A3B] text-white" data-testid="button-assign-project">
+              <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-assign-project">
                 {assignProjectMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Assigning...</>) : "Assign Project"}
               </Button>
             </div>

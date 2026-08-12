@@ -89,7 +89,7 @@ export default function AcceptInvite({ token, onAccept }: AcceptInviteProps) {
   if (validating) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#E8604F]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#6D5EF5]" />
       </div>
     );
   }
@@ -101,7 +101,7 @@ export default function AcceptInvite({ token, onAccept }: AcceptInviteProps) {
           <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2" data-testid="text-invite-error">Invalid Invitation</h1>
           <p className="text-zinc-500 mb-6">{error}</p>
-          <Link href="/intern-login">
+          <Link href="/login">
             <Button variant="outline" className="border-white/10 text-zinc-300 hover:bg-white/5 hover:text-white" data-testid="link-back-login">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Go to Intern Login
