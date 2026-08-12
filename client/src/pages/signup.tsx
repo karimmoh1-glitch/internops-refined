@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { GraduationCap, Clock, CheckCircle2 } from "lucide-react";
 import LogoMark from "@/components/logo-mark";
 
@@ -12,6 +12,7 @@ interface SignupProps {
 
 export default function Signup({ onSignup }: SignupProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,8 +30,13 @@ export default function Signup({ onSignup }: SignupProps) {
     }
     setLoading(true);
     try {
-      await onSignup(name.trim(), email.trim(), password);
-      setSubmitted(true);
+      const result = await onSignup(name.trim(), email.trim(), password);
+      if (result?.bootstrapped) {
+        toast({ title: "Welcome to EDAI", description: "You're the first account, so you're set up as the manager." });
+        setLocation("/");
+      } else {
+        setSubmitted(true);
+      }
     } catch (error: any) {
       toast({ title: "Signup failed", description: error.message, variant: "destructive" });
     } finally {

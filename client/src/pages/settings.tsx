@@ -198,6 +198,75 @@ function AuditLogTab() {
   );
 }
 
+function ChangePasswordCard() {
+  const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PUT", "/api/auth/change-password", { currentPassword, newPassword });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Password updated" });
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Couldn't change password", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({ title: "All fields are required", variant: "destructive" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ title: "New password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "New passwords don't match", variant: "destructive" });
+      return;
+    }
+    changePasswordMutation.mutate();
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-900">Change Password</h3>
+        <p className="text-xs text-gray-500 mt-0.5">Update the password you use to log in.</p>
+      </div>
+      <div className="space-y-3 max-w-sm">
+        <div>
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1 block">Current Password</label>
+          <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} data-testid="input-current-password" />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1 block">New Password</label>
+          <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 6 characters" data-testid="input-new-password" />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1 block">Confirm New Password</label>
+          <Input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            data-testid="input-confirm-password"
+          />
+        </div>
+        <Button onClick={handleSubmit} disabled={changePasswordMutation.isPending} data-testid="button-change-password">
+          {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function Settings({ user }: SettingsProps) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -230,6 +299,10 @@ export default function Settings({ user }: SettingsProps) {
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Role</label>
                 <p className="text-sm text-gray-900 mt-1 capitalize" data-testid="text-profile-role">{user.role === "admin" ? "Manager" : user.role}</p>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <ChangePasswordCard />
             </div>
           </TabsContent>
 

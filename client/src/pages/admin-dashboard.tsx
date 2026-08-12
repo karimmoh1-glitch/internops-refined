@@ -990,6 +990,20 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
 
+  const deleteInternMutation = useMutation({
+    mutationFn: async (internId: string) => {
+      const res = await apiRequest("DELETE", `/api/interns/${internId}`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/interns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: "Intern deleted", description: data.message });
+    },
+    onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+
   const promoteInternMutation = useMutation({
     mutationFn: async (internId: string) => {
       const res = await apiRequest("POST", `/api/interns/${internId}/promote`);
@@ -1364,6 +1378,25 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                               Deactivate
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs text-red-700 border-red-300 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const typed = window.prompt(`This permanently deletes ${intern.name}'s account and every task, log, and message tied to it. This cannot be undone.\n\nType their name to confirm: ${intern.name}`);
+                              if (typed === intern.name) {
+                                deleteInternMutation.mutate(intern.id);
+                              } else if (typed !== null) {
+                                toast({ title: "Name didn't match", description: "Deletion cancelled.", variant: "destructive" });
+                              }
+                            }}
+                            disabled={deleteInternMutation.isPending}
+                            data-testid={`button-delete-intern-${intern.id}`}
+                          >
+                            {deleteInternMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Trash2 className="w-3 h-3 mr-1" />}
+                            Delete Permanently
+                          </Button>
                         </div>
                         {projects.length > 1 && (
                           <div className="flex justify-end px-1">
