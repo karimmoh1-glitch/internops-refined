@@ -202,9 +202,15 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
       return res.status(401).json({ message: "This account has been deactivated" });
     }
 
+    // Role/company come from this live lookup, not the JWT claim — the
+    // claim is a snapshot from whenever the token was issued and never
+    // updates, so trusting it here would mean a promoted intern (or an
+    // admin demoted some other way) keeps stale permissions until their
+    // token expires. Same immediacy principle as the deactivation check
+    // above.
     (req as any).userId = decoded.userId;
-    (req as any).userRole = decoded.role;
-    (req as any).companyId = decoded.companyId;
+    (req as any).userRole = user.role;
+    (req as any).companyId = user.companyId;
     (req as any).deviceId = decoded.deviceId || null;
     next();
   } catch {
@@ -862,6 +868,46 @@ export async function registerRoutes(
       res.json({ id: updated?.id, name: updated?.name, email: updated?.email, deactivatedAt: updated?.deactivatedAt });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to reactivate intern" });
+    }
+  });
+
+  // Grants full admin access — the most sensitive action an admin can take
+  // here. Only reachable by an existing admin (requireRole below), and the
+  // target's role is a hardcoded server-side "admin" constant, never taken
+  // from the request body, so this can't be pointed at an arbitrary role.
+  // Deliberately no self-service or intern-facing path to this route.
+  app.post("/api/interns/:id/promote", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+      if (intern.deactivatedAt) {
+        return res.status(400).json({ message: "Reactivate this account before promoting it" });
+      }
+
+      const updated = await storage.promoteToAdmin(intern.id);
+
+      await storage.createNotification({
+        userId: intern.id,
+        title: "You're now a manager",
+        message: "You've been promoted to manager on EDAI. Log out and back in to see the manager dashboard.",
+        read: false,
+        link: "/",
+      });
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "intern.promoted_to_admin",
+        targetType: "user",
+        targetId: intern.id,
+      });
+
+      res.json({ id: updated?.id, name: updated?.name, email: updated?.email, role: updated?.role });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to promote intern" });
     }
   });
 

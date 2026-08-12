@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Users, UserPlus, Briefcase, AlertCircle, ChevronDown, ChevronRight,
   Loader2, X, Copy, Clock, MessageSquare, CheckCircle2, Pencil, Trash2,
-  Target, BarChart3, Filter, ListTodo, Sparkles, Send,
+  Target, BarChart3, Filter, ListTodo, Sparkles, Send, ShieldPlus,
 } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/dashboard-skeleton";
 import SearchFilterBar from "@/components/search-filter-bar";
@@ -931,6 +931,19 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
 
+  const promoteInternMutation = useMutation({
+    mutationFn: async (internId: string) => {
+      const res = await apiRequest("POST", `/api/interns/${internId}/promote`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/interns"] });
+      toast({ title: "Promoted to manager", description: `${data.name} now has full manager access.` });
+    },
+    onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+
   const approveMutation = useMutation({
     mutationFn: async ({ versionId, comment }: { versionId: string; comment?: string }) => { const res = await apiRequest("POST", `/api/plan-versions/${versionId}/approve`, { comment: comment || undefined }); return res.json(); },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] }); toast({ title: "Plan approved!" }); },
@@ -1251,7 +1264,20 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
                     {isExpanded && (
                       <div className="mt-2 space-y-3" data-testid={`expanded-intern-${intern.id}`}>
-                        <div className="flex justify-end px-1">
+                        <div className="flex justify-end px-1 gap-2">
+                          {!intern.deactivatedAt && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                              onClick={(e) => { e.stopPropagation(); if (confirm(`Promote ${intern.name} to manager? They'll get full admin access — all interns, tasks, and settings. This can't be undone from here.`)) { promoteInternMutation.mutate(intern.id); } }}
+                              disabled={promoteInternMutation.isPending}
+                              data-testid={`button-promote-intern-${intern.id}`}
+                            >
+                              {promoteInternMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ShieldPlus className="w-3 h-3 mr-1" />}
+                              Promote to Manager
+                            </Button>
+                          )}
                           {intern.deactivatedAt ? (
                             <Button
                               size="sm"
