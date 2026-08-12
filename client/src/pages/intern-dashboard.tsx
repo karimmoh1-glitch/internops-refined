@@ -828,7 +828,7 @@ function ExecutionDisplay({ project, planContent, weeklyLogs, logComments }: {
             onClick={() => setActiveWeek(w.weekNumber)}
             className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${
               activeWeek === w.weekNumber
-                ? "bg-[#EF7878] text-white shadow-sm"
+                ? "bg-[#E8604F] text-white shadow-sm"
                 : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
             title={`Week ${w.weekNumber}: ${w.milestone}`}
@@ -1362,7 +1362,7 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
               msg.role === "user"
                 ? chatMode === "brainstorm"
                   ? "bg-amber-500 text-white rounded-br-md"
-                  : "bg-[#EF7878] text-white rounded-br-md"
+                  : "bg-[#E8604F] text-white rounded-br-md"
                 : chatMode === "brainstorm"
                   ? "bg-orange-50 text-gray-800 rounded-bl-md border border-orange-100"
                   : "bg-gray-100 text-gray-800 rounded-bl-md"

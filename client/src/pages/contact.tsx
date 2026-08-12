@@ -11,16 +11,16 @@ export default function Contact() {
 
       <div className="not-prose grid sm:grid-cols-2 gap-4 mt-6">
         <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
-          <Users className="w-5 h-5 text-[#EF7878] mb-3" />
+          <Users className="w-5 h-5 text-[#E8604F] mb-3" />
           <h3 className="text-white font-semibold text-sm mb-1">Questions about your account</h3>
           <p className="text-zinc-500 text-sm">Reach out to your company's admin — they can see your projects, applications, and plans directly.</p>
         </div>
         <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
-          <Mail className="w-5 h-5 text-[#EF7878] mb-3" />
+          <Mail className="w-5 h-5 text-[#E8604F] mb-3" />
           <h3 className="text-white font-semibold text-sm mb-1">Everything else</h3>
           <p className="text-zinc-500 text-sm">
             Email{" "}
-            <a href="mailto:support@APP_DOMAIN" className="text-[#EF7878] hover:underline">support@APP_DOMAIN</a>
+            <a href="mailto:support@APP_DOMAIN" className="text-[#E8604F] hover:underline">support@APP_DOMAIN</a>
             {" "}(placeholder — replace with a real support address once this is deployed on your own domain).
           </p>
         </div>

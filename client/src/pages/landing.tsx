@@ -38,14 +38,14 @@ export default function Landing() {
       <section className="relative flex-1">
         {/* Glow effects */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(239,120,120,0.12),transparent)]" />
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#EF7878]/8 via-purple-500/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#E8604F]/8 via-purple-500/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-blue-500/5 via-indigo-500/5 to-transparent rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
 
         <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-16 md:pt-28 md:pb-24">
           {/* Badge */}
           <div className="flex justify-center mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-zinc-300 font-medium" data-testid="text-hero-badge">
-              <Sparkles className="w-3.5 h-3.5 text-[#EF7878]" />
+              <Sparkles className="w-3.5 h-3.5 text-[#E8604F]" />
               AI-Powered Intern Management
             </div>
           </div>
@@ -54,7 +54,7 @@ export default function Landing() {
           <h1 className="text-center text-5xl md:text-7xl font-bold font-heading text-white mb-6 leading-[1.1] tracking-tight" data-testid="text-hero-title">
             Supercharge Your
             <br />
-            <span className="bg-gradient-to-r from-[#EF7878] via-[#f0a0a0] to-[#EF7878] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#E8604F] via-[#f0a0a0] to-[#E8604F] bg-clip-text text-transparent">
               Internship Program
             </span>
           </h1>
@@ -67,7 +67,7 @@ export default function Landing() {
           {/* Single CTA */}
           <div className="flex justify-center mb-20">
             <Link href="/signup">
-              <Button size="lg" className="bg-gradient-to-r from-[#EF7878] to-[#e05555] hover:from-[#e86868] hover:to-[#d54545] text-white rounded-full py-6 px-10 text-base shadow-lg shadow-[#EF7878]/20 hover:shadow-xl hover:shadow-[#EF7878]/30 transition-all duration-300" data-testid="button-get-started">
+              <Button size="lg" className="bg-gradient-to-r from-[#E8604F] to-[#C94A3B] hover:from-[#EE7A6B] hover:to-[#B33D30] text-white rounded-full py-6 px-10 text-base shadow-lg shadow-[#E8604F]/20 hover:shadow-xl hover:shadow-[#E8604F]/30 transition-all duration-300" data-testid="button-get-started">
                 Get Started Free
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>

@@ -89,7 +89,7 @@ export default function AcceptInvite({ token, onAccept }: AcceptInviteProps) {
   if (validating) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#EF7878]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#E8604F]" />
       </div>
     );
   }
