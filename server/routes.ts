@@ -5,7 +5,7 @@ import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, type 
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
-  sendManagerVerificationEmail, sendPasswordResetEmail,
+  sendPasswordResetEmail,
   sendApplicationReceivedEmail, sendNewApplicationAdminEmail,
   sendApplicationApprovedEmail, sendApplicationRejectedEmail,
   getAdminNotificationEmails,
@@ -237,86 +237,22 @@ export async function registerRoutes(
     }
   });
 
-  // Step 1: Manager registers with just an email → gets verification email.
-  // Every manager joins the same fixed EDAI workspace — there is no company
-  // name to type and no organization to create.
+  // Manager signup — immediate, no email verification step. This is a
+  // private internal app for EDAI (not a public SaaS signup surface), so
+  // account creation completes synchronously: every manager joins the same
+  // fixed EDAI workspace, sets their own password, and is logged in right away.
   app.post("/api/auth/signup", strictAuthLimiter, async (req, res) => {
     try {
-      const { email } = req.body;
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" });
-      }
-
-      const existing = await storage.getUserByEmail(email.toLowerCase().trim());
-      if (existing) {
-        return res.status(400).json({ message: "An account with this email already exists" });
-      }
-
-      const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-
-      await storage.createSignupToken({
-        email: email.toLowerCase().trim(),
-        companyName: EDAI_COMPANY_NAME,
-        managerName: "",
-        passwordHash: "",
-        token,
-        expiresAt,
-        used: false,
-      });
-
-      const baseUrl = getBaseUrl();
-      const verifyLink = `${baseUrl}/verify-signup/${token}`;
-      console.log(`\n========================================`);
-      console.log(`📧 SIGNUP VERIFICATION LINK`);
-      console.log(`   Email: ${email.toLowerCase().trim()}`);
-      console.log(`   Link: ${verifyLink}`);
-      console.log(`========================================\n`);
-      sendManagerVerificationEmail(email.toLowerCase().trim(), verifyLink, EDAI_COMPANY_NAME).catch(() => {});
-
-      res.status(200).json({
-        message: "Verification email sent! Check your inbox to complete registration.",
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || "Signup failed" });
-    }
-  });
-
-  // Step 2: Validate signup token
-  app.get("/api/auth/verify-signup/:token", async (req, res) => {
-    try {
-      const signupToken = await storage.getSignupToken(req.params.token);
-      if (!signupToken) return res.status(404).json({ message: "Invalid or expired signup link" });
-      if (signupToken.used) return res.status(400).json({ message: "This signup link has already been used" });
-      if (new Date() > signupToken.expiresAt) return res.status(400).json({ message: "This signup link has expired" });
-
-      res.json({
-        valid: true,
-        email: signupToken.email,
-        companyName: EDAI_COMPANY_NAME,
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || "Validation failed" });
-    }
-  });
-
-  // Step 3: Complete signup — set name + password, join the fixed EDAI company
-  app.post("/api/auth/complete-signup/:token", authLimiter, async (req, res) => {
-    try {
-      const { name, password } = req.body;
-      if (!name || !password) {
-        return res.status(400).json({ message: "Name and password are required" });
+      const { name, email, password } = req.body;
+      if (!name || !email || !password) {
+        return res.status(400).json({ message: "Name, email, and password are required" });
       }
       if (password.length < 6) {
         return res.status(400).json({ message: "Password must be at least 6 characters" });
       }
 
-      const signupToken = await storage.getSignupToken(req.params.token);
-      if (!signupToken) return res.status(404).json({ message: "Invalid or expired signup link" });
-      if (signupToken.used) return res.status(400).json({ message: "This signup link has already been used" });
-      if (new Date() > signupToken.expiresAt) return res.status(400).json({ message: "This signup link has expired" });
-
-      const existing = await storage.getUserByEmail(signupToken.email);
+      const normalizedEmail = email.toLowerCase().trim();
+      const existing = await storage.getUserByEmail(normalizedEmail);
       if (existing) {
         return res.status(400).json({ message: "An account with this email already exists" });
       }
@@ -326,13 +262,11 @@ export async function registerRoutes(
 
       const user = await storage.createUser({
         name: name.trim(),
-        email: signupToken.email,
+        email: normalizedEmail,
         passwordHash,
         role: "admin",
         companyId: company.id,
       });
-
-      await storage.markSignupTokenUsed(req.params.token);
 
       // Create #general channel and add admin as first member
       const generalChannel = await storage.ensureGeneralChannel(company.id);
@@ -345,7 +279,7 @@ export async function registerRoutes(
         user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Signup completion failed" });
+      res.status(500).json({ message: error.message || "Signup failed" });
     }
   });
 
@@ -847,6 +781,56 @@ export async function registerRoutes(
       res.json(interns.map(i => ({ id: i.id, name: i.name, email: i.email, role: i.role, createdAt: i.createdAt })));
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to get interns" });
+    }
+  });
+
+  // Immediate intern account creation — no invite link, no email to check.
+  // The admin sets the intern's name/email/password directly and relays the
+  // credentials however they like; the account exists right away.
+  app.post("/api/interns", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { name, email, password } = req.body;
+      const companyId = (req as any).companyId;
+
+      if (!name?.trim() || !email || !password) {
+        return res.status(400).json({ message: "Name, email, and password are required" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+      if (!companyId) {
+        return res.status(400).json({ message: "Admin must belong to a company" });
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const existing = await storage.getUserByEmail(normalizedEmail);
+      if (existing) {
+        return res.status(400).json({ message: "An account with this email already exists" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const intern = await storage.createUser({
+        name: name.trim(),
+        email: normalizedEmail,
+        passwordHash,
+        role: "intern",
+        companyId,
+      });
+
+      const generalChannel = await storage.ensureGeneralChannel(companyId);
+      await storage.addChannelMember(generalChannel.id, intern.id);
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "intern.created",
+        targetType: "user",
+        targetId: intern.id,
+      });
+
+      res.status(201).json({ id: intern.id, name: intern.name, email: intern.email, role: intern.role, createdAt: intern.createdAt });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to create intern account" });
     }
   });
 

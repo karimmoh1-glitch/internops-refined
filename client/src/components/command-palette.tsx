@@ -153,7 +153,7 @@ export function useAdminCommands({
   }));
 
   return [
-    { id: "invite", label: "Invite Intern", description: "Send invitation link", icon: UserPlus, action: onInvite, group: "Actions", keywords: ["add", "new", "intern"] },
+    { id: "invite", label: "Add Intern", description: "Create an account immediately", icon: UserPlus, action: onInvite, group: "Actions", keywords: ["add", "new", "intern", "invite"] },
     { id: "assign", label: "Assign Project", description: "Create new project assignment", icon: Briefcase, action: onAssign, group: "Actions", keywords: ["create", "project", "new"] },
     { id: "review", label: "Review Plans", description: "View plans pending review", icon: FileText, action: onReview, group: "Actions", keywords: ["approve", "revision", "submitted"] },
     { id: "home", label: "Go to Dashboard", icon: Home, action: onNavigateHome, group: "Navigation", keywords: ["dashboard", "main"] },
