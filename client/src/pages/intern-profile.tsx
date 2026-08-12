@@ -111,7 +111,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-[#E8604F]/15 rounded-full flex items-center justify-center text-[#E8604F] font-semibold text-xl shrink-0">
+            <div className="w-14 h-14 bg-[#6D5EF5]/15 rounded-full flex items-center justify-center text-[#6D5EF5] font-semibold text-xl shrink-0">
               {intern.name[0]?.toUpperCase() || "?"}
             </div>
             <div>

@@ -3,18 +3,23 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import { LogIn, Eye, EyeOff, ArrowLeft, GraduationCap, Mail } from "lucide-react";
+import { LogIn, Eye, EyeOff, ArrowLeft, Clock, ShieldAlert } from "lucide-react";
 import LogoMark from "@/components/logo-mark";
 
-interface InternLoginProps {
+interface LoginProps {
   onLogin: (email: string, password: string) => Promise<any>;
 }
 
-export default function InternLogin({ onLogin }: InternLoginProps) {
+interface LoginError extends Error {
+  applicationStatus?: "pending" | "rejected";
+}
+
+export default function Login({ onLogin }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pendingNotice, setPendingNotice] = useState<"pending" | "rejected" | null>(null);
   const { toast } = useToast();
 
   const handleLogin = async () => {
@@ -23,10 +28,16 @@ export default function InternLogin({ onLogin }: InternLoginProps) {
       return;
     }
     setLoading(true);
+    setPendingNotice(null);
     try {
       await onLogin(email.trim(), password.trim());
     } catch (err: any) {
-      toast({ title: "Login failed", description: err.message || "Invalid credentials", variant: "destructive" });
+      const status = (err as LoginError)?.applicationStatus;
+      if (status === "pending" || status === "rejected") {
+        setPendingNotice(status);
+      } else {
+        toast({ title: "Login failed", description: err.message || "Invalid credentials", variant: "destructive" });
+      }
     } finally {
       setLoading(false);
     }
@@ -52,17 +63,35 @@ export default function InternLogin({ onLogin }: InternLoginProps) {
       <main className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm text-emerald-400 font-medium mb-4">
-              <GraduationCap className="w-4 h-4" />
-              Intern Login
-            </div>
             <h1 className="text-3xl font-bold font-heading text-white mb-2" data-testid="text-login-title">
               Welcome back
             </h1>
-            <p className="text-zinc-500 text-sm">Sign in to your intern account</p>
+            <p className="text-zinc-500 text-sm">Sign in to your InternOps account</p>
           </div>
 
           <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] shadow-2xl p-6 space-y-4">
+            {pendingNotice && (
+              <div
+                className={`flex items-start gap-3 p-3 rounded-lg border ${
+                  pendingNotice === "rejected"
+                    ? "bg-red-500/[0.06] border-red-500/20"
+                    : "bg-[#6D5EF5]/[0.08] border-[#6D5EF5]/20"
+                }`}
+                data-testid="notice-application-status"
+              >
+                {pendingNotice === "rejected" ? (
+                  <ShieldAlert className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                ) : (
+                  <Clock className="w-4 h-4 text-[#8B7FF7] mt-0.5 shrink-0" />
+                )}
+                <p className={`text-xs leading-relaxed ${pendingNotice === "rejected" ? "text-red-300" : "text-zinc-300"}`}>
+                  {pendingNotice === "rejected"
+                    ? "Your account request was not approved. Contact an admin if you think this is a mistake."
+                    : "Your account is still waiting on admin approval. You'll be able to log in once it's approved."}
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium text-zinc-400 mb-1.5 block">Email</label>
               <Input
@@ -71,7 +100,7 @@ export default function InternLogin({ onLogin }: InternLoginProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoFocus
-                className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500/50 focus-visible:border-emerald-500/50"
+                className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#6D5EF5]/50 focus-visible:border-[#6D5EF5]/50"
                 data-testid="input-email"
               />
             </div>
@@ -85,7 +114,7 @@ export default function InternLogin({ onLogin }: InternLoginProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500/50 focus-visible:border-emerald-500/50"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#6D5EF5]/50 focus-visible:border-[#6D5EF5]/50"
                   data-testid="input-password"
                 />
                 <button
@@ -102,7 +131,7 @@ export default function InternLogin({ onLogin }: InternLoginProps) {
             <Button
               onClick={handleLogin}
               disabled={loading || !email.trim() || !password.trim()}
-              className="w-full py-5 text-base bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
+              className="w-full py-5 text-base bg-gradient-to-r from-[#6D5EF5] to-[#5142D6] hover:from-[#8B7FF7] hover:to-[#4335B0] text-white"
               data-testid="button-login"
             >
               <LogIn className="w-5 h-5 mr-2" />
@@ -115,20 +144,11 @@ export default function InternLogin({ onLogin }: InternLoginProps) {
               </Link>
             </div>
 
-            <div className="pt-3 border-t border-white/5">
-              <div className="flex items-start gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                <Mail className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" />
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  New intern? Ask your manager for an invite link, or apply directly if their company has a public application page open.
-                </p>
-              </div>
-            </div>
-
-            <div className="text-center">
+            <div className="text-center pt-2">
               <p className="text-sm text-zinc-600">
-                Are you a manager?{" "}
-                <Link href="/manager-login" className="text-[#E8604F] hover:text-[#EE7A6B] font-medium" data-testid="link-manager-login">
-                  Manager Login
+                Don't have an account?{" "}
+                <Link href="/signup" className="text-[#6D5EF5] hover:text-[#8B7FF7] font-medium" data-testid="link-signup">
+                  Sign Up
                 </Link>
               </p>
             </div>

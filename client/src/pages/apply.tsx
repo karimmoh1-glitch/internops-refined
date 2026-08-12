@@ -98,12 +98,12 @@ export default function Apply({ slug }: ApplyProps) {
     }
   };
 
-  const inputClass = "bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#E8604F]/50 focus-visible:border-[#E8604F]/50";
+  const inputClass = "bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#6D5EF5]/50 focus-visible:border-[#6D5EF5]/50";
 
   if (validating) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#E8604F]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#6D5EF5]" />
       </div>
     );
   }
@@ -156,7 +156,7 @@ export default function Apply({ slug }: ApplyProps) {
       <main className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-lg">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#E8604F]/10 border border-[#E8604F]/20 rounded-full text-sm text-[#E8604F] font-medium mb-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6D5EF5]/10 border border-[#6D5EF5]/20 rounded-full text-sm text-[#6D5EF5] font-medium mb-4">
               <GraduationCap className="w-4 h-4" />
               Internship Application
             </div>
@@ -229,7 +229,7 @@ export default function Apply({ slug }: ApplyProps) {
             <Button
               onClick={handleSubmit}
               disabled={loading || !name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim() || password !== confirmPassword}
-              className="w-full py-5 text-base bg-gradient-to-r from-[#E8604F] to-[#C94A3B] hover:from-[#EE7A6B] hover:to-[#B33D30] text-white"
+              className="w-full py-5 text-base bg-gradient-to-r from-[#6D5EF5] to-[#5142D6] hover:from-[#8B7FF7] hover:to-[#4335B0] text-white"
               data-testid="button-submit-application"
             >
               <Send className="w-5 h-5 mr-2" />

@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,8 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-role";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
-import Home from "@/pages/home";
-import InternLogin from "@/pages/intern-login";
+import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import AcceptInvite from "@/pages/accept-invite";
 import Apply from "@/pages/apply";
@@ -74,9 +73,6 @@ function AppContent() {
   const { user, login, signup, acceptInvite, signOut } = useAuth();
   const [location, setLocation] = useLocation();
 
-  const managerLogin = (email: string, password: string) => login(email, password, "admin");
-  const internLogin = (email: string, password: string) => login(email, password, "intern");
-
   useEffect(() => {
     if (user && (location === "/login" || location === "/manager-login" || location === "/intern-login" || location === "/signup" || location === "/forgot-password")) {
       setLocation("/");
@@ -96,22 +92,14 @@ function AppContent() {
         {user ? (
           <AuthenticatedView user={user} signOut={signOut} />
         ) : (
-          <Home onLogin={managerLogin} />
+          <Login onLogin={login} />
         )}
       </Route>
       <Route path="/manager-login">
-        {user ? (
-          <AuthenticatedView user={user} signOut={signOut} />
-        ) : (
-          <Home onLogin={managerLogin} />
-        )}
+        <Redirect to="/login" />
       </Route>
       <Route path="/intern-login">
-        {user ? (
-          <AuthenticatedView user={user} signOut={signOut} />
-        ) : (
-          <InternLogin onLogin={internLogin} />
-        )}
+        <Redirect to="/login" />
       </Route>
       <Route path="/signup">
         {user ? (

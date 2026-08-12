@@ -77,7 +77,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
             <item.icon className="w-4 h-4 shrink-0" />
             {item.label}
             {item.href === "/chat" && chatUnreadCount > 0 && (
-              <span className={`ml-auto text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center ${active ? "bg-white/20 text-white" : "bg-[#E8604F] text-white"}`}>
+              <span className={`ml-auto text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center ${active ? "bg-white/20 text-white" : "bg-[#6D5EF5] text-white"}`}>
                 {chatUnreadCount > 9 ? "9+" : chatUnreadCount}
               </span>
             )}
@@ -121,12 +121,12 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
             className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors no-underline mb-1"
             data-testid="text-user-info"
           >
-            <div className="w-8 h-8 rounded-full bg-[#E8604F]/15 text-[#E8604F] font-semibold text-xs flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#6D5EF5]/15 text-[#6D5EF5] font-semibold text-xs flex items-center justify-center shrink-0">
               {initial}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-gray-900 truncate" data-testid="text-user-name">{user.name}</p>
-              <p className="text-[11px] text-gray-500 capitalize" data-testid="text-user-role">{user.role === "admin" ? "Manager" : "Intern"}</p>
+              <p className="text-[11px] text-gray-500 capitalize" data-testid="text-user-role">{user.role === "admin" ? "Admin" : "Intern"}</p>
             </div>
           </Link>
           <button
@@ -159,10 +159,10 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
             </div>
             <div className="mt-auto p-3 border-t border-gray-200">
               <Link href="/settings" onClick={() => setMobileNavOpen(false)} className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-100 no-underline mb-1">
-                <div className="w-8 h-8 rounded-full bg-[#E8604F]/15 text-[#E8604F] font-semibold text-xs flex items-center justify-center shrink-0">{initial}</div>
+                <div className="w-8 h-8 rounded-full bg-[#6D5EF5]/15 text-[#6D5EF5] font-semibold text-xs flex items-center justify-center shrink-0">{initial}</div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-                  <p className="text-[11px] text-gray-500 capitalize">{user.role === "admin" ? "Manager" : "Intern"}</p>
+                  <p className="text-[11px] text-gray-500 capitalize">{user.role === "admin" ? "Admin" : "Intern"}</p>
                 </div>
               </Link>
               <button onClick={onSignOut} className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs text-gray-400 hover:text-gray-700 hover:bg-gray-100">
@@ -186,14 +186,14 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
           </Link>
           <button onClick={() => setShowNotifs(!showNotifs)} className="relative p-2 rounded-lg hover:bg-gray-100" data-testid="button-notifications-mobile">
             <Bell className="w-5 h-5 text-gray-600" />
-            {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-[#E8604F] rounded-full" />}
+            {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-[#6D5EF5] rounded-full" />}
           </button>
         </div>
         <div className="hidden md:flex h-14 border-b border-gray-200 items-center justify-end px-6 gap-2 shrink-0">
           <Link href="/chat" className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors no-underline" data-testid="link-chat-topbar">
             <MessageSquare className="w-[18px] h-[18px] text-gray-500" />
             {chatUnreadCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-[#E8604F] rounded-full" />
+              <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-[#6D5EF5] rounded-full" />
             )}
           </Link>
           <button
@@ -203,7 +203,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
           >
             <Bell className="w-[18px] h-[18px] text-gray-500" />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-0.5 bg-[#E8604F] text-white text-[10px] font-bold rounded-full flex items-center justify-center" data-testid="badge-notification-count">
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-0.5 bg-[#6D5EF5] text-white text-[10px] font-bold rounded-full flex items-center justify-center" data-testid="badge-notification-count">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
@@ -219,7 +219,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
                       {unreadCount > 0 && (
                         <button
                           onClick={() => markAllReadMutation.mutate()}
-                          className="text-xs text-[#E8604F] hover:text-[#C94A3B] px-2 py-1 rounded hover:bg-red-50 flex items-center gap-1"
+                          className="text-xs text-[#6D5EF5] hover:text-[#5142D6] px-2 py-1 rounded hover:bg-red-50 flex items-center gap-1"
                           data-testid="button-mark-all-read"
                         >
                           <CheckCheck className="w-3 h-3" />
@@ -249,7 +249,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
                           data-testid={`notification-${notif.id}`}
                         >
                           <div className="flex items-start gap-2">
-                            <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!notif.read ? "bg-[#E8604F]" : "bg-transparent"}`} />
+                            <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!notif.read ? "bg-[#6D5EF5]" : "bg-transparent"}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold text-gray-800">{notif.title}</p>
                               <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notif.message}</p>

@@ -352,15 +352,36 @@ export async function registerRoutes(
     }
   });
 
+  // Single unified login — no separate admin/intern login surface. The role
+  // on the response comes entirely from the database, never from anything
+  // the client asserts, so the client just routes to the right dashboard
+  // after the fact rather than picking a login mode beforehand.
   app.post("/api/auth/login", strictAuthLimiter, async (req, res) => {
     try {
-      const { email, password, expectedRole } = req.body;
+      const { email, password } = req.body;
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
       }
+      const normalizedEmail = email.toLowerCase().trim();
 
-      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+      const user = await storage.getUserByEmail(normalizedEmail);
       if (!user) {
+        // No account yet — but if there's a pending/rejected signup request
+        // for this email, and the password matches what they set when they
+        // applied, tell them why they can't log in instead of a generic
+        // "invalid credentials". Gated on the password matching so this
+        // can't be used to enumerate who has applied.
+        const company = await getOrCreateEdaiCompany();
+        const application = await storage.getApplicationByEmail(company.id, normalizedEmail);
+        if (application) {
+          const passwordMatches = await bcrypt.compare(password, application.passwordHash);
+          if (passwordMatches) {
+            if (application.status === "rejected") {
+              return res.status(403).json({ message: "Your account request was not approved. Contact an admin if you think this is a mistake.", applicationStatus: "rejected" });
+            }
+            return res.status(403).json({ message: "Your account is still waiting on admin approval.", applicationStatus: "pending" });
+          }
+        }
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
@@ -370,14 +391,7 @@ export async function registerRoutes(
       }
 
       if (user.deactivatedAt) {
-        return res.status(403).json({ message: "This account has been deactivated. Contact your manager." });
-      }
-
-      if (expectedRole === "admin" && user.role !== "admin") {
-        return res.status(403).json({ message: "This login is for managers only. Please use the intern login page." });
-      }
-      if (expectedRole === "intern" && user.role !== "intern") {
-        return res.status(403).json({ message: "This login is for interns only. Please use the manager login page." });
+        return res.status(403).json({ message: "This account has been deactivated. Contact an admin." });
       }
 
       const deviceId = await createDeviceForLogin(user.id, req);

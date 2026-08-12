@@ -5,52 +5,52 @@
 
 @theme inline {
   --color-background: #FFFFFF;
-  --color-foreground: #0B0C0E;
+  --color-foreground: #14101F;
   --color-card: #FFFFFF;
-  --color-card-foreground: #0B0C0E;
+  --color-card-foreground: #14101F;
   --color-popover: #FFFFFF;
-  --color-popover-foreground: #0B0C0E;
-  --color-primary: #E8604F;
+  --color-popover-foreground: #14101F;
+  --color-primary: #6D5EF5;
   --color-primary-foreground: #FFFFFF;
-  --color-secondary: #14171F;
+  --color-secondary: #12101C;
   --color-secondary-foreground: #FFFFFF;
-  --color-muted: #F5F5F4;
-  --color-muted-foreground: #6B7078;
-  --color-accent: #E8604F;
+  --color-muted: #F5F4FA;
+  --color-muted-foreground: #6E6B80;
+  --color-accent: #6D5EF5;
   --color-accent-foreground: #FFFFFF;
-  --color-destructive: #DC3D34;
+  --color-destructive: #E5484D;
   --color-destructive-foreground: #FFFFFF;
-  --color-border: #E4E4E3;
-  --color-input: #E4E4E3;
-  --color-ring: #E8604F;
+  --color-border: #E7E5F0;
+  --color-input: #E7E5F0;
+  --color-ring: #6D5EF5;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-heading: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif;
+  --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-heading: "Space Grotesk", "Manrope", -apple-system, sans-serif;
 
-  --radius: 10px;
+  --radius: 12px;
 }
 
 :root {
   --background: 0 0% 100%;
-  --foreground: 220 13% 5%;
+  --foreground: 260 30% 9%;
   --card: 0 0% 100%;
-  --card-foreground: 220 13% 5%;
+  --card-foreground: 260 30% 9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 220 13% 5%;
-  --primary: 8 76% 58%;
+  --popover-foreground: 260 30% 9%;
+  --primary: 248 89% 68%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 222 20% 10%;
+  --secondary: 260 24% 9%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 60 3% 96%;
-  --muted-foreground: 220 6% 44%;
-  --accent: 8 76% 58%;
+  --muted: 250 30% 97%;
+  --muted-foreground: 250 8% 45%;
+  --accent: 248 89% 68%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 4 74% 51%;
+  --destructive: 358 74% 61%;
   --destructive-foreground: 0 0% 100%;
-  --border: 60 2% 90%;
-  --input: 60 2% 90%;
-  --ring: 8 76% 58%;
-  --radius: 10px;
+  --border: 250 30% 92%;
+  --input: 250 30% 92%;
+  --ring: 248 89% 68%;
+  --radius: 12px;
 }
 
 .dark {
