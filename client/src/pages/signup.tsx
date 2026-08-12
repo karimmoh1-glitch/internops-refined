@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
-import { Shield } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 import LogoMark from "@/components/logo-mark";
 
 interface SignupProps {
@@ -56,13 +56,13 @@ export default function Signup({ onSignup }: SignupProps) {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#EF7878]/10 border border-[#EF7878]/20 rounded-full text-sm text-[#EF7878] font-medium mb-4">
-              <Shield className="w-4 h-4" />
-              Manager Signup
+              <GraduationCap className="w-4 h-4" />
+              Intern Signup
             </div>
             <h1 className="text-3xl font-bold font-heading text-white mb-2" data-testid="text-signup-title">
               Create Your Account
             </h1>
-            <p className="text-zinc-500 text-sm">Join the EDAI workspace — no invite needed</p>
+            <p className="text-zinc-500 text-sm">Join the EDAI workspace as an intern — no invite needed</p>
           </div>
 
           <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] shadow-2xl p-6 space-y-4">
@@ -113,8 +113,14 @@ export default function Signup({ onSignup }: SignupProps) {
             <div className="text-center pt-2">
               <p className="text-sm text-zinc-500">
                 Already have an account?{" "}
-                <Link href="/manager-login" className="text-[#EF7878] hover:text-[#e86868] font-medium" data-testid="link-login">
+                <Link href="/intern-login" className="text-[#EF7878] hover:text-[#e86868] font-medium" data-testid="link-login">
                   Log in
+                </Link>
+              </p>
+              <p className="text-xs text-zinc-600 mt-2">
+                Manager?{" "}
+                <Link href="/manager-login" className="text-zinc-400 hover:text-zinc-300" data-testid="link-manager-login">
+                  Log in here
                 </Link>
               </p>
             </div>

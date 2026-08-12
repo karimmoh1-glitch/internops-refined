@@ -237,10 +237,13 @@ export async function registerRoutes(
     }
   });
 
-  // Manager signup — immediate, no email verification step. This is a
-  // private internal app for EDAI (not a public SaaS signup surface), so
-  // account creation completes synchronously: every manager joins the same
-  // fixed EDAI workspace, sets their own password, and is logged in right away.
+  // Public signup — immediate, no email verification step. This is a
+  // private internal app for EDAI (not a public SaaS signup surface).
+  // SECURITY: every account created through this public, unauthenticated
+  // route is an intern — never admin. The role is a hardcoded server-side
+  // constant, never read from the request body, so it cannot be spoofed by
+  // a client. Manager/admin accounts only ever come from the dev-only seed
+  // script — there is no public or client-controllable path to admin.
   app.post("/api/auth/signup", strictAuthLimiter, async (req, res) => {
     try {
       const { name, email, password } = req.body;
@@ -264,11 +267,11 @@ export async function registerRoutes(
         name: name.trim(),
         email: normalizedEmail,
         passwordHash,
-        role: "admin",
+        role: "intern",
         companyId: company.id,
       });
 
-      // Create #general channel and add admin as first member
+      // Create #general channel and add the new intern as a member
       const generalChannel = await storage.ensureGeneralChannel(company.id);
       await storage.addChannelMember(generalChannel.id, user.id);
 
