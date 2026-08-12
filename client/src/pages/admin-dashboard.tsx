@@ -918,6 +918,19 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
 
+  const deactivateInternMutation = useMutation({
+    mutationFn: async ({ internId, deactivate }: { internId: string; deactivate: boolean }) => {
+      const res = await apiRequest("POST", `/api/interns/${internId}/${deactivate ? "deactivate" : "reactivate"}`);
+      return res.json();
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/interns"] });
+      toast({ title: variables.deactivate ? "Intern deactivated" : "Intern reactivated", description: `${data.name} ${variables.deactivate ? "can no longer log in." : "can log in again."}` });
+    },
+    onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+
   const approveMutation = useMutation({
     mutationFn: async ({ versionId, comment }: { versionId: string; comment?: string }) => { const res = await apiRequest("POST", `/api/plan-versions/${versionId}/approve`, { comment: comment || undefined }); return res.json(); },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] }); toast({ title: "Plan approved!" }); },
@@ -1201,6 +1214,11 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                               <Link href={`/tasks?assigneeId=${intern.id}`} onClick={(e) => e.stopPropagation()}>
                                 <TaskCompletionBadge internId={intern.id} />
                               </Link>
+                              {intern.deactivatedAt && (
+                                <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200 text-xs" data-testid={`badge-deactivated-${intern.id}`}>
+                                  Deactivated
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-gray-500 text-sm" data-testid={`text-intern-email-${intern.id}`}>{intern.email}</p>
                           </div>
@@ -1233,6 +1251,33 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
                     {isExpanded && (
                       <div className="mt-2 space-y-3" data-testid={`expanded-intern-${intern.id}`}>
+                        <div className="flex justify-end px-1">
+                          {intern.deactivatedAt ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                              onClick={(e) => { e.stopPropagation(); deactivateInternMutation.mutate({ internId: intern.id, deactivate: false }); }}
+                              disabled={deactivateInternMutation.isPending}
+                              data-testid={`button-reactivate-intern-${intern.id}`}
+                            >
+                              {deactivateInternMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                              Reactivate
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs text-gray-600 border-gray-300 hover:bg-gray-50"
+                              onClick={(e) => { e.stopPropagation(); if (confirm(`Deactivate ${intern.name}? They won't be able to log in, but their tasks and history stay intact. You can reactivate them anytime.`)) { deactivateInternMutation.mutate({ internId: intern.id, deactivate: true }); } }}
+                              disabled={deactivateInternMutation.isPending}
+                              data-testid={`button-deactivate-intern-${intern.id}`}
+                            >
+                              {deactivateInternMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <X className="w-3 h-3 mr-1" />}
+                              Deactivate
+                            </Button>
+                          )}
+                        </div>
                         {projects.length > 1 && (
                           <div className="flex justify-end px-1">
                             <Button
@@ -1374,7 +1419,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Intern</label>
                 <select value={assignInternId} onChange={(e) => setAssignInternId(e.target.value)} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="select-assign-intern">
                   <option value="">Select an intern...</option>
-                  {(interns as any[]).map((intern: any) => (<option key={intern.id} value={intern.id}>{intern.name} ({intern.email})</option>))}
+                  {(interns as any[]).filter((intern: any) => !intern.deactivatedAt).map((intern: any) => (<option key={intern.id} value={intern.id}>{intern.name} ({intern.email})</option>))}
                 </select>
               </div>
               <div>
