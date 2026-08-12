@@ -213,10 +213,10 @@ export default function ApplicationsPanel({ companyId }: { companyId: string | n
         data-testid="button-toggle-applications"
       >
         <div className="flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-[#EF7878]" />
+          <ClipboardList className="w-5 h-5 text-[#E8604F]" />
           <h2 className="text-lg font-semibold text-gray-900">Applications</h2>
           {pendingCount > 0 && (
-            <Badge className="bg-[#EF7878] text-white border-none ml-1" data-testid="badge-pending-applications-count">{pendingCount} pending</Badge>
+            <Badge className="bg-[#E8604F] text-white border-none ml-1" data-testid="badge-pending-applications-count">{pendingCount} pending</Badge>
           )}
         </div>
         {expanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}

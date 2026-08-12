@@ -80,8 +80,8 @@ export default function ForgotPassword() {
           ) : (
             <>
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-14 h-14 bg-[#EF7878]/10 border border-[#EF7878]/20 rounded-full mb-4">
-                  <Mail className="w-6 h-6 text-[#EF7878]" />
+                <div className="inline-flex items-center justify-center w-14 h-14 bg-[#E8604F]/10 border border-[#E8604F]/20 rounded-full mb-4">
+                  <Mail className="w-6 h-6 text-[#E8604F]" />
                 </div>
                 <h1 className="text-3xl font-bold font-heading text-white mb-2">Forgot password?</h1>
                 <p className="text-zinc-500 text-sm">Enter your email and we'll send you a reset link</p>
@@ -97,14 +97,14 @@ export default function ForgotPassword() {
                     onChange={(e) => setEmail(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                     autoFocus
-                    className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#EF7878]/50 focus-visible:border-[#EF7878]/50"
+                    className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#E8604F]/50 focus-visible:border-[#E8604F]/50"
                   />
                 </div>
 
                 <Button
                   onClick={handleSubmit}
                   disabled={loading || !email.trim()}
-                  className="w-full py-5 text-base bg-gradient-to-r from-[#EF7878] to-[#e85d5d] hover:from-[#e86868] hover:to-[#d54d4d] text-white"
+                  className="w-full py-5 text-base bg-gradient-to-r from-[#E8604F] to-[#e85d5d] hover:from-[#EE7A6B] hover:to-[#d54d4d] text-white"
                 >
                   {loading ? "Sending..." : "Send Reset Link"}
                 </Button>

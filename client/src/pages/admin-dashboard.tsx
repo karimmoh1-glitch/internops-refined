@@ -548,7 +548,7 @@ function InternProjectDetail({ project }: { project: any }) {
               <GitHubRepoInput value={editGithubUrl} onChange={setEditGithubUrl} />
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1" data-testid={`button-cancel-edit-${project.id}`}>Cancel</Button>
-                <Button onClick={() => editProjectMutation.mutate()} disabled={!editTitle.trim() || !editIdea.trim() || !editMinHours || editProjectMutation.isPending} className="flex-1 bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid={`button-save-edit-${project.id}`}>
+                <Button onClick={() => editProjectMutation.mutate()} disabled={!editTitle.trim() || !editIdea.trim() || !editMinHours || editProjectMutation.isPending} className="flex-1 bg-[#E8604F] hover:bg-[#C94A3B] text-white" data-testid={`button-save-edit-${project.id}`}>
                   {editProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
                 </Button>
               </div>
@@ -821,7 +821,7 @@ function OrgAssistantPanel() {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5" data-testid="section-org-assistant">
       <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="w-4 h-4 text-[#EF7878]" />
+        <Sparkles className="w-4 h-4 text-[#E8604F]" />
         <h3 className="font-semibold text-gray-900">AI Organization Assistant</h3>
       </div>
 
@@ -1116,7 +1116,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               <p className="text-gray-500 text-sm mt-1" data-testid="text-dashboard-title">Manager Dashboard</p>
             </div>
             <div className="flex items-center flex-wrap gap-3">
-              <Button onClick={() => setShowInviteModal(true)} className="bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-open-invite">
+              <Button onClick={() => setShowInviteModal(true)} className="bg-[#E8604F] hover:bg-[#C94A3B] text-white" data-testid="button-open-invite">
                 <UserPlus className="w-4 h-4 mr-2" />Add Intern
               </Button>
               <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50" data-testid="button-open-assign">
@@ -1128,19 +1128,19 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <button onClick={() => { setFilter(filter === "interns" ? null : "interns"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "interns" ? "bg-blue-50 border-blue-300 ring-2 ring-blue-200" : "bg-gray-50 border-gray-100 hover:border-blue-200"}`} data-testid="stat-total-interns">
               <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Interns</span></div>
-              <p className="text-2xl font-bold text-gray-900">{allDashboardInterns.length}</p>
+              <p className="text-2xl font-bold text-gray-900 tabular-nums">{allDashboardInterns.length}</p>
             </button>
             <button onClick={() => { setFilter(filter === "projects" ? null : "projects"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "projects" ? "bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200" : "bg-gray-50 border-gray-100 hover:border-indigo-200"}`} data-testid="stat-total-projects">
               <div className="flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-indigo-600" /><span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Projects</span></div>
-              <p className="text-2xl font-bold text-gray-900">{totalProjects}</p>
+              <p className="text-2xl font-bold text-gray-900 tabular-nums">{totalProjects}</p>
             </button>
             <button onClick={() => { setFilter(filter === "active" ? null : "active"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "active" ? "bg-emerald-50 border-emerald-300 ring-2 ring-emerald-200" : "bg-gray-50 border-gray-100 hover:border-emerald-200"}`} data-testid="stat-active-projects">
               <div className="flex items-center gap-2 mb-1"><CheckCircle2 className="w-4 h-4 text-emerald-600" /><span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Active</span></div>
-              <p className="text-2xl font-bold text-gray-900">{activeProjects}</p>
+              <p className="text-2xl font-bold text-gray-900 tabular-nums">{activeProjects}</p>
             </button>
             <button onClick={() => { const newFilter = filter === "review" ? null : "review"; setFilter(newFilter); if (newFilter === "review") setShowPlanReview(true); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "review" ? "bg-amber-50 border-amber-300 ring-2 ring-amber-200" : "bg-gray-50 border-gray-100 hover:border-amber-200"}`} data-testid="stat-pending-review">
               <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-amber-600" /><span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pending Review</span></div>
-              <p className="text-2xl font-bold text-gray-900">{pendingReview}</p>
+              <p className="text-2xl font-bold text-gray-900 tabular-nums">{pendingReview}</p>
             </button>
           </div>
           {filter && (
@@ -1266,7 +1266,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <>
                   <p className="text-gray-500 text-lg mb-1">No interns yet</p>
                   <p className="text-gray-400 text-sm mb-3">Add your first intern to get started.</p>
-                  <Button onClick={() => setShowInviteModal(true)} className="bg-[#EF7878] hover:bg-[#e05555] text-white">
+                  <Button onClick={() => setShowInviteModal(true)} className="bg-[#E8604F] hover:bg-[#C94A3B] text-white">
                     <UserPlus className="w-4 h-4 mr-2" />Add Intern
                   </Button>
                 </>
@@ -1294,7 +1294,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                               <Link
                                 href={`/interns/${intern.id}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-gray-900 font-semibold hover:text-[#EF7878] hover:underline no-underline"
+                                className="text-gray-900 font-semibold hover:text-[#E8604F] hover:underline no-underline"
                                 data-testid={`text-intern-name-${intern.id}`}
                               >
                                 {intern.name}
@@ -1442,7 +1442,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                         variant={p === pagination.page ? "default" : "outline"}
                         size="sm"
                         onClick={() => pagination.setPage(p)}
-                        className={`h-7 w-7 text-xs p-0 ${p === pagination.page ? "bg-[#EF7878] text-white" : ""}`}
+                        className={`h-7 w-7 text-xs p-0 ${p === pagination.page ? "bg-[#E8604F] text-white" : ""}`}
                       >
                         {p}
                       </Button>
@@ -1518,7 +1518,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                   <Input type="password" placeholder="At least 6 characters" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} className="border-gray-300" data-testid="input-invite-password" />
                 </div>
-                <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || invitePassword.length < 6 || inviteMutation.isPending} className="w-full bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-send-invite">
+                <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || invitePassword.length < 6 || inviteMutation.isPending} className="w-full bg-[#E8604F] hover:bg-[#C94A3B] text-white" data-testid="button-send-invite">
                   {inviteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>) : "Create Account"}
                 </Button>
               </div>
@@ -1554,7 +1554,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Total Hours</label>
                 <Input type="number" min="1" placeholder="e.g., 160" value={assignMinHours} onChange={(e) => setAssignMinHours(e.target.value)} className="border-gray-300" data-testid="input-assign-hours" />
               </div>
-              <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-[#EF7878] hover:bg-[#e05555] text-white" data-testid="button-assign-project">
+              <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-[#E8604F] hover:bg-[#C94A3B] text-white" data-testid="button-assign-project">
                 {assignProjectMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Assigning...</>) : "Assign Project"}
               </Button>
             </div>

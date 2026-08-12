@@ -22,7 +22,7 @@ import ChatPage from "@/pages/chat";
 import TasksPage from "@/pages/tasks";
 import InternProfile from "@/pages/intern-profile";
 import SettingsPage from "@/pages/settings";
-import AppNav from "@/components/app-nav";
+import AppShell from "@/components/app-shell";
 import { useEffect } from "react";
 
 function DashboardForRole({ user }: { user: any }) {
@@ -32,46 +32,41 @@ function DashboardForRole({ user }: { user: any }) {
 
 function AuthenticatedView({ user, signOut }: { user: any; signOut: () => void }) {
   return (
-    <>
-      <AppNav user={user} onSignOut={signOut} />
+    <AppShell user={user} onSignOut={signOut}>
       <DashboardForRole user={user} />
-    </>
+    </AppShell>
   );
 }
 
 function AuthenticatedChat({ user, signOut }: { user: any; signOut: () => void }) {
   return (
-    <>
-      <AppNav user={user} onSignOut={signOut} />
+    <AppShell user={user} onSignOut={signOut}>
       <ChatPage user={user} />
-    </>
+    </AppShell>
   );
 }
 
 function AuthenticatedTasks({ user, signOut }: { user: any; signOut: () => void }) {
   return (
-    <>
-      <AppNav user={user} onSignOut={signOut} />
+    <AppShell user={user} onSignOut={signOut}>
       <TasksPage user={user} />
-    </>
+    </AppShell>
   );
 }
 
 function AuthenticatedInternProfile({ user, signOut, internId }: { user: any; signOut: () => void; internId: string }) {
   return (
-    <>
-      <AppNav user={user} onSignOut={signOut} />
+    <AppShell user={user} onSignOut={signOut}>
       <InternProfile internId={internId} />
-    </>
+    </AppShell>
   );
 }
 
 function AuthenticatedSettings({ user, signOut }: { user: any; signOut: () => void }) {
   return (
-    <>
-      <AppNav user={user} onSignOut={signOut} />
+    <AppShell user={user} onSignOut={signOut}>
       <SettingsPage user={user} />
-    </>
+    </AppShell>
   );
 }
 

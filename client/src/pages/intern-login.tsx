@@ -127,7 +127,7 @@ export default function InternLogin({ onLogin }: InternLoginProps) {
             <div className="text-center">
               <p className="text-sm text-zinc-600">
                 Are you a manager?{" "}
-                <Link href="/manager-login" className="text-[#EF7878] hover:text-[#e86868] font-medium" data-testid="link-manager-login">
+                <Link href="/manager-login" className="text-[#E8604F] hover:text-[#EE7A6B] font-medium" data-testid="link-manager-login">
                   Manager Login
                 </Link>
               </p>

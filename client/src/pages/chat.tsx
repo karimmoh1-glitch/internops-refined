@@ -268,7 +268,7 @@ function ChannelItem({
       onClick={onClick}
       className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md mx-1 transition-colors ${
         isActive
-          ? "bg-[#EF7878] text-white"
+          ? "bg-[#E8604F] text-white"
           : "text-slate-300 hover:bg-slate-700 hover:text-white"
       }`}
       style={{ width: "calc(100% - 8px)" }}
@@ -506,7 +506,7 @@ function MessagePane({
                 onClick={handleSend}
                 disabled={!input.trim() || sendMutation.isPending}
                 size="icon"
-                className="shrink-0 bg-[#EF7878] hover:bg-[#e05555]"
+                className="shrink-0 bg-[#E8604F] hover:bg-[#C94A3B]"
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -648,7 +648,7 @@ function CreateChannelDialog({
                     {u.role === "admin" ? "Manager" : u.role}
                   </span>
                   {selectedUsers.includes(u.id) && (
-                    <div className="w-4 h-4 bg-[#EF7878] rounded-full flex items-center justify-center">
+                    <div className="w-4 h-4 bg-[#E8604F] rounded-full flex items-center justify-center">
                       <span className="text-white text-[10px]">✓</span>
                     </div>
                   )}
@@ -667,7 +667,7 @@ function CreateChannelDialog({
           <Button
             onClick={() => createMutation.mutate()}
             disabled={!name.trim() || createMutation.isPending}
-            className="bg-[#EF7878] hover:bg-[#e05555]"
+            className="bg-[#E8604F] hover:bg-[#C94A3B]"
           >
             {createMutation.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin mr-1" />
