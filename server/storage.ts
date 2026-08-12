@@ -35,6 +35,7 @@ export interface IStorage {
   getInternsByCompany(companyId: string): Promise<User[]>;
   updateUserPassword(id: string, passwordHash: string): Promise<void>;
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
+  promoteToAdmin(id: string): Promise<User | undefined>;
 
   createCompany(data: InsertCompany): Promise<Company>;
   getCompanyById(id: string): Promise<Company | undefined>;
@@ -199,6 +200,11 @@ export class DatabaseStorage implements IStorage {
       .set({ deactivatedAt: deactivated ? new Date() : null })
       .where(eq(users.id, id))
       .returning();
+    return updated;
+  }
+
+  async promoteToAdmin(id: string): Promise<User | undefined> {
+    const [updated] = await db.update(users).set({ role: "admin" }).where(eq(users.id, id)).returning();
     return updated;
   }
 
