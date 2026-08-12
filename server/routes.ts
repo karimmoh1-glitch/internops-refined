@@ -911,6 +911,65 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/managers", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.json([]);
+      const admins = await storage.getAdminsByCompany(companyId);
+      res.json(admins.map(a => ({ id: a.id, name: a.name, email: a.email, createdAt: a.createdAt })));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get managers" });
+    }
+  });
+
+  // Demoting is deliberately restricted beyond just "must be an admin":
+  // - Can't demote yourself (no accidental or malicious self-lockout).
+  // - Can't demote the last remaining admin — there's no self-service path
+  //   back to admin, so that would permanently strand the whole company
+  //   with nobody able to manage it.
+  // Role is a hardcoded server-side "intern" constant, same as every other
+  // role-changing route here — never taken from the request body.
+  app.post("/api/managers/:id/demote", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const actorId = (req as any).userId;
+      const target = await storage.getUser(req.params.id as string);
+      if (!target || target.companyId !== companyId || target.role !== "admin") {
+        return res.status(404).json({ message: "Manager not found" });
+      }
+      if (target.id === actorId) {
+        return res.status(400).json({ message: "You can't demote yourself" });
+      }
+
+      const allAdmins = await storage.getAdminsByCompany(companyId);
+      if (allAdmins.length <= 1) {
+        return res.status(400).json({ message: "Can't demote the last remaining manager" });
+      }
+
+      const updated = await storage.demoteToIntern(target.id);
+
+      await storage.createNotification({
+        userId: target.id,
+        title: "Your manager access was removed",
+        message: "You've been moved back to an intern account on EDAI.",
+        read: false,
+        link: "/",
+      });
+
+      await logAudit({
+        actorUserId: actorId,
+        companyId,
+        action: "admin.demoted_to_intern",
+        targetType: "user",
+        targetId: target.id,
+      });
+
+      res.json({ id: updated?.id, name: updated?.name, email: updated?.email, role: updated?.role });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to demote manager" });
+    }
+  });
+
   // Immediate intern account creation — no invite link, no email to check.
   // The admin sets the intern's name/email/password directly and relays the
   // credentials however they like; the account exists right away.

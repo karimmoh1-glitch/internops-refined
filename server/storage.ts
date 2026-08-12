@@ -33,9 +33,11 @@ export interface IStorage {
   createUser(data: InsertUser): Promise<User>;
   getUsersByCompany(companyId: string): Promise<User[]>;
   getInternsByCompany(companyId: string): Promise<User[]>;
+  getAdminsByCompany(companyId: string): Promise<User[]>;
   updateUserPassword(id: string, passwordHash: string): Promise<void>;
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
   promoteToAdmin(id: string): Promise<User | undefined>;
+  demoteToIntern(id: string): Promise<User | undefined>;
 
   createCompany(data: InsertCompany): Promise<Company>;
   getCompanyById(id: string): Promise<Company | undefined>;
@@ -191,6 +193,12 @@ export class DatabaseStorage implements IStorage {
     ).orderBy(desc(users.createdAt));
   }
 
+  async getAdminsByCompany(companyId: string): Promise<User[]> {
+    return db.select().from(users).where(
+      and(eq(users.companyId, companyId), eq(users.role, "admin"))
+    ).orderBy(desc(users.createdAt));
+  }
+
   async updateUserPassword(id: string, passwordHash: string): Promise<void> {
     await db.update(users).set({ passwordHash }).where(eq(users.id, id));
   }
@@ -205,6 +213,11 @@ export class DatabaseStorage implements IStorage {
 
   async promoteToAdmin(id: string): Promise<User | undefined> {
     const [updated] = await db.update(users).set({ role: "admin" }).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
+  async demoteToIntern(id: string): Promise<User | undefined> {
+    const [updated] = await db.update(users).set({ role: "intern" }).where(eq(users.id, id)).returning();
     return updated;
   }
 

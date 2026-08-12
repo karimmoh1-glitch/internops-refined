@@ -719,6 +719,65 @@ function TaskCompletionBadge({ internId }: { internId: string }) {
   );
 }
 
+function ManagersSection({ currentUserId }: { currentUserId: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: managers = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/managers"] });
+
+  const demoteMutation = useMutation({
+    mutationFn: async (managerId: string) => {
+      const res = await apiRequest("POST", `/api/managers/${managerId}/demote`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/managers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/interns"] });
+      toast({ title: "Moved to intern", description: `${data.name} no longer has manager access.` });
+    },
+    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  if (isLoading || managers.length === 0) return null;
+
+  return (
+    <div data-testid="managers-section">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <ShieldPlus className="w-5 h-5 text-gray-600" />Managers
+      </h2>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100">
+        {managers.map((manager: any) => {
+          const isSelf = manager.id === currentUserId;
+          return (
+            <div key={manager.id} className="p-4 flex items-center justify-between gap-3" data-testid={`row-manager-${manager.id}`}>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{manager.name}</p>
+                  {isSelf && <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200 text-xs">You</Badge>}
+                </div>
+                <p className="text-xs text-gray-500 truncate">{manager.email}</p>
+              </div>
+              {!isSelf && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs text-red-600 border-red-200 hover:bg-red-50 shrink-0"
+                  onClick={() => { if (confirm(`Demote ${manager.name} to intern? They'll lose manager access immediately and go back to the intern dashboard.`)) { demoteMutation.mutate(manager.id); } }}
+                  disabled={demoteMutation.isPending}
+                  data-testid={`button-demote-manager-${manager.id}`}
+                >
+                  {demoteMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <X className="w-3 h-3 mr-1" />}
+                  Demote to Intern
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
@@ -1157,6 +1216,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         )}
 
         <ApplicationsPanel companyId={user.companyId} />
+
+        <ManagersSection currentUserId={user.id} />
 
         <div ref={internOverviewRef} data-testid="intern-overview-section">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
