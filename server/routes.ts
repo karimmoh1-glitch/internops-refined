@@ -278,6 +278,42 @@ export async function registerRoutes(
       }
 
       const company = await getOrCreateEdaiCompany();
+
+      // Bootstrap escape hatch: a freshly deployed instance has zero admins
+      // and the dev-only seed script refuses to run in production, so
+      // without this there would be no way to ever get a first manager
+      // account on a real deployment. Only fires once — the moment any
+      // admin exists, every subsequent signup goes through the normal
+      // pending-approval queue below, same as always.
+      const existingAdmins = await storage.getAdminsByCompany(company.id);
+      if (existingAdmins.length === 0) {
+        const passwordHash = await bcrypt.hash(password, 10);
+        const user = await storage.createUser({
+          name: name.trim(),
+          email: normalizedEmail,
+          passwordHash,
+          role: "admin",
+          companyId: company.id,
+        });
+        const generalChannel = await storage.ensureGeneralChannel(company.id);
+        await storage.addChannelMember(generalChannel.id, user.id);
+
+        await logAudit({
+          actorUserId: user.id,
+          companyId: company.id,
+          action: "admin.bootstrapped",
+          targetType: "user",
+          targetId: user.id,
+        });
+
+        const deviceId = await createDeviceForLogin(user.id, req);
+        const jwtToken = signToken(user.id, user.role, user.companyId, deviceId);
+        return res.status(201).json({
+          token: jwtToken,
+          user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
+        });
+      }
+
       const existingApplication = await storage.getPendingApplicationByEmail(company.id, normalizedEmail);
       if (existingApplication) {
         return res.status(400).json({ message: "You already have a pending signup request awaiting approval" });
@@ -297,8 +333,7 @@ export async function registerRoutes(
         status: "pending",
       } as any);
 
-      const admins = (await storage.getUsersByCompany(company.id)).filter((u) => u.role === "admin");
-      for (const admin of admins) {
+      for (const admin of existingAdmins) {
         await storage.createNotification({
           userId: admin.id,
           title: "New Signup Request",
@@ -363,6 +398,44 @@ export async function registerRoutes(
       res.json({ id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to get user" });
+    }
+  });
+
+  // Self-service change-password for an already-logged-in user (either
+  // role). Distinct from forgot-password below, which is for someone
+  // who's locked out and doesn't have a current password to prove.
+  app.put("/api/auth/change-password", requireAuth, authLimiter, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current and new password are required" });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      }
+
+      const user = await storage.getUser((req as any).userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserPassword(user.id, passwordHash);
+
+      await logAudit({
+        actorUserId: user.id,
+        companyId: user.companyId,
+        action: "user.changed_password",
+        targetType: "user",
+        targetId: user.id,
+      });
+
+      res.json({ message: "Password updated" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to change password" });
     }
   });
 
@@ -868,6 +941,36 @@ export async function registerRoutes(
       res.json({ id: updated?.id, name: updated?.name, email: updated?.email, deactivatedAt: updated?.deactivatedAt });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to reactivate intern" });
+    }
+  });
+
+  // Irreversible. Unlike deactivate (which just blocks login), this erases
+  // the intern's tasks, work logs, chat messages, and devices for good.
+  // Scoped to role === "intern" only — deleting a manager isn't offered
+  // here; demote them first (POST /api/managers/:id/demote), which is
+  // itself already blocked from ever reaching zero managers.
+  app.delete("/api/interns/:id", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "intern.deleted_permanently",
+        targetType: "user",
+        targetId: intern.id,
+        metadata: { name: intern.name, email: intern.email },
+      });
+
+      await storage.deleteUserPermanently(intern.id);
+
+      res.json({ message: `${intern.name}'s account and all associated data has been permanently deleted.` });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete intern" });
     }
   });
 

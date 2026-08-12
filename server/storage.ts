@@ -38,6 +38,7 @@ export interface IStorage {
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
   promoteToAdmin(id: string): Promise<User | undefined>;
   demoteToIntern(id: string): Promise<User | undefined>;
+  deleteUserPermanently(id: string): Promise<void>;
 
   createCompany(data: InsertCompany): Promise<Company>;
   getCompanyById(id: string): Promise<Company | undefined>;
@@ -311,7 +312,33 @@ export class DatabaseStorage implements IStorage {
     }
     await db.delete(weeklyLogs).where(eq(weeklyLogs.projectId, id));
     await db.delete(chatMessages).where(eq(chatMessages.projectId, id));
+    // The project's dedicated channel (members/messages cascade via the
+    // channel's own FK) — without this, deleting a project left a channel
+    // in the sidebar pointing at a project that no longer exists.
+    await db.delete(channels).where(eq(channels.projectId, id));
     await db.delete(projects).where(eq(projects.id, id));
+  }
+
+  // Full, irreversible removal of a user and everything that references
+  // them. Order matters: children before the user row itself. Tables where
+  // this user can only appear nullably (audit log actor, channel creator)
+  // get nulled out instead of deleted, to preserve the surrounding
+  // history/data rather than erase it.
+  async deleteUserPermanently(id: string): Promise<void> {
+    const ownedProjects = await db.select({ id: projects.id }).from(projects).where(eq(projects.internId, id));
+    for (const p of ownedProjects) {
+      await this.deleteProject(p.id);
+    }
+    await db.delete(tasks).where(eq(tasks.assigneeId, id));
+    await db.delete(notifications).where(eq(notifications.userId, id));
+    await db.delete(teamMessages).where(eq(teamMessages.userId, id));
+    await db.delete(chatMessages).where(eq(chatMessages.userId, id));
+    await db.delete(channelMessages).where(eq(channelMessages.userId, id));
+    await db.delete(channelMembers).where(eq(channelMembers.userId, id));
+    await db.update(channels).set({ createdById: null }).where(eq(channels.createdById, id));
+    await db.delete(userDevices).where(eq(userDevices.userId, id));
+    await db.update(auditLogs).set({ actorUserId: null }).where(eq(auditLogs.actorUserId, id));
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async createPlanVersion(data: InsertPlanVersion): Promise<PlanVersion> {

@@ -27,6 +27,8 @@ npm run dev
 
 Development-only — never enable these in a production deployment.
 
+> On a real deployment there's no seed script (it refuses to run when `NODE_ENV=production`) and no manager account exists yet — the first `/signup` on an instance with zero managers is automatically granted the manager role instead of going into the approval queue. Every signup after that goes through the normal pending-approval flow described below.
+
 ---
 
 ## The walkthrough

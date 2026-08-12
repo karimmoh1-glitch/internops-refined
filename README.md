@@ -1,6 +1,6 @@
 # InternOps
 
-InternOps is an internship-management platform. Company admins run an open or invite-only intern program: a public application page (or direct invite links) brings interns in, admins assign projects, interns plan their work with an AI assistant and log progress week by week, and admins review and give feedback — with a full activity/audit trail behind it.
+InternOps is an internship-management platform, currently configured as a single fixed workspace ("EDAI"). Public signup and the public application page both create a pending request — a manager reviews and approves or rejects each one before an account exists. Managers assign projects and tasks, interns plan their work with an AI assistant and log progress, and managers review and give feedback — with a full activity/audit trail behind it. Managers can also promote an intern to manager, demote a manager back to intern, and deactivate or permanently delete an intern account, all from the dashboard.
 
 ## Tech Stack
 
@@ -100,6 +100,7 @@ Vercel is a reasonable alternative for the frontend specifically, but since this
 3. Run `npm run db:push` against the production database (or from CI) to create the schema.
 4. Build (`npm run build`) and start (`npm start`). Most platforms do this automatically from `package.json`.
 5. Point your domain at the platform (see below).
+6. Go to `/signup` and create the first account. `npm run db:seed` refuses to run in production, so this is how you get your first manager: the very first signup on an instance with zero managers is automatically granted the manager role and logged straight in. Every signup after that goes through the normal pending-approval queue, reviewed from the manager dashboard.
 
 ### Custom domain
 

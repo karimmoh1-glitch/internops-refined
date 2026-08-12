@@ -116,12 +116,6 @@ export default function Home({ onLogin }: HomeProps) {
             </div>
 
             <div className="text-center pt-2 space-y-2">
-              <p className="text-sm text-zinc-500">
-                New manager?{" "}
-                <Link href="/signup" className="text-[#EF7878] hover:text-[#e86868] font-medium" data-testid="link-signup">
-                  Create your company
-                </Link>
-              </p>
               <p className="text-sm text-zinc-600">
                 Are you an intern?{" "}
                 <Link href="/intern-login" className="text-emerald-400 hover:text-emerald-300 font-medium" data-testid="link-intern-login">
