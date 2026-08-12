@@ -33,11 +33,17 @@ async function main() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
   // --- Organization + manager ---
-  const company = await storage.createCompany({
-    name: "InternOps Demo",
-    slug: "internops-demo",
-    acceptingApplications: true,
-  });
+  // InternOps runs as a single fixed workspace for EDAI — every account
+  // joins this same company, matching how signup now works (no company
+  // creation step).
+  let company = await storage.getCompanyBySlug("edai");
+  if (!company) {
+    company = await storage.createCompany({
+      name: "EDAI",
+      slug: "edai",
+      acceptingApplications: true,
+    });
+  }
   console.log(`Company: ${company.name} (${company.slug})`);
 
   const manager = await storage.createUser({

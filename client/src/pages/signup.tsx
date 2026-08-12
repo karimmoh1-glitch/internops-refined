@@ -9,14 +9,13 @@ import LogoMark from "@/components/logo-mark";
 
 export default function Signup() {
   const { toast } = useToast();
-  const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async () => {
-    if (!companyName.trim() || !email.trim()) {
-      toast({ title: "All fields are required", variant: "destructive" });
+    if (!email.trim()) {
+      toast({ title: "Email is required", variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -24,7 +23,7 @@ export default function Signup() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: companyName.trim(), email: email.trim() }),
+        body: JSON.stringify({ email: email.trim() }),
       });
       if (!res.ok) throw new Error(await parseErrorMessage(res, "Signup failed"));
       setEmailSent(true);
@@ -110,31 +109,21 @@ export default function Signup() {
               Manager Signup
             </div>
             <h1 className="text-3xl font-bold font-heading text-white mb-2" data-testid="text-signup-title">
-              Create Your Company
+              Create Your Account
             </h1>
-            <p className="text-zinc-500 text-sm">Enter your details and we'll send you a verification link</p>
+            <p className="text-zinc-500 text-sm">Enter your work email and we'll send you a verification link</p>
           </div>
 
           <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] shadow-2xl p-6 space-y-4">
             <div>
-              <label className="text-sm font-medium text-zinc-400 mb-1.5 block">Company Name</label>
-              <Input
-                placeholder="Acme Corp"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                autoFocus
-                className={inputClass}
-                data-testid="input-company-name"
-              />
-            </div>
-            <div>
               <label className="text-sm font-medium text-zinc-400 mb-1.5 block">Work Email</label>
               <Input
                 type="email"
-                placeholder="john@acme.com"
+                placeholder="you@edai.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                autoFocus
                 className={inputClass}
                 data-testid="input-email"
               />
@@ -142,7 +131,7 @@ export default function Signup() {
 
             <Button
               onClick={handleSubmit}
-              disabled={loading || !companyName.trim() || !email.trim()}
+              disabled={loading || !email.trim()}
               className="w-full py-5 text-base bg-gradient-to-r from-[#EF7878] to-[#e05555] hover:from-[#e86868] hover:to-[#d54545] text-white"
               data-testid="button-signup"
             >

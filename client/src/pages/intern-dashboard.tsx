@@ -195,6 +195,136 @@ export default function InternDashboard({ user }: InternDashboardProps) {
   );
 }
 
+// Today / My Work / Upcoming / Recently Completed / Feedback, built from the
+// intern's real assigned tasks. Quick actions here cover the common case
+// (start a task); submitting or blocking opens the full Tasks page, which
+// already has the dialogs for those.
+function InternTaskOverview() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: tasks = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/tasks/mine"] });
+
+  const startMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/tasks/${id}/start`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/mine"] });
+      toast({ title: "Task started" });
+    },
+    onError: (err: any) => toast({ title: "Couldn't start task", description: err.message, variant: "destructive" }),
+  });
+
+  if (isLoading || tasks.length === 0) return null;
+
+  const now = Date.now();
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+
+  const dueToday = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && new Date(t.dueDate) >= startOfToday && new Date(t.dueDate) <= endOfToday);
+  const myWork = tasks.filter((t: any) => t.status === "in_progress" || t.status === "blocked");
+  const upcoming = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() > endOfToday.getTime())
+    .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 5);
+  const recentlyCompleted = tasks.filter((t: any) => t.status === "completed" && t.completedAt)
+    .sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+    .slice(0, 5);
+  const withFeedback = tasks.filter((t: any) => t.feedback)
+    .sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 3);
+  const todoCount = tasks.filter((t: any) => t.status === "todo").length;
+
+  return (
+    <div className="mb-8 space-y-4" data-testid="section-intern-task-overview">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Today</h2>
+        <Button size="sm" variant="outline" onClick={() => setLocation("/tasks")} data-testid="button-view-all-tasks">
+          View All Tasks
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h3 className="font-semibold text-gray-900 text-sm mb-3">Due Today {dueToday.length > 0 && `(${dueToday.length})`}</h3>
+          {dueToday.length === 0 ? (
+            <p className="text-sm text-gray-400">Nothing due today.</p>
+          ) : (
+            <div className="space-y-2">
+              {dueToday.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-gray-700 truncate">{t.title}</span>
+                  {t.status === "todo" && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => startMutation.mutate(t.id)} data-testid={`button-quick-start-${t.id}`}>Start</Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h3 className="font-semibold text-gray-900 text-sm mb-3">My Work {myWork.length > 0 && `(${myWork.length})`}</h3>
+          {myWork.length === 0 ? (
+            <p className="text-sm text-gray-400">{todoCount > 0 ? `${todoCount} task${todoCount > 1 ? "s" : ""} waiting to be started.` : "Nothing in progress."}</p>
+          ) : (
+            <div className="space-y-2">
+              {myWork.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-gray-700 truncate">{t.title}</span>
+                  <Badge variant="outline" className={t.status === "blocked" ? "bg-red-50 text-red-700 border-red-200 text-xs" : "bg-blue-50 text-blue-700 border-blue-200 text-xs"}>
+                    {t.status === "blocked" ? "Blocked" : "In Progress"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {upcoming.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Upcoming</h3>
+            <div className="space-y-2">
+              {upcoming.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-gray-700 truncate">{t.title}</span>
+                  <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {recentlyCompleted.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Recently Completed</h3>
+            <div className="space-y-2">
+              {recentlyCompleted.map((t: any) => (
+                <div key={t.id} className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="text-gray-700 truncate">{t.title}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {withFeedback.length > 0 && (
+          <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-5 md:col-span-2">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Recent Feedback</h3>
+            <div className="space-y-3">
+              {withFeedback.map((t: any) => (
+                <div key={t.id} className="text-sm">
+                  <span className="text-gray-900 font-medium">{t.title}: </span>
+                  <span className="text-gray-600">{t.feedback}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectProject: (id: string) => void }) {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
@@ -218,15 +348,20 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
 
   if (projects.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center" data-testid="no-project-state">
-        <div className="text-center p-8 max-w-md">
-          <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-gray-300" />
+      <div className="min-h-screen bg-gray-50" data-testid="no-project-state">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <InternTaskOverview />
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center p-8 max-w-md">
+              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-8 h-8 text-gray-300" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-700 mb-1">No Projects Yet</h2>
+              <p className="text-gray-500 text-sm" data-testid="text-no-project">
+                Your manager will assign you a project soon. You'll be able to plan and track your work here.
+              </p>
+            </div>
           </div>
-          <h2 className="text-lg font-semibold text-gray-700 mb-1">No Projects Yet</h2>
-          <p className="text-gray-500 text-sm" data-testid="text-no-project">
-            Your manager will assign you a project soon. You'll be able to plan and track your work here.
-          </p>
         </div>
       </div>
     );
@@ -249,6 +384,8 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
             Team Chat
           </Button>
         </div>
+
+        <InternTaskOverview />
 
         {internAnalytics && (internAnalytics.progressByWeek?.length > 0 || internAnalytics.activityByWeek?.length > 0) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" data-testid="intern-analytics">

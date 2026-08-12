@@ -8,6 +8,20 @@ const STATUS_COLORS: Record<string, string> = {
   approved: "#10B981",
   active: "#059669",
 };
+const TASK_STATUS_COLORS: Record<string, string> = {
+  todo: "#9CA3AF",
+  in_progress: "#3B82F6",
+  in_review: "#F59E0B",
+  completed: "#10B981",
+  blocked: "#EF4444",
+};
+const TASK_STATUS_LABELS: Record<string, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  in_review: "In Review",
+  completed: "Completed",
+  blocked: "Blocked",
+};
 
 interface ChartCardProps {
   title: string;
@@ -139,6 +153,74 @@ export function HoursComparisonChart({ data }: { data: { internName: string; pla
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="planned" fill="#93C5FD" name="Planned" radius={[4, 4, 0, 0]} barSize={16} />
           <Bar dataKey="logged" fill="#3B82F6" name="Logged" radius={[4, 4, 0, 0]} barSize={16} />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
+export function TaskStatusPieChart({ data }: { data: { status: string; count: number }[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <ChartCard title="Task Status Breakdown">
+        <div className="h-full flex items-center justify-center text-sm text-gray-400">No tasks yet</div>
+      </ChartCard>
+    );
+  }
+
+  const chartData = data.map((d) => ({
+    name: TASK_STATUS_LABELS[d.status] || d.status,
+    value: d.count,
+    fill: TASK_STATUS_COLORS[d.status] || COLORS[0],
+  }));
+
+  return (
+    <ChartCard title="Task Status Breakdown" description="Current status of all tasks">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            innerRadius={40}
+            outerRadius={70}
+            paddingAngle={2}
+            dataKey="value"
+            label={({ name, value }) => `${name}: ${value}`}
+          >
+            {chartData.map((entry, idx) => (
+              <Cell key={idx} fill={entry.fill} />
+            ))}
+          </Pie>
+          <Tooltip />
+        </PieChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
+export function TaskCompletionByInternChart({ data }: { data: { internName: string; completed: number; total: number }[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <ChartCard title="Task Completion by Intern">
+        <div className="h-full flex items-center justify-center text-sm text-gray-400">No tasks assigned yet</div>
+      </ChartCard>
+    );
+  }
+
+  const chartData = data.map((d) => ({ ...d, remaining: d.total - d.completed }));
+
+  return (
+    <ChartCard title="Task Completion by Intern" description="Completed vs. total assigned tasks">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis dataKey="internName" fontSize={11} />
+          <YAxis fontSize={11} allowDecimals={false} />
+          <Tooltip />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Bar dataKey="completed" stackId="tasks" fill="#10B981" name="Completed" radius={[0, 0, 0, 0]} barSize={24} />
+          <Bar dataKey="remaining" stackId="tasks" fill="#E5E7EB" name="Remaining" radius={[4, 4, 0, 0]} barSize={24} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>

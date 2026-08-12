@@ -212,6 +212,33 @@ export const userDevices = pgTable("user_devices", {
   index("idx_user_devices_user").on(table.userId),
 ]);
 
+// Generic unit of assigned work — distinct from the AI-planned
+// project/weeklyLog flow above. A task can optionally belong to a project,
+// but doesn't have to; it's the general-purpose "here's a thing to do" unit
+// used by the task dashboards, completion tracking, and activity feed.
+export const tasks = pgTable("tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  assigneeId: varchar("assignee_id").notNull().references(() => users.id),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => users.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  priority: varchar("priority").notNull().default("medium"), // low | medium | high
+  status: varchar("status").notNull().default("todo"), // todo | in_progress | in_review | completed | blocked
+  dueDate: timestamp("due_date"),
+  submission: text("submission"),
+  submittedAt: timestamp("submitted_at"),
+  feedback: text("feedback"),
+  blockedReason: text("blocked_reason"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_tasks_company_status").on(table.companyId, table.status),
+  index("idx_tasks_assignee_status").on(table.assigneeId, table.status),
+]);
+
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   actorUserId: varchar("actor_user_id").references(() => users.id),
@@ -244,6 +271,7 @@ export const insertChannelMemberSchema = createInsertSchema(channelMembers).omit
 export const insertChannelMessageSchema = createInsertSchema(channelMessages).omit({ id: true, createdAt: true });
 export const insertUserDeviceSchema = createInsertSchema(userDevices).omit({ id: true, firstSeenAt: true, lastSeenAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
@@ -283,3 +311,10 @@ export type UserDevice = typeof userDevices.$inferSelect;
 export type InsertUserDevice = z.infer<typeof insertUserDeviceSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+
+export const TASK_STATUSES = ["todo", "in_progress", "in_review", "completed", "blocked"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+export const TASK_PRIORITIES = ["low", "medium", "high"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];

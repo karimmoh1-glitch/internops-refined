@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,14 +10,14 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Users, UserPlus, Briefcase, AlertCircle, ChevronDown, ChevronRight,
   Loader2, X, Copy, Clock, MessageSquare, CheckCircle2, Pencil, Trash2,
-  Target, BarChart3, Filter
+  Target, BarChart3, Filter, ListTodo, Sparkles, Send,
 } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/dashboard-skeleton";
 import SearchFilterBar from "@/components/search-filter-bar";
 import { usePaginatedList } from "@/hooks/use-paginated-list";
 import CommandPalette, { useAdminCommands } from "@/components/command-palette";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
-import { ProjectStatusPieChart, CompletionRateBarChart, WeeklyActivityLineChart, HoursComparisonChart } from "@/components/analytics-charts";
+import { ProjectStatusPieChart, CompletionRateBarChart, WeeklyActivityLineChart, HoursComparisonChart, TaskStatusPieChart, TaskCompletionByInternChart } from "@/components/analytics-charts";
 import GitHubPanel, { GitHubTokenSettings, GitHubRepoInput } from "@/components/github-panel";
 import ApplicationsPanel from "@/components/applications-panel";
 
@@ -582,9 +583,245 @@ function InternProjectDetail({ project }: { project: any }) {
   );
 }
 
+// Real-data task overview: attention required, due today, and recent
+// activity. Activity entries are derived only from timestamps that already
+// exist on each task (createdAt/submittedAt/completedAt/updatedAt) — nothing
+// here is synthesized or fabricated.
+function TaskOverviewSection({ interns }: { interns: any[] }) {
+  const { data: tasks = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+
+  if (isLoading) return null;
+
+  const internName = (id: string) => interns.find((i: any) => i.id === id)?.name || "Unknown";
+
+  const now = Date.now();
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+
+  const blocked = tasks.filter((t: any) => t.status === "blocked");
+  const inReview = tasks.filter((t: any) => t.status === "in_review");
+  const overdue = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now);
+  const dueToday = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && new Date(t.dueDate) >= startOfToday && new Date(t.dueDate) <= endOfToday);
+  const attentionCount = blocked.length + inReview.length + overdue.length;
+
+  type ActivityItem = { taskId: string; title: string; intern: string; event: string; ts: string };
+  const activity: ActivityItem[] = [];
+  tasks.forEach((t: any) => {
+    activity.push({ taskId: t.id, title: t.title, intern: internName(t.assigneeId), event: "assigned", ts: t.createdAt });
+    if (t.submittedAt) activity.push({ taskId: t.id, title: t.title, intern: internName(t.assigneeId), event: "submitted for review", ts: t.submittedAt });
+    if (t.completedAt) activity.push({ taskId: t.id, title: t.title, intern: internName(t.assigneeId), event: "completed", ts: t.completedAt });
+    if (t.status === "blocked") activity.push({ taskId: t.id, title: t.title, intern: internName(t.assigneeId), event: "blocked", ts: t.updatedAt });
+  });
+  activity.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+  const recentActivity = activity.slice(0, 8);
+
+  if (tasks.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center" data-testid="section-task-overview-empty">
+        <ListTodo className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+        <p className="text-gray-500 font-medium">No tasks yet</p>
+        <p className="text-sm text-gray-400 mt-1">
+          <Link href="/tasks" className="text-blue-600 hover:underline">Create your first task</Link> to start tracking real work.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="section-task-overview">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-600" />Attention Required</h3>
+          {attentionCount > 0 && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">{attentionCount}</Badge>}
+        </div>
+        {attentionCount === 0 ? (
+          <p className="text-sm text-gray-400">Nothing needs your attention right now.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {inReview.slice(0, 4).map((t: any) => (
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-gray-50 no-underline" data-testid={`activity-review-${t.id}`}>
+                <span className="text-amber-700 font-medium">Review: </span>
+                <span className="text-gray-700">{t.title}</span>
+                <span className="text-gray-400"> — {internName(t.assigneeId)}</span>
+              </Link>
+            ))}
+            {blocked.slice(0, 4).map((t: any) => (
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-gray-50 no-underline" data-testid={`activity-blocked-${t.id}`}>
+                <span className="text-red-700 font-medium">Blocked: </span>
+                <span className="text-gray-700">{t.title}</span>
+                <span className="text-gray-400"> — {internName(t.assigneeId)}</span>
+              </Link>
+            ))}
+            {overdue.slice(0, 4).map((t: any) => (
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-gray-50 no-underline" data-testid={`activity-overdue-${t.id}`}>
+                <span className="text-gray-900 font-medium">Overdue: </span>
+                <span className="text-gray-700">{t.title}</span>
+                <span className="text-gray-400"> — {internName(t.assigneeId)}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-blue-600" />Due Today</h3>
+        {dueToday.length === 0 ? (
+          <p className="text-sm text-gray-400">Nothing due today.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {dueToday.map((t: any) => (
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-gray-50 no-underline" data-testid={`activity-due-today-${t.id}`}>
+                <span className="text-gray-700">{t.title}</span>
+                <span className="text-gray-400"> — {internName(t.assigneeId)}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-gray-500" />Recent Activity</h3>
+        {recentActivity.length === 0 ? (
+          <p className="text-sm text-gray-400">No activity yet.</p>
+        ) : (
+          <div className="space-y-2.5 max-h-64 overflow-y-auto">
+            {recentActivity.map((a, i) => (
+              <div key={i} className="text-sm" data-testid={`activity-item-${i}`}>
+                <span className="text-gray-700">{a.intern}</span>
+                <span className="text-gray-400"> {a.event} </span>
+                <span className="text-gray-900 font-medium">"{a.title}"</span>
+                <p className="text-xs text-gray-400">{formatRelativeTime(a.ts)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Reads the same cached /api/tasks query TaskOverviewSection already
+// fetches (react-query dedupes by key), so this costs no extra request.
+function TaskCompletionBadge({ internId }: { internId: string }) {
+  const { data: tasks = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const mine = tasks.filter((t: any) => t.assigneeId === internId);
+  if (mine.length === 0) return null;
+  const completed = mine.filter((t: any) => t.status === "completed").length;
+  const blocked = mine.filter((t: any) => t.status === "blocked").length;
+  return (
+    <Badge
+      variant="outline"
+      className={`text-xs font-medium ${blocked > 0 ? "bg-red-50 text-red-700 border-red-200" : "bg-gray-50 text-gray-600 border-gray-200"}`}
+      data-testid={`badge-task-completion-${internId}`}
+    >
+      {completed}/{mine.length} tasks{blocked > 0 ? ` · ${blocked} blocked` : ""}
+    </Badge>
+  );
+}
+
+interface AssistantMessage {
+  role: "user" | "assistant";
+  content: string;
+  aiGenerated?: boolean;
+}
+
+const SUGGESTED_PROMPTS = [
+  "Give me a briefing",
+  "What's blocked right now?",
+  "Who's falling behind?",
+];
+
+function OrgAssistantPanel() {
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<AssistantMessage[]>([]);
+  const [input, setInput] = useState("");
+
+  const askMutation = useMutation({
+    mutationFn: async (question: string) => {
+      const nextMessages = [...messages, { role: "user" as const, content: question }];
+      setMessages(nextMessages);
+      const res = await apiRequest("POST", "/api/ai/org-assistant", {
+        messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply, aiGenerated: data.aiGenerated }]);
+    },
+    onError: (err: any) => {
+      toast({ title: "Assistant unavailable", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const ask = (question: string) => {
+    if (!question.trim() || askMutation.isPending) return;
+    setInput("");
+    askMutation.mutate(question.trim());
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5" data-testid="section-org-assistant">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles className="w-4 h-4 text-[#EF7878]" />
+        <h3 className="font-semibold text-gray-900">AI Organization Assistant</h3>
+      </div>
+
+      {messages.length === 0 ? (
+        <div className="mb-3">
+          <p className="text-sm text-gray-500 mb-3">Ask about blockers, who's behind, or get a quick briefing — answered from your real task data.</p>
+          <div className="flex flex-wrap gap-2">
+            {SUGGESTED_PROMPTS.map((p) => (
+              <button
+                key={p}
+                onClick={() => ask(p)}
+                className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                data-testid={`button-suggested-prompt-${p.replace(/\s+/g, "-").toLowerCase()}`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3 mb-3 max-h-96 overflow-y-auto">
+          {messages.map((m, i) => (
+            <div key={i} className={`text-sm ${m.role === "user" ? "text-right" : ""}`} data-testid={`assistant-message-${i}`}>
+              <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-800 border border-gray-100"}`}>
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {askMutation.isPending && (
+            <div className="text-sm">
+              <div className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-gray-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking...
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && ask(input)}
+          placeholder="Ask about your team..."
+          className="flex-1"
+          data-testid="input-org-assistant"
+        />
+        <Button size="sm" onClick={() => ask(input)} disabled={!input.trim() || askMutation.isPending} data-testid="button-ask-assistant">
+          <Send className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard({ user }: AdminDashboardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -608,6 +845,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const { data: dashboard, isLoading } = useQuery<any>({ queryKey: ["/api/dashboard"] });
   const { data: interns = [] } = useQuery<any[]>({ queryKey: ["/api/interns"] });
   const { data: analytics } = useQuery<any>({ queryKey: ["/api/analytics/admin"] });
+  const { data: taskListForSearch = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
   const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
@@ -731,6 +969,10 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     onReview: () => setShowPlanReview(true),
     onSignOut: () => {},
     onNavigateHome: () => { setFilter(null); setSearchQuery(""); },
+    onNavigate: (path) => setLocation(path),
+    interns: allDashboardInterns.map((i: any) => ({ id: i.id, name: i.name, email: i.email })),
+    tasks: taskListForSearch,
+    projects: allDashboardInterns.flatMap((i: any) => (i.projects || []).map((p: any) => ({ id: p.id, title: p.title, status: p.status, internName: i.name }))),
   });
 
   useKeyboardShortcuts([
@@ -815,6 +1057,10 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           )}
         </div>
 
+        <TaskOverviewSection interns={allDashboardInterns} />
+
+        <OrgAssistantPanel />
+
         {pendingReview > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4" data-testid="alert-pending-review">
             <div className="flex items-center gap-3">
@@ -873,6 +1119,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             </button>
             {showAnalytics && (
               <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="analytics-charts">
+                <TaskStatusPieChart data={analytics.taskStatusCounts || []} />
+                <TaskCompletionByInternChart data={analytics.taskCompletionByIntern || []} />
                 <ProjectStatusPieChart data={analytics.statusCounts || []} />
                 <CompletionRateBarChart data={analytics.completionRates || []} />
                 <WeeklyActivityLineChart data={analytics.logActivity || []} />
@@ -941,7 +1189,19 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                       <div className="p-4 sm:p-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-gray-900 font-semibold" data-testid={`text-intern-name-${intern.id}`}>{intern.name}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Link
+                                href={`/interns/${intern.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-gray-900 font-semibold hover:text-[#EF7878] hover:underline no-underline"
+                                data-testid={`text-intern-name-${intern.id}`}
+                              >
+                                {intern.name}
+                              </Link>
+                              <Link href={`/tasks?assigneeId=${intern.id}`} onClick={(e) => e.stopPropagation()}>
+                                <TaskCompletionBadge internId={intern.id} />
+                              </Link>
+                            </div>
                             <p className="text-gray-500 text-sm" data-testid={`text-intern-email-${intern.id}`}>{intern.email}</p>
                           </div>
                           <div className="flex flex-wrap items-center gap-3">

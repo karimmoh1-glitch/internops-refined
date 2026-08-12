@@ -336,6 +336,133 @@ Respond with ONLY the modified JSON, no explanation.`;
   }
 }
 
+export interface OrgDigestTask {
+  title: string;
+  internName: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+  blockedReason: string | null;
+}
+
+export interface OrgDigestIntern {
+  name: string;
+  totalTasks: number;
+  completedTasks: number;
+  blockedTasks: number;
+  overdueTasks: number;
+}
+
+export interface OrgDigest {
+  companyName: string;
+  interns: OrgDigestIntern[];
+  blockedTasks: OrgDigestTask[];
+  overdueTasks: OrgDigestTask[];
+  inReviewTasks: OrgDigestTask[];
+  totalTasks: number;
+  completedTasks: number;
+}
+
+function hasOpenAiKey(): boolean {
+  return !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+}
+
+function buildDigestBlock(digest: OrgDigest): string {
+  const lines: string[] = [];
+  lines.push(`Organization: ${digest.companyName}`);
+  lines.push(`Total tasks: ${digest.totalTasks} (${digest.completedTasks} completed)`);
+  lines.push("");
+  lines.push("Per-intern task summary:");
+  digest.interns.forEach((i) => {
+    lines.push(`  - ${i.name}: ${i.completedTasks}/${i.totalTasks} completed, ${i.blockedTasks} blocked, ${i.overdueTasks} overdue`);
+  });
+  if (digest.blockedTasks.length > 0) {
+    lines.push("");
+    lines.push("Blocked tasks:");
+    digest.blockedTasks.forEach((t) => lines.push(`  - "${t.title}" (${t.internName}): ${t.blockedReason || "no reason given"}`));
+  }
+  if (digest.overdueTasks.length > 0) {
+    lines.push("");
+    lines.push("Overdue tasks:");
+    digest.overdueTasks.forEach((t) => lines.push(`  - "${t.title}" (${t.internName}), due ${t.dueDate}`));
+  }
+  if (digest.inReviewTasks.length > 0) {
+    lines.push("");
+    lines.push("Awaiting manager review:");
+    digest.inReviewTasks.forEach((t) => lines.push(`  - "${t.title}" (${t.internName})`));
+  }
+  return lines.join("\n");
+}
+
+// Deterministic, non-AI briefing built only from real digest data — used
+// whenever no OpenAI key is configured, or the AI call fails. Never
+// fabricates data; if the digest is empty, it says so plainly.
+function fallbackOrgSummary(digest: OrgDigest): string {
+  if (digest.totalTasks === 0) {
+    return `No tasks exist yet for ${digest.companyName}. Once tasks are assigned, I can summarize progress, flag blockers, and highlight who needs attention.`;
+  }
+
+  const parts: string[] = [];
+  parts.push(`**${digest.companyName} briefing** (${digest.completedTasks}/${digest.totalTasks} tasks completed)`);
+
+  if (digest.blockedTasks.length > 0) {
+    parts.push(`\n**Blocked (${digest.blockedTasks.length}):**\n` + digest.blockedTasks.map((t) => `- "${t.title}" — ${t.internName}: ${t.blockedReason || "no reason given"}`).join("\n"));
+  }
+  if (digest.overdueTasks.length > 0) {
+    parts.push(`\n**Overdue (${digest.overdueTasks.length}):**\n` + digest.overdueTasks.map((t) => `- "${t.title}" — ${t.internName}`).join("\n"));
+  }
+  if (digest.inReviewTasks.length > 0) {
+    parts.push(`\n**Awaiting your review (${digest.inReviewTasks.length}):**\n` + digest.inReviewTasks.map((t) => `- "${t.title}" — ${t.internName}`).join("\n"));
+  }
+  if (digest.blockedTasks.length === 0 && digest.overdueTasks.length === 0 && digest.inReviewTasks.length === 0) {
+    parts.push("\nNothing blocked, overdue, or waiting on review right now.");
+  }
+
+  const behind = digest.interns.filter((i) => i.totalTasks > 0 && i.completedTasks / i.totalTasks < 0.5);
+  if (behind.length > 0) {
+    parts.push(`\n**Below 50% completion:** ` + behind.map((i) => `${i.name} (${i.completedTasks}/${i.totalTasks})`).join(", "));
+  }
+
+  parts.push(`\n_This is a data summary, not an AI-generated answer — set OPENAI_API_KEY to enable conversational Q&A._`);
+  return parts.join("\n");
+}
+
+export async function orgAssistantChat(
+  digest: OrgDigest,
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<{ reply: string; aiGenerated: boolean }> {
+  if (!hasOpenAiKey()) {
+    return { reply: fallbackOrgSummary(digest), aiGenerated: false };
+  }
+
+  const contextBlock = buildDigestBlock(digest);
+  const systemMessage = `You are an AI assistant for a manager on InternOps, an intern management platform. You help the manager understand what's happening across their organization — who's on track, who's blocked, what needs review.
+
+Real, current data for ${digest.companyName}:
+${contextBlock}
+
+RULES:
+- Only reference the data provided above. Never invent interns, tasks, or numbers that aren't in the data.
+- If asked about something not covered by the data (e.g. hours worked, sentiment), say you don't have that information rather than guessing.
+- Be concise and direct — this is a busy manager, not a chat companion.
+- When listing tasks or interns, use their real names/titles from the data.
+- If nothing is blocked/overdue, say so plainly rather than padding the response.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "system", content: systemMessage }, ...messages],
+      max_completion_tokens: 1024,
+    });
+    const reply = response.choices[0]?.message?.content;
+    if (!reply) throw new Error("No response from AI");
+    return { reply, aiGenerated: true };
+  } catch (error: any) {
+    console.error("Org assistant AI call failed:", error.message);
+    return { reply: fallbackOrgSummary(digest), aiGenerated: false };
+  }
+}
+
 export async function generateRevisionGuidance(
   managerComment: string,
   currentPlan: any,

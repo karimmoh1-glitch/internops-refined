@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { LogOut, Bell, CheckCheck, X, Command, MessageSquare } from "lucide-react";
+import { LogOut, Bell, CheckCheck, X, Command, MessageSquare, ListTodo } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import LogoMark from "@/components/logo-mark";
 
@@ -15,7 +15,7 @@ interface AppNavProps {
 export default function AppNav({ user, onSignOut, onOpenCommandPalette }: AppNavProps) {
   const [showNotifs, setShowNotifs] = useState(false);
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
@@ -81,6 +81,14 @@ export default function AppNav({ user, onSignOut, onOpenCommandPalette }: AppNav
               {isMac ? "\u2318K" : "Ctrl+K"}
             </kbd>
           </button>
+
+          <Link
+            href="/tasks"
+            className={`p-2 rounded-lg hover:bg-slate-100 transition-colors no-underline ${location === "/tasks" ? "bg-slate-100" : ""}`}
+            data-testid="link-tasks"
+          >
+            <ListTodo className="w-5 h-5 text-slate-500" />
+          </Link>
 
           <Link href="/chat" className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors no-underline" data-testid="link-chat">
             <MessageSquare className="w-5 h-5 text-slate-500" />
