@@ -35,11 +35,14 @@ Development-only — never enable these in a production deployment.
 
 Open the app logged out. Point out the hero, the three feature cards, and the "How It Works" steps — this is the real marketing page a prospective company would see, not a mockup.
 
-### 2. The public application (`/apply/edai`)
+### 2. Signing up (`/signup`) and the public application (`/apply/edai`)
 
-This is EDAI's live public application page — the exact URL a manager gets from their dashboard to share with candidates. Show the form (name, email, password, skills, motivation, links) without submitting — or submit a real test application to show step 3 for real.
+There are two public entry points, and both feed the exact same approval queue — neither one creates a live account by itself:
 
-> **If you submit one live**: it becomes a real row in the `applications` table, visible immediately in the manager dashboard's Applications panel with a "Pending" badge.
+- `/signup` — the app's own signup page. Name, email, password. Submitting it does **not** log you in; it creates a pending request and shows "Request Submitted."
+- `/apply/edai` — EDAI's branded public application page, the URL a manager shares with candidates directly. Same idea, plus optional skills/motivation/links fields.
+
+> **If you submit either live**: it becomes a real row in the `applications` table, `status: pending`, visible immediately in the manager dashboard's Applications panel. The applicant cannot log in until a manager approves it — try logging in with a pending request's credentials and it correctly fails with "Invalid email or password," because no `users` row exists yet.
 
 ### 3. Manager: applications review
 
@@ -48,6 +51,7 @@ Log in as `manager@edai.fun`. The dashboard opens directly to the Applications p
 - Point out **Priya Sharma** — a real pending application with skills, motivation, and a GitHub link — and **Sam Rivera**, already rejected with an internal reviewer note.
 - Open Priya's application, walk through Approve / Reject / the reviewer-notes field.
 - If you approve it, a real `intern` user account is created immediately, with the password Priya set when she applied — she could log in right now.
+- Rejecting never creates a user at all — a rejected applicant's login attempt fails the same as if they never signed up.
 
 ### 4. Manager: the dashboard proper
 
