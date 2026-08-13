@@ -31,10 +31,10 @@ interface ChartCardProps {
 
 function ChartCard({ title, description, children }: ChartCardProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+    <div className="bg-[#141110] border border-white/[0.08] rounded-xl shadow-sm p-4">
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-        {description && <p className="text-xs text-gray-400 mt-0.5">{description}</p>}
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        {description && <p className="text-xs text-white/40 mt-0.5">{description}</p>}
       </div>
       <div className="h-52">
         {children}
@@ -49,7 +49,7 @@ export function ProjectStatusPieChart({ data }: { data: { status: string; count:
   if (!data || data.length === 0) {
     return (
       <ChartCard title="Project Status Distribution">
-        <div className="h-full flex items-center justify-center text-sm text-gray-400">No project data</div>
+        <div className="h-full flex items-center justify-center text-sm text-white/40">No project data</div>
       </ChartCard>
     );
   }
@@ -89,7 +89,7 @@ export function CompletionRateBarChart({ data }: { data: { internName: string; c
   if (!data || data.length === 0) {
     return (
       <ChartCard title="Intern Completion Rates">
-        <div className="h-full flex items-center justify-center text-sm text-gray-400">No completion data</div>
+        <div className="h-full flex items-center justify-center text-sm text-white/40">No completion data</div>
       </ChartCard>
     );
   }
@@ -113,7 +113,7 @@ export function WeeklyActivityLineChart({ data }: { data: { week: string; logs: 
   if (!data || data.length === 0) {
     return (
       <ChartCard title="Weekly Log Activity">
-        <div className="h-full flex items-center justify-center text-sm text-gray-400">No activity data</div>
+        <div className="h-full flex items-center justify-center text-sm text-white/40">No activity data</div>
       </ChartCard>
     );
   }
@@ -137,7 +137,7 @@ export function HoursComparisonChart({ data }: { data: { internName: string; pla
   if (!data || data.length === 0) {
     return (
       <ChartCard title="Hours: Planned vs Logged">
-        <div className="h-full flex items-center justify-center text-sm text-gray-400">No hours data</div>
+        <div className="h-full flex items-center justify-center text-sm text-white/40">No hours data</div>
       </ChartCard>
     );
   }
@@ -163,7 +163,7 @@ export function TaskStatusPieChart({ data }: { data: { status: string; count: nu
   if (!data || data.length === 0) {
     return (
       <ChartCard title="Task Status Breakdown">
-        <div className="h-full flex items-center justify-center text-sm text-gray-400">No tasks yet</div>
+        <div className="h-full flex items-center justify-center text-sm text-white/40">No tasks yet</div>
       </ChartCard>
     );
   }
@@ -203,7 +203,7 @@ export function TaskCompletionByInternChart({ data }: { data: { internName: stri
   if (!data || data.length === 0) {
     return (
       <ChartCard title="Task Completion by Intern">
-        <div className="h-full flex items-center justify-center text-sm text-gray-400">No tasks assigned yet</div>
+        <div className="h-full flex items-center justify-center text-sm text-white/40">No tasks assigned yet</div>
       </ChartCard>
     );
   }
@@ -233,7 +233,7 @@ export function PersonalProgressLineChart({ data }: { data: { week: number; comp
   if (!data || data.length === 0) {
     return (
       <ChartCard title="My Progress">
-        <div className="h-full flex items-center justify-center text-sm text-gray-400">No progress data yet</div>
+        <div className="h-full flex items-center justify-center text-sm text-white/40">No progress data yet</div>
       </ChartCard>
     );
   }
@@ -263,7 +263,7 @@ export function WeeklyHoursBarChart({ data }: { data: { week: number; logs: numb
   if (!data || data.length === 0) {
     return (
       <ChartCard title="Weekly Activity">
-        <div className="h-full flex items-center justify-center text-sm text-gray-400">No activity data yet</div>
+        <div className="h-full flex items-center justify-center text-sm text-white/40">No activity data yet</div>
       </ChartCard>
     );
   }

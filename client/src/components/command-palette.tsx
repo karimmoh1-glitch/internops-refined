@@ -40,27 +40,27 @@ export default function CommandPalette({ open, onOpenChange, items }: CommandPal
       />
       <div className="fixed inset-0 z-[101] flex items-start justify-center pt-[18vh] px-4">
         <Command
-          className="w-full max-w-lg bg-white/90 backdrop-blur-2xl rounded-2xl border border-white/60 shadow-2xl shadow-black/30 overflow-hidden animate-scale-in"
+          className="w-full max-w-lg bg-[#171412]/90 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl shadow-black/50 overflow-hidden animate-scale-in"
           shouldFilter={true}
           data-testid="command-palette"
         >
-          <div className="flex items-center border-b border-gray-200/70 px-4">
-            <Search className="w-4 h-4 text-[#6D5EF5] mr-2.5 shrink-0" />
+          <div className="flex items-center border-b border-white/[0.08] px-4">
+            <Search className="w-4 h-4 text-[#8B7FF7] mr-2.5 shrink-0" />
             <Command.Input
               value={search}
               onValueChange={setSearch}
               placeholder="Search interns, tasks, projects..."
-              className="w-full py-3.5 text-[15px] text-gray-900 bg-transparent outline-none placeholder:text-gray-400"
+              className="w-full py-3.5 text-[15px] text-white bg-transparent outline-none placeholder:text-white/30"
               data-testid="command-palette-input"
               autoFocus
             />
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-100 rounded border border-gray-200 font-mono">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-white/40 bg-white/10 rounded border border-white/10 font-mono">
               ESC
             </kbd>
           </div>
 
           <Command.List className="max-h-72 overflow-y-auto p-2">
-            <Command.Empty className="py-10 text-center text-sm text-gray-400">
+            <Command.Empty className="py-10 text-center text-sm text-white/30">
               No results found.
             </Command.Empty>
 
@@ -68,7 +68,7 @@ export default function CommandPalette({ open, onOpenChange, items }: CommandPal
               const groupItems = items.filter((i) => i.group === group);
               return (
                 <Command.Group key={group} heading={group} className="mb-1">
-                  <div className="px-2 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <div className="px-2 py-1.5 text-[10px] font-semibold text-white/30 uppercase tracking-wider">
                     {group}
                   </div>
                   {groupItems.map((item) => (
@@ -79,14 +79,14 @@ export default function CommandPalette({ open, onOpenChange, items }: CommandPal
                         item.action();
                         onOpenChange(false);
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 cursor-pointer hover:bg-gray-100/80 data-[selected]:bg-[#6D5EF5]/10 data-[selected]:text-[#5142D6] transition-colors duration-100"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/70 cursor-pointer hover:bg-white/[0.06] data-[selected]:bg-[#6D5EF5]/15 data-[selected]:text-[#8B7FF7] transition-colors duration-100"
                       data-testid={`command-item-${item.id}`}
                     >
                       <item.icon className="w-4 h-4 shrink-0 opacity-60" />
                       <div className="flex-1 min-w-0">
                         <span className="font-medium">{item.label}</span>
                         {item.description && (
-                          <span className="text-xs text-gray-400 ml-2">{item.description}</span>
+                          <span className="text-xs text-white/30 ml-2">{item.description}</span>
                         )}
                       </div>
                     </Command.Item>
