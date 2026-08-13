@@ -6,8 +6,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import LogoMark from "@/components/logo-mark";
+import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 
 export default function Landing() {
+  useScrollReveal();
+
   return (
     <div className="min-h-screen bg-[#09090b] flex flex-col overflow-hidden">
       {/* Nav */}
@@ -35,72 +38,83 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative flex-1">
         {/* Glow effects */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(239,120,120,0.12),transparent)]" />
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#6D5EF5]/8 via-purple-500/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(109,94,245,0.16),transparent)]" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#6D5EF5]/10 via-purple-500/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-blue-500/5 via-indigo-500/5 to-transparent rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
 
-        <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-16 md:pt-28 md:pb-24">
+        <div className="relative max-w-6xl mx-auto px-6 pt-24 pb-16 md:pt-36 md:pb-24">
           {/* Badge */}
-          <div className="flex justify-center mb-8">
+          <div className="flex justify-center mb-8" data-reveal>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-zinc-300 font-medium" data-testid="text-hero-badge">
-              <Sparkles className="w-3.5 h-3.5 text-[#6D5EF5]" />
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6D5EF5] opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#8B7FF7]" />
+              </span>
               AI-Powered Intern Management
             </div>
           </div>
 
           {/* Heading */}
-          <h1 className="text-center text-5xl md:text-7xl font-bold font-heading text-white mb-6 leading-[1.1] tracking-tight" data-testid="text-hero-title">
+          <h1
+            className="text-center text-6xl md:text-8xl font-bold font-heading text-white mb-7 leading-[1.05] tracking-tight"
+            data-testid="text-hero-title"
+            data-reveal
+            style={{ transitionDelay: "80ms" }}
+          >
             Supercharge Your
             <br />
-            <span className="bg-gradient-to-r from-[#6D5EF5] via-[#f0a0a0] to-[#6D5EF5] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#8B7FF7] via-[#6D5EF5] to-[#8B7FF7] bg-clip-text text-transparent">
               Internship Program
             </span>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-center text-lg md:text-xl text-zinc-400 mb-12 leading-relaxed max-w-2xl mx-auto" data-testid="text-hero-subtitle">
+          <p
+            className="text-center text-xl md:text-2xl text-zinc-400 mb-12 leading-relaxed max-w-2xl mx-auto font-light"
+            data-testid="text-hero-subtitle"
+            data-reveal
+            style={{ transitionDelay: "160ms" }}
+          >
             The modern platform where admins onboard interns, assign projects, and track progress — all enhanced with AI.
           </p>
 
           {/* Single CTA */}
-          <div className="flex justify-center mb-20">
+          <div className="flex justify-center mb-24" data-reveal style={{ transitionDelay: "220ms" }}>
             <Link href="/signup">
-              <Button size="lg" className="bg-gradient-to-r from-[#6D5EF5] to-[#5142D6] hover:from-[#8B7FF7] hover:to-[#4335B0] text-white rounded-full py-6 px-10 text-base shadow-lg shadow-[#6D5EF5]/20 hover:shadow-xl hover:shadow-[#6D5EF5]/30 transition-all duration-300" data-testid="button-get-started">
+              <Button size="lg" className="bg-gradient-to-r from-[#6D5EF5] to-[#5142D6] hover:from-[#8B7FF7] hover:to-[#4335B0] text-white rounded-full py-7 px-12 text-lg shadow-lg shadow-[#6D5EF5]/25 hover:shadow-xl hover:shadow-[#6D5EF5]/40 hover:scale-[1.03] transition-all duration-300" data-testid="button-get-started">
                 Get Started Free
-                <ArrowRight className="w-4 h-4 ml-2" />
+                <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
           </div>
 
           {/* Feature cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-20">
-            <div className="group bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-500" data-testid="card-benefit-0">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-blue-500/20">
-                <Brain className="w-5 h-5 text-white" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-24">
+            {[
+              { icon: Brain, title: "AI Planning Assistant", desc: "Interns build smart execution plans with AI guidance. Admins review and approve with one click.", color: "from-blue-500 to-blue-600", glow: "shadow-blue-500/20" },
+              { icon: Shield, title: "Secure Onboarding", desc: "Token-based invite links with 48h expiry. Interns set their own password — no shared credentials.", color: "from-emerald-500 to-emerald-600", glow: "shadow-emerald-500/20" },
+              { icon: TrendingUp, title: "Progress Tracking", desc: "Weekly logs, hour tracking, and targeted feedback keep everyone aligned and accountable.", color: "from-amber-500 to-amber-600", glow: "shadow-amber-500/20" },
+            ].map((card, i) => (
+              <div
+                key={card.title}
+                className="group bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 hover:-translate-y-1 transition-all duration-500"
+                data-testid={`card-benefit-${i}`}
+                data-reveal
+                style={{ transitionDelay: `${i * 90}ms` }}
+              >
+                <div className={`w-10 h-10 bg-gradient-to-br ${card.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg ${card.glow}`}>
+                  <card.icon className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-base font-semibold text-white mb-1.5">{card.title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed">{card.desc}</p>
               </div>
-              <h3 className="text-base font-semibold text-white mb-1.5">AI Planning Assistant</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Interns build smart execution plans with AI guidance. Admins review and approve with one click.</p>
-            </div>
-            <div className="group bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-500" data-testid="card-benefit-1">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-emerald-500/20">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <h3 className="text-base font-semibold text-white mb-1.5">Secure Onboarding</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Token-based invite links with 48h expiry. Interns set their own password — no shared credentials.</p>
-            </div>
-            <div className="group bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-500" data-testid="card-benefit-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-amber-500/20">
-                <TrendingUp className="w-5 h-5 text-white" />
-              </div>
-              <h3 className="text-base font-semibold text-white mb-1.5">Progress Tracking</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Weekly logs, hour tracking, and targeted feedback keep everyone aligned and accountable.</p>
-            </div>
+            ))}
           </div>
 
           {/* How it works */}
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-bold text-center text-white font-heading mb-3" data-testid="text-how-it-works">How It Works</h2>
-            <p className="text-center text-zinc-500 mb-10 text-sm">Four simple steps to a better internship program</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-center text-white font-heading mb-3" data-testid="text-how-it-works" data-reveal>How It Works</h2>
+            <p className="text-center text-zinc-500 mb-10 text-sm" data-reveal style={{ transitionDelay: "60ms" }}>Four simple steps to a better internship program</p>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
@@ -108,8 +122,13 @@ export default function Landing() {
                 { step: "02", title: "Invite Interns", desc: "Send secure invite links via email.", icon: Users, color: "from-indigo-500 to-indigo-600", glow: "shadow-indigo-500/20" },
                 { step: "03", title: "Assign Projects", desc: "Set goals. AI helps interns plan.", icon: Zap, color: "from-violet-500 to-violet-600", glow: "shadow-violet-500/20" },
                 { step: "04", title: "Track & Review", desc: "Monitor progress. Give feedback.", icon: BarChart3, color: "from-purple-500 to-purple-600", glow: "shadow-purple-500/20" },
-              ].map((item) => (
-                <div key={item.step} className="group relative bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 text-center hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+              ].map((item, i) => (
+                <div
+                  key={item.step}
+                  className="group relative bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 text-center hover:bg-white/[0.05] hover:border-white/10 hover:-translate-y-1 transition-all duration-300"
+                  data-reveal
+                  style={{ transitionDelay: `${i * 90}ms` }}
+                >
                   <div className={`w-11 h-11 bg-gradient-to-br ${item.color} rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform duration-300 shadow-lg ${item.glow}`}>
                     <item.icon className="w-5 h-5 text-white" />
                   </div>
@@ -122,7 +141,7 @@ export default function Landing() {
           </div>
 
           {/* Social proof strip */}
-          <div className="mt-20 max-w-2xl mx-auto">
+          <div className="mt-24 max-w-2xl mx-auto" data-reveal>
             <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 text-sm text-zinc-500">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />

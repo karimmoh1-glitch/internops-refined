@@ -170,6 +170,27 @@
   animation: spark 1.2s ease-in-out infinite;
 }
 
+/* Scroll-reveal: elements start hidden+offset via [data-reveal], and
+   useScrollReveal adds .is-visible via IntersectionObserver once they enter
+   the viewport — mirrors the "content settles into place as you scroll"
+   feel of apple.com product pages. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 .slim-scrollbar::-webkit-scrollbar {
   width: 4px;
 }

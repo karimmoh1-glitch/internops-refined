@@ -35,32 +35,32 @@ export default function CommandPalette({ open, onOpenChange, items }: CommandPal
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/40 z-[100] animate-fade-in"
+        className="fixed inset-0 bg-[#09090b]/60 backdrop-blur-sm z-[100] animate-fade-in"
         onClick={() => onOpenChange(false)}
       />
-      <div className="fixed inset-0 z-[101] flex items-start justify-center pt-[20vh]">
+      <div className="fixed inset-0 z-[101] flex items-start justify-center pt-[18vh] px-4">
         <Command
-          className="w-full max-w-lg bg-white rounded-xl border border-gray-200 shadow-2xl overflow-hidden animate-fade-in-up"
+          className="w-full max-w-lg bg-white/90 backdrop-blur-2xl rounded-2xl border border-white/60 shadow-2xl shadow-black/30 overflow-hidden animate-scale-in"
           shouldFilter={true}
           data-testid="command-palette"
         >
-          <div className="flex items-center border-b border-gray-200 px-4">
-            <Search className="w-4 h-4 text-gray-400 mr-2 shrink-0" />
+          <div className="flex items-center border-b border-gray-200/70 px-4">
+            <Search className="w-4 h-4 text-[#6D5EF5] mr-2.5 shrink-0" />
             <Command.Input
               value={search}
               onValueChange={setSearch}
-              placeholder="Type a command or search..."
-              className="w-full py-3 text-sm text-gray-900 bg-transparent outline-none placeholder:text-gray-400"
+              placeholder="Search interns, tasks, projects..."
+              className="w-full py-3.5 text-[15px] text-gray-900 bg-transparent outline-none placeholder:text-gray-400"
               data-testid="command-palette-input"
               autoFocus
             />
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-gray-400 bg-gray-100 rounded border border-gray-200 font-mono">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-100 rounded border border-gray-200 font-mono">
               ESC
             </kbd>
           </div>
 
           <Command.List className="max-h-72 overflow-y-auto p-2">
-            <Command.Empty className="py-8 text-center text-sm text-gray-400">
+            <Command.Empty className="py-10 text-center text-sm text-gray-400">
               No results found.
             </Command.Empty>
 
@@ -79,7 +79,7 @@ export default function CommandPalette({ open, onOpenChange, items }: CommandPal
                         item.action();
                         onOpenChange(false);
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-700 cursor-pointer hover:bg-gray-100 data-[selected]:bg-blue-50 data-[selected]:text-blue-700 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 cursor-pointer hover:bg-gray-100/80 data-[selected]:bg-[#6D5EF5]/10 data-[selected]:text-[#5142D6] transition-colors duration-100"
                       data-testid={`command-item-${item.id}`}
                     >
                       <item.icon className="w-4 h-4 shrink-0 opacity-60" />
