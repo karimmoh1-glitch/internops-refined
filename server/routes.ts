@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, generatePerformanceNarrative, type OrgDigest, type PerformanceDigest } from "./services/aiService";
 import { normalizeSkillTag, aggregateSkillTags } from "@shared/skills";
+import { computeRiskFlags } from "./services/riskRadar";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
@@ -2407,6 +2408,19 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to request changes:", error);
       res.status(500).json({ message: "Failed to request changes" });
+    }
+  });
+
+  app.get("/api/risk-radar", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.json([]);
+      const interns = await storage.getInternsByCompany(companyId);
+      const tasks = await storage.getTasksByCompany(companyId);
+      res.json(computeRiskFlags(interns, tasks));
+    } catch (error: any) {
+      console.error("Failed to compute risk radar:", error);
+      res.status(500).json({ message: "Failed to compute risk radar" });
     }
   });
 

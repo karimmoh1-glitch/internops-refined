@@ -11,6 +11,7 @@ import {
   Users, UserPlus, Briefcase, AlertCircle, ChevronDown, ChevronRight,
   Loader2, X, Copy, Clock, MessageSquare, CheckCircle2, Pencil, Trash2,
   Target, BarChart3, Filter, ListTodo, Sparkles, Send, ShieldPlus, Activity, Download,
+  AlertTriangle,
 } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/dashboard-skeleton";
 import SearchFilterBar from "@/components/search-filter-bar";
@@ -792,6 +793,49 @@ const SUGGESTED_PROMPTS = [
   "Who's falling behind?",
 ];
 
+interface RiskFlag {
+  internId: string;
+  internName: string;
+  reason: string;
+  severity: "high" | "medium";
+}
+
+function RiskRadarPanel() {
+  const [, setLocation] = useLocation();
+  const { data: flags = [], isLoading } = useQuery<RiskFlag[]>({ queryKey: ["/api/risk-radar"] });
+
+  if (isLoading || flags.length === 0) return null;
+
+  return (
+    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="section-risk-radar">
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+        </div>
+        <div>
+          <h3 className="font-heading font-semibold text-white leading-tight">Risk Radar</h3>
+          <p className="text-[11px] text-white/40 leading-tight">Interns who may need a check-in</p>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        {flags.map((flag) => (
+          <button
+            key={flag.internId}
+            onClick={() => setLocation(`/interns/${flag.internId}`)}
+            className="w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors"
+            data-testid={`row-risk-flag-${flag.internId}`}
+          >
+            <span className="text-sm text-white font-medium shrink-0">{flag.internName}</span>
+            <span className={`text-xs text-right truncate ${flag.severity === "high" ? "text-red-400" : "text-amber-400"}`}>
+              {flag.reason}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OrgAssistantPanel() {
   const { toast } = useToast();
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
@@ -1191,6 +1235,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         />
 
         <TaskOverviewSection interns={allDashboardInterns} />
+
+        <RiskRadarPanel />
 
         <OrgAssistantPanel />
 
