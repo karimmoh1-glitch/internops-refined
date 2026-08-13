@@ -109,7 +109,11 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Below 500 the error was raised intentionally (e.g. a validation
+    // middleware) so its message is safe to show; a 500 means something
+    // unexpected broke (DB, driver, a bug) and its message may contain
+    // internal details, so only the generic fallback goes to the client.
+    const message = status < 500 && err.message ? err.message : "Internal Server Error";
 
     console.error("Internal Server Error:", err);
 
