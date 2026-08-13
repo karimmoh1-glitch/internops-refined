@@ -78,7 +78,7 @@ export function ProjectStatusPieChart({ data }: { data: { status: string; count:
               <Cell key={idx} fill={entry.fill} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip contentStyle={{ backgroundColor: "#171412", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
         </PieChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -98,10 +98,10 @@ export function CompletionRateBarChart({ data }: { data: { internName: string; c
     <ChartCard title="Intern Completion Rates" description="Percentage of subtasks completed per intern">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ left: 60, right: 10, top: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} fontSize={11} />
-          <YAxis type="category" dataKey="internName" width={55} fontSize={11} />
-          <Tooltip formatter={(v: number) => [`${v}%`, "Completion"]} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+          <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <YAxis type="category" dataKey="internName" width={55} fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <Tooltip formatter={(v: number) => [`${v}%`, "Completion"]} contentStyle={{ backgroundColor: "#171412", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
           <Bar dataKey="completionRate" fill="#3B82F6" radius={[0, 4, 4, 0]} barSize={20} />
         </BarChart>
       </ResponsiveContainer>
@@ -122,10 +122,10 @@ export function WeeklyActivityLineChart({ data }: { data: { week: string; logs: 
     <ChartCard title="Weekly Log Activity" description="Number of log entries per week">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis dataKey="week" fontSize={11} />
-          <YAxis fontSize={11} />
-          <Tooltip />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+          <XAxis dataKey="week" fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <YAxis fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <Tooltip contentStyle={{ backgroundColor: "#171412", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
           <Line type="monotone" dataKey="logs" stroke="#6366F1" strokeWidth={2} dot={{ fill: "#6366F1", r: 3 }} />
         </LineChart>
       </ResponsiveContainer>
@@ -146,10 +146,10 @@ export function HoursComparisonChart({ data }: { data: { internName: string; pla
     <ChartCard title="Hours: Planned vs Logged" description="Compare planned hours with logged activity">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ left: 40, right: 10, top: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis dataKey="internName" fontSize={11} />
-          <YAxis fontSize={11} />
-          <Tooltip />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+          <XAxis dataKey="internName" fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <YAxis fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <Tooltip contentStyle={{ backgroundColor: "#171412", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="planned" fill="#93C5FD" name="Planned" radius={[4, 4, 0, 0]} barSize={16} />
           <Bar dataKey="logged" fill="#3B82F6" name="Logged" radius={[4, 4, 0, 0]} barSize={16} />
@@ -192,7 +192,7 @@ export function TaskStatusPieChart({ data }: { data: { status: string; count: nu
               <Cell key={idx} fill={entry.fill} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip contentStyle={{ backgroundColor: "#171412", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
         </PieChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -214,13 +214,13 @@ export function TaskCompletionByInternChart({ data }: { data: { internName: stri
     <ChartCard title="Task Completion by Intern" description="Completed vs. total assigned tasks">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis dataKey="internName" fontSize={11} />
-          <YAxis fontSize={11} allowDecimals={false} />
-          <Tooltip />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+          <XAxis dataKey="internName" fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <YAxis fontSize={11} allowDecimals={false} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <Tooltip contentStyle={{ backgroundColor: "#171412", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="completed" stackId="tasks" fill="#10B981" name="Completed" radius={[0, 0, 0, 0]} barSize={24} />
-          <Bar dataKey="remaining" stackId="tasks" fill="#E5E7EB" name="Remaining" radius={[4, 4, 0, 0]} barSize={24} />
+          <Bar dataKey="remaining" stackId="tasks" fill="rgba(255,255,255,0.12)" name="Remaining" radius={[4, 4, 0, 0]} barSize={24} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -248,10 +248,10 @@ export function PersonalProgressLineChart({ data }: { data: { week: number; comp
     <ChartCard title="My Progress" description="Subtask completion per week">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis dataKey="weekLabel" fontSize={11} />
-          <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} fontSize={11} />
-          <Tooltip formatter={(v: number) => [`${v}%`, "Completion"]} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+          <XAxis dataKey="weekLabel" fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <Tooltip formatter={(v: number) => [`${v}%`, "Completion"]} contentStyle={{ backgroundColor: "#171412", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
           <Line type="monotone" dataKey="completionPct" stroke="#10B981" strokeWidth={2} dot={{ fill: "#10B981", r: 3 }} />
         </LineChart>
       </ResponsiveContainer>
@@ -277,10 +277,10 @@ export function WeeklyHoursBarChart({ data }: { data: { week: number; logs: numb
     <ChartCard title="Weekly Activity" description="Log entries per week">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis dataKey="weekLabel" fontSize={11} />
-          <YAxis fontSize={11} />
-          <Tooltip />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+          <XAxis dataKey="weekLabel" fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <YAxis fontSize={11} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} />
+          <Tooltip contentStyle={{ backgroundColor: "#171412", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
           <Bar dataKey="logs" fill="#8B5CF6" radius={[4, 4, 0, 0]} barSize={24} />
         </BarChart>
       </ResponsiveContainer>

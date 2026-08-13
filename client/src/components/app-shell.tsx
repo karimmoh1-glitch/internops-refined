@@ -219,7 +219,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
                       {unreadCount > 0 && (
                         <button
                           onClick={() => markAllReadMutation.mutate()}
-                          className="text-xs text-[#6D5EF5] hover:text-[#5142D6] px-2 py-1 rounded hover:bg-red-500/100/10 flex items-center gap-1"
+                          className="text-xs text-[#6D5EF5] hover:text-[#5142D6] px-2 py-1 rounded hover:bg-red-500/10 flex items-center gap-1"
                           data-testid="button-mark-all-read"
                         >
                           <CheckCheck className="w-3 h-3" />

@@ -292,7 +292,7 @@ function InternProjectDetail({ project }: { project: any }) {
             <button onClick={() => { setEditTitle(project.title); setEditIdea(project.idea); setEditMinHours(String(project.minimumTotalHours || "")); setEditGithubUrl(project.githubRepoUrl || ""); setShowEditModal(true); }} className="p-1.5 text-white/40 hover:text-blue-400 hover:bg-blue-500/10 rounded-md transition-colors" data-testid={`button-edit-project-${project.id}`} title="Edit project">
               <Pencil className="w-4 h-4" />
             </button>
-            <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 text-white/40 hover:text-red-400 hover:bg-red-500/100/10 rounded-md transition-colors" data-testid={`button-delete-project-${project.id}`} title="Delete project">
+            <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors" data-testid={`button-delete-project-${project.id}`} title="Delete project">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -763,7 +763,7 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/100/10 shrink-0"
+                  className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/10 shrink-0"
                   onClick={() => { if (confirm(`Demote ${manager.name} to intern? They'll lose admin access immediately and go back to the intern dashboard.`)) { demoteMutation.mutate(manager.id); } }}
                   disabled={demoteMutation.isPending}
                   data-testid={`button-demote-manager-${manager.id}`}
@@ -1175,7 +1175,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <Filter className="w-3 h-3" />
                 Filtering: {filter === "interns" ? "All Interns" : filter === "projects" ? "All Projects" : filter === "active" ? "Active Projects" : "Pending Review"}
               </Badge>
-              <button onClick={() => { setFilter(null); }} className="text-xs text-white/50 hover:text-red-400 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/100/10 transition-colors" data-testid="button-clear-filter">
+              <button onClick={() => { setFilter(null); }} className="text-xs text-white/50 hover:text-red-400 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors" data-testid="button-clear-filter">
                 <X className="w-3 h-3" /> Clear filter
               </button>
             </div>
@@ -1415,7 +1415,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-xs text-red-400 border-red-300 hover:bg-red-500/100/10"
+                            className="text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
                             onClick={(e) => {
                               e.stopPropagation();
                               const typed = window.prompt(`This permanently deletes ${intern.name}'s account and every task, log, and message tied to it. This cannot be undone.\n\nType their name to confirm: ${intern.name}`);
@@ -1437,7 +1437,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/100/10"
+                              className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/10"
                               onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ALL ${projects.length} projects for ${intern.name}? This cannot be undone.`)) { deleteAllProjectsMutation.mutate(intern.id); } }}
                               disabled={deleteAllProjectsMutation.isPending}
                               data-testid={`button-delete-all-projects-${intern.id}`}

@@ -137,7 +137,7 @@ function ApplicationRow({ application }: { application: Application }) {
                 size="sm"
                 variant="outline"
                 onClick={() => setShowReject(true)}
-                className="border-red-500/20 text-red-400 hover:bg-red-500/100/10"
+                className="border-red-500/20 text-red-400 hover:bg-red-500/10"
                 data-testid={`button-reject-application-${application.id}`}
               >
                 <X className="w-4 h-4 mr-1.5" />
