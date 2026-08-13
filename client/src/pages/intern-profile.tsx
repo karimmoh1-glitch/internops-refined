@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Loader2, CheckCircle2, Circle, PlayCircle, Eye, Ban,
-  FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2,
+  FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2, Award,
 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
 
@@ -62,6 +62,18 @@ export default function InternProfile({ internId }: InternProfileProps) {
       toast({ title: created.aiGenerated ? "Summary generated" : "Summary generated (no AI key configured)" });
     },
     onError: (err: any) => toast({ title: "Failed to generate summary", description: err.message, variant: "destructive" }),
+  });
+
+  const badgeMutation = useMutation({
+    mutationFn: async (awarded: boolean) => {
+      const res = await apiRequest("POST", `/api/interns/${internId}/completion-badge`, { awarded });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Updated" });
+    },
+    onError: (err: any) => toast({ title: "Failed to update badge", description: err.message, variant: "destructive" }),
   });
 
   const intern = useMemo(() => {
@@ -182,6 +194,25 @@ export default function InternProfile({ internId }: InternProfileProps) {
               ))}
             </div>
           )}
+
+          <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Award className={`w-4 h-4 ${intern.completionBadgeAwardedAt ? "text-emerald-400" : "text-white/40"}`} />
+              <span className="text-sm text-white/70">
+                {intern.completionBadgeAwardedAt ? "Completion badge awarded" : "No completion badge yet"}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => badgeMutation.mutate(!intern.completionBadgeAwardedAt)}
+              disabled={badgeMutation.isPending}
+              data-testid="button-toggle-completion-badge"
+            >
+              {badgeMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+              {intern.completionBadgeAwardedAt ? "Revoke Badge" : "Award Completion Badge"}
+            </Button>
+          </div>
         </div>
 
         <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">

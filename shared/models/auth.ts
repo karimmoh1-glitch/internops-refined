@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, uniqueIndex, jsonb, pgTable, text, timestamp, varchar, boolean, integer } from "drizzle-orm/pg-core";
+import { index, uniqueIndex, jsonb, pgTable, text, timestamp, varchar, boolean, integer, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -35,6 +35,14 @@ export const users = pgTable("users", {
   // as userDevices.revokedAt below. History (tasks, logs, chat) is left
   // intact; deactivating never deletes data.
   deactivatedAt: timestamp("deactivated_at"),
+  // Self-service opt-in — the intern controls their own public exposure.
+  // Slug is generated once on first enable and kept across future toggles
+  // (see storage.setUserPublicProfile) so the shareable link never changes.
+  publicProfileEnabled: boolean("public_profile_enabled").notNull().default(false),
+  publicProfileSlug: varchar("public_profile_slug").unique(),
+  // Institutional credential — admin-awarded only, never self-asserted.
+  completionBadgeAwardedAt: timestamp("completion_badge_awarded_at"),
+  completionBadgeAwardedByUserId: varchar("completion_badge_awarded_by_user_id").references((): AnyPgColumn => users.id),
 });
 
 export const invitations = pgTable("invitations", {
