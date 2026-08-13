@@ -26,6 +26,9 @@
 
   --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-heading: "Space Grotesk", "Manrope", -apple-system, sans-serif;
+  /* Editorial display serif — used only on the marketing landing page for a
+     warmer, less "AI-template" voice than the app's Space Grotesk headings. */
+  --font-serif: "Fraunces", ui-serif, Georgia, serif;
 
   --radius: 12px;
 }
