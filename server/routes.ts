@@ -348,7 +348,8 @@ export async function registerRoutes(
         pending: true,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Signup failed" });
+      console.error("Signup failed:", error);
+      res.status(500).json({ message: "Signup failed" });
     }
   });
 
@@ -401,7 +402,8 @@ export async function registerRoutes(
         user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Login failed" });
+      console.error("Login failed:", error);
+      res.status(500).json({ message: "Login failed" });
     }
   });
 
@@ -411,7 +413,8 @@ export async function registerRoutes(
       if (!user) return res.status(404).json({ message: "User not found" });
       res.json({ id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get user" });
+      console.error("Failed to get user:", error);
+      res.status(500).json({ message: "Failed to get user" });
     }
   });
 
@@ -449,7 +452,8 @@ export async function registerRoutes(
 
       res.json({ message: "Password updated" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to change password" });
+      console.error("Failed to change password:", error);
+      res.status(500).json({ message: "Failed to change password" });
     }
   });
 
@@ -488,7 +492,8 @@ export async function registerRoutes(
 
       res.status(200).json({ message: "If an account with that email exists, a reset link has been sent." });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to process request" });
+      console.error("Failed to process request:", error);
+      res.status(500).json({ message: "Failed to process request" });
     }
   });
 
@@ -502,7 +507,8 @@ export async function registerRoutes(
 
       res.json({ valid: true, email: resetToken.email });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Validation failed" });
+      console.error("Validation failed:", error);
+      res.status(500).json({ message: "Validation failed" });
     }
   });
 
@@ -532,7 +538,8 @@ export async function registerRoutes(
 
       res.json({ message: "Password reset successfully. You can now log in with your new password." });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Password reset failed" });
+      console.error("Password reset failed:", error);
+      res.status(500).json({ message: "Password reset failed" });
     }
   });
 
@@ -583,7 +590,8 @@ export async function registerRoutes(
         inviteLink,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to create invitation" });
+      console.error("Failed to create invitation:", error);
+      res.status(500).json({ message: "Failed to create invitation" });
     }
   });
 
@@ -594,7 +602,8 @@ export async function registerRoutes(
       const invites = await storage.getInvitationsByCompany(companyId);
       res.json(invites);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get invitations" });
+      console.error("Failed to get invitations:", error);
+      res.status(500).json({ message: "Failed to get invitations" });
     }
   });
 
@@ -616,7 +625,8 @@ export async function registerRoutes(
         inviterName,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to validate invitation" });
+      console.error("Failed to validate invitation:", error);
+      res.status(500).json({ message: "Failed to validate invitation" });
     }
   });
 
@@ -667,7 +677,8 @@ export async function registerRoutes(
         user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to accept invitation" });
+      console.error("Failed to accept invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
     }
   });
 
@@ -681,7 +692,8 @@ export async function registerRoutes(
       }
       res.json({ name: company.name, slug: company.slug, acceptingApplications: true });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to load company" });
+      console.error("Failed to load company:", error);
+      res.status(500).json({ message: "Failed to load company" });
     }
   });
 
@@ -747,7 +759,8 @@ export async function registerRoutes(
 
       res.status(201).json({ message: "Application received", id: application.id });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to submit application" });
+      console.error("Failed to submit application:", error);
+      res.status(500).json({ message: "Failed to submit application" });
     }
   });
 
@@ -758,7 +771,8 @@ export async function registerRoutes(
       const apps = await storage.getApplicationsByCompany(companyId);
       res.json(apps.map(({ passwordHash, ...rest }) => rest));
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get applications" });
+      console.error("Failed to get applications:", error);
+      res.status(500).json({ message: "Failed to get applications" });
     }
   });
 
@@ -771,7 +785,8 @@ export async function registerRoutes(
       const { passwordHash, ...rest } = application;
       res.json(rest);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get application" });
+      console.error("Failed to get application:", error);
+      res.status(500).json({ message: "Failed to get application" });
     }
   });
 
@@ -817,7 +832,8 @@ export async function registerRoutes(
 
       res.json({ message: "Application approved", userId: user.id });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to approve application" });
+      console.error("Failed to approve application:", error);
+      res.status(500).json({ message: "Failed to approve application" });
     }
   });
 
@@ -845,7 +861,8 @@ export async function registerRoutes(
 
       res.json({ message: "Application rejected" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to reject application" });
+      console.error("Failed to reject application:", error);
+      res.status(500).json({ message: "Failed to reject application" });
     }
   });
 
@@ -872,7 +889,8 @@ export async function registerRoutes(
 
       res.json({ message: "Marked as needing more information" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to update application" });
+      console.error("Failed to update application:", error);
+      res.status(500).json({ message: "Failed to update application" });
     }
   });
 
@@ -894,7 +912,8 @@ export async function registerRoutes(
       const updated = await storage.updateCompanyAcceptingApplications(companyId, !!accepting);
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to update setting" });
+      console.error("Failed to update setting:", error);
+      res.status(500).json({ message: "Failed to update setting" });
     }
   });
 
@@ -905,7 +924,8 @@ export async function registerRoutes(
       const interns = await storage.getInternsByCompany(companyId);
       res.json(interns.map(i => ({ id: i.id, name: i.name, email: i.email, role: i.role, createdAt: i.createdAt, deactivatedAt: i.deactivatedAt })));
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get interns" });
+      console.error("Failed to get interns:", error);
+      res.status(500).json({ message: "Failed to get interns" });
     }
   });
 
@@ -931,7 +951,8 @@ export async function registerRoutes(
 
       res.json({ id: updated?.id, name: updated?.name, email: updated?.email, deactivatedAt: updated?.deactivatedAt });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to deactivate intern" });
+      console.error("Failed to deactivate intern:", error);
+      res.status(500).json({ message: "Failed to deactivate intern" });
     }
   });
 
@@ -954,7 +975,8 @@ export async function registerRoutes(
 
       res.json({ id: updated?.id, name: updated?.name, email: updated?.email, deactivatedAt: updated?.deactivatedAt });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to reactivate intern" });
+      console.error("Failed to reactivate intern:", error);
+      res.status(500).json({ message: "Failed to reactivate intern" });
     }
   });
 
@@ -984,7 +1006,8 @@ export async function registerRoutes(
 
       res.json({ message: `${intern.name}'s account and all associated data has been permanently deleted.` });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to delete intern" });
+      console.error("Failed to delete intern:", error);
+      res.status(500).json({ message: "Failed to delete intern" });
     }
   });
 
@@ -1024,7 +1047,8 @@ export async function registerRoutes(
 
       res.json({ id: updated?.id, name: updated?.name, email: updated?.email, role: updated?.role });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to promote intern" });
+      console.error("Failed to promote intern:", error);
+      res.status(500).json({ message: "Failed to promote intern" });
     }
   });
 
@@ -1035,7 +1059,8 @@ export async function registerRoutes(
       const admins = await storage.getAdminsByCompany(companyId);
       res.json(admins.map(a => ({ id: a.id, name: a.name, email: a.email, createdAt: a.createdAt })));
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get managers" });
+      console.error("Failed to get managers:", error);
+      res.status(500).json({ message: "Failed to get managers" });
     }
   });
 
@@ -1083,7 +1108,8 @@ export async function registerRoutes(
 
       res.json({ id: updated?.id, name: updated?.name, email: updated?.email, role: updated?.role });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to demote manager" });
+      console.error("Failed to demote manager:", error);
+      res.status(500).json({ message: "Failed to demote manager" });
     }
   });
 
@@ -1133,7 +1159,8 @@ export async function registerRoutes(
 
       res.status(201).json({ id: intern.id, name: intern.name, email: intern.email, role: intern.role, createdAt: intern.createdAt });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to create intern account" });
+      console.error("Failed to create intern account:", error);
+      res.status(500).json({ message: "Failed to create intern account" });
     }
   });
 
@@ -1179,7 +1206,8 @@ export async function registerRoutes(
 
       res.status(201).json(project);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to assign project" });
+      console.error("Failed to assign project:", error);
+      res.status(500).json({ message: "Failed to assign project" });
     }
   });
 
@@ -1206,7 +1234,8 @@ export async function registerRoutes(
 
       res.json([]);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get projects" });
+      console.error("Failed to get projects:", error);
+      res.status(500).json({ message: "Failed to get projects" });
     }
   });
 
@@ -1237,7 +1266,8 @@ export async function registerRoutes(
         internName: intern?.name || "Unknown",
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get project" });
+      console.error("Failed to get project:", error);
+      res.status(500).json({ message: "Failed to get project" });
     }
   });
 
@@ -1288,7 +1318,8 @@ export async function registerRoutes(
 
       res.json({ planVersion });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to generate plan" });
+      console.error("Failed to generate plan:", error);
+      res.status(500).json({ message: "Failed to generate plan" });
     }
   });
 
@@ -1314,7 +1345,8 @@ export async function registerRoutes(
       const updated = await storage.updatePlanVersionContent(pv.id, contentJson);
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to update plan" });
+      console.error("Failed to update plan:", error);
+      res.status(500).json({ message: "Failed to update plan" });
     }
   });
 
@@ -1350,7 +1382,8 @@ export async function registerRoutes(
 
       res.json({ message: "Plan submitted for review" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to submit plan" });
+      console.error("Failed to submit plan:", error);
+      res.status(500).json({ message: "Failed to submit plan" });
     }
   });
 
@@ -1395,7 +1428,8 @@ export async function registerRoutes(
 
       res.json({ message: "Plan approved" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to approve plan" });
+      console.error("Failed to approve plan:", error);
+      res.status(500).json({ message: "Failed to approve plan" });
     }
   });
 
@@ -1463,7 +1497,8 @@ export async function registerRoutes(
 
       res.json({ message: "Revision requested" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to request revision" });
+      console.error("Failed to request revision:", error);
+      res.status(500).json({ message: "Failed to request revision" });
     }
   });
 
@@ -1472,7 +1507,8 @@ export async function registerRoutes(
       const comments = await storage.getCommentsByVersion(req.params.id as string);
       res.json(comments);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get comments" });
+      console.error("Failed to get comments:", error);
+      res.status(500).json({ message: "Failed to get comments" });
     }
   });
 
@@ -1510,7 +1546,8 @@ export async function registerRoutes(
 
       res.status(201).json(comment);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to add comment" });
+      console.error("Failed to add comment:", error);
+      res.status(500).json({ message: "Failed to add comment" });
     }
   });
 
@@ -1569,7 +1606,8 @@ export async function registerRoutes(
 
       res.json({ response });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "AI chat failed" });
+      console.error("AI chat failed:", error);
+      res.status(500).json({ message: "AI chat failed" });
     }
   });
 
@@ -1583,7 +1621,8 @@ export async function registerRoutes(
       const messages = await storage.getChatMessages(projectId, mode);
       res.json({ messages: messages.map(m => ({ role: m.role, content: m.content })) });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to load chat history" });
+      console.error("Failed to load chat history:", error);
+      res.status(500).json({ message: "Failed to load chat history" });
     }
   });
 
@@ -1596,7 +1635,8 @@ export async function registerRoutes(
       await storage.clearChatMessages(projectId, mode);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to clear chat history" });
+      console.error("Failed to clear chat history:", error);
+      res.status(500).json({ message: "Failed to clear chat history" });
     }
   });
 
@@ -1623,7 +1663,8 @@ export async function registerRoutes(
       const spark = sparkPrompts[Math.floor(Math.random() * sparkPrompts.length)];
       res.json({ spark });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Spark failed" });
+      console.error("Spark failed:", error);
+      res.status(500).json({ message: "Spark failed" });
     }
   });
 
@@ -1671,7 +1712,8 @@ export async function registerRoutes(
 
       res.json({ planVersion: newVersion, action: "created_new_version" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to modify plan" });
+      console.error("Failed to modify plan:", error);
+      res.status(500).json({ message: "Failed to modify plan" });
     }
   });
 
@@ -1684,7 +1726,8 @@ export async function registerRoutes(
       const summary = await summarizeLog(text.trim());
       res.json({ summary });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Summarization failed" });
+      console.error("Summarization failed:", error);
+      res.status(500).json({ message: "Summarization failed" });
     }
   });
 
@@ -1714,7 +1757,8 @@ export async function registerRoutes(
 
       res.status(201).json(log);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to create log" });
+      console.error("Failed to create log:", error);
+      res.status(500).json({ message: "Failed to create log" });
     }
   });
 
@@ -1723,7 +1767,8 @@ export async function registerRoutes(
       const logs = await storage.getWeeklyLogsByProject(req.params.projectId as string);
       res.json(logs);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get logs" });
+      console.error("Failed to get logs:", error);
+      res.status(500).json({ message: "Failed to get logs" });
     }
   });
 
@@ -1744,7 +1789,8 @@ export async function registerRoutes(
       const updated = await storage.updateWeeklyLog(req.params.id as string, logText.trim());
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to update log" });
+      console.error("Failed to update log:", error);
+      res.status(500).json({ message: "Failed to update log" });
     }
   });
 
@@ -1785,7 +1831,8 @@ export async function registerRoutes(
 
       res.status(201).json(comment);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to add comment" });
+      console.error("Failed to add comment:", error);
+      res.status(500).json({ message: "Failed to add comment" });
     }
   });
 
@@ -1798,7 +1845,8 @@ export async function registerRoutes(
       }));
       res.json(enriched);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get comments" });
+      console.error("Failed to get comments:", error);
+      res.status(500).json({ message: "Failed to get comments" });
     }
   });
 
@@ -1807,7 +1855,8 @@ export async function registerRoutes(
       const notifs = await storage.getNotificationsByUser((req as any).userId);
       res.json(notifs);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get notifications" });
+      console.error("Failed to get notifications:", error);
+      res.status(500).json({ message: "Failed to get notifications" });
     }
   });
 
@@ -1816,7 +1865,8 @@ export async function registerRoutes(
       const count = await storage.getUnreadNotificationCount((req as any).userId);
       res.json({ count });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get unread count" });
+      console.error("Failed to get unread count:", error);
+      res.status(500).json({ message: "Failed to get unread count" });
     }
   });
 
@@ -1825,7 +1875,8 @@ export async function registerRoutes(
       await storage.markAllNotificationsRead((req as any).userId);
       res.json({ message: "All notifications marked as read" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to mark all read" });
+      console.error("Failed to mark all read:", error);
+      res.status(500).json({ message: "Failed to mark all read" });
     }
   });
 
@@ -1835,7 +1886,8 @@ export async function registerRoutes(
       if (!updated) return res.status(404).json({ message: "Notification not found" });
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to mark read" });
+      console.error("Failed to mark read:", error);
+      res.status(500).json({ message: "Failed to mark read" });
     }
   });
 
@@ -1909,7 +1961,8 @@ export async function registerRoutes(
 
       res.status(201).json(task);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to create task" });
+      console.error("Failed to create task:", error);
+      res.status(500).json({ message: "Failed to create task" });
     }
   });
 
@@ -1927,7 +1980,8 @@ export async function registerRoutes(
 
       res.json(taskList);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get tasks" });
+      console.error("Failed to get tasks:", error);
+      res.status(500).json({ message: "Failed to get tasks" });
     }
   });
 
@@ -1936,7 +1990,8 @@ export async function registerRoutes(
       const taskList = await storage.getTasksByAssignee((req as any).userId);
       res.json(taskList);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get tasks" });
+      console.error("Failed to get tasks:", error);
+      res.status(500).json({ message: "Failed to get tasks" });
     }
   });
 
@@ -1952,7 +2007,8 @@ export async function registerRoutes(
       }
       res.json(task);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get task" });
+      console.error("Failed to get task:", error);
+      res.status(500).json({ message: "Failed to get task" });
     }
   });
 
@@ -2002,7 +2058,8 @@ export async function registerRoutes(
 
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to update task" });
+      console.error("Failed to update task:", error);
+      res.status(500).json({ message: "Failed to update task" });
     }
   });
 
@@ -2015,7 +2072,8 @@ export async function registerRoutes(
       await storage.deleteTask(task.id);
       res.json({ message: "Task deleted" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to delete task" });
+      console.error("Failed to delete task:", error);
+      res.status(500).json({ message: "Failed to delete task" });
     }
   });
 
@@ -2031,7 +2089,8 @@ export async function registerRoutes(
       const updated = await storage.updateTaskStatus(task.id, "in_progress");
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to start task" });
+      console.error("Failed to start task:", error);
+      res.status(500).json({ message: "Failed to start task" });
     }
   });
 
@@ -2058,7 +2117,8 @@ export async function registerRoutes(
 
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to submit task" });
+      console.error("Failed to submit task:", error);
+      res.status(500).json({ message: "Failed to submit task" });
     }
   });
 
@@ -2081,7 +2141,8 @@ export async function registerRoutes(
 
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to mark task blocked" });
+      console.error("Failed to mark task blocked:", error);
+      res.status(500).json({ message: "Failed to mark task blocked" });
     }
   });
 
@@ -2097,7 +2158,8 @@ export async function registerRoutes(
       const updated = await storage.updateTaskStatus(task.id, "in_progress", { blockedReason: null });
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to unblock task" });
+      console.error("Failed to unblock task:", error);
+      res.status(500).json({ message: "Failed to unblock task" });
     }
   });
 
@@ -2126,7 +2188,8 @@ export async function registerRoutes(
 
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to approve task" });
+      console.error("Failed to approve task:", error);
+      res.status(500).json({ message: "Failed to approve task" });
     }
   });
 
@@ -2155,7 +2218,8 @@ export async function registerRoutes(
 
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to request changes" });
+      console.error("Failed to request changes:", error);
+      res.status(500).json({ message: "Failed to request changes" });
     }
   });
 
@@ -2206,7 +2270,8 @@ export async function registerRoutes(
       const { reply, aiGenerated } = await orgAssistantChat(digest, messages);
       res.json({ reply, aiGenerated });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Assistant request failed" });
+      console.error("Assistant request failed:", error);
+      res.status(500).json({ message: "Assistant request failed" });
     }
   });
 
@@ -2251,7 +2316,8 @@ export async function registerRoutes(
         pendingReview: allProjects.filter(p => p.status === "submitted").length,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to load dashboard" });
+      console.error("Failed to load dashboard:", error);
+      res.status(500).json({ message: "Failed to load dashboard" });
     }
   });
 
@@ -2287,7 +2353,8 @@ export async function registerRoutes(
 
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to update project" });
+      console.error("Failed to update project:", error);
+      res.status(500).json({ message: "Failed to update project" });
     }
   });
 
@@ -2309,7 +2376,8 @@ export async function registerRoutes(
       await storage.deleteProject(req.params.id as string);
       res.json({ message: "Project deleted" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to delete project" });
+      console.error("Failed to delete project:", error);
+      res.status(500).json({ message: "Failed to delete project" });
     }
   });
 
@@ -2330,7 +2398,8 @@ export async function registerRoutes(
       });
       res.json({ message: `Deleted ${count} project(s)`, count });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to delete projects" });
+      console.error("Failed to delete projects:", error);
+      res.status(500).json({ message: "Failed to delete projects" });
     }
   });
 
@@ -2345,7 +2414,8 @@ export async function registerRoutes(
       await storage.updateProjectStatus(projectId, "assigned");
       res.json({ message: "Plan deleted. You can start fresh." });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to reset plan" });
+      console.error("Failed to reset plan:", error);
+      res.status(500).json({ message: "Failed to reset plan" });
     }
   });
 
@@ -2425,7 +2495,8 @@ export async function registerRoutes(
 
       res.status(400).json({ message: `Unknown action: ${action}` });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Action failed" });
+      console.error("Action failed:", error);
+      res.status(500).json({ message: "Action failed" });
     }
   });
 
@@ -2458,7 +2529,8 @@ export async function registerRoutes(
       const updated = await storage.updateProjectGithubUrl(req.params.id as string, githubRepoUrl || null);
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to update GitHub URL" });
+      console.error("Failed to update GitHub URL:", error);
+      res.status(500).json({ message: "Failed to update GitHub URL" });
     }
   });
 
@@ -2471,7 +2543,8 @@ export async function registerRoutes(
       await storage.updateCompanyGithubToken(companyId, githubToken || null);
       res.json({ message: githubToken ? "GitHub token saved" : "GitHub token removed" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to update GitHub token" });
+      console.error("Failed to update GitHub token:", error);
+      res.status(500).json({ message: "Failed to update GitHub token" });
     }
   });
 
@@ -2491,7 +2564,8 @@ export async function registerRoutes(
       const commits = await getRecentCommits(token, parsed.owner, parsed.repo);
       res.json(commits);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to fetch commits" });
+      console.error("Failed to fetch commits:", error);
+      res.status(500).json({ message: "Failed to fetch commits" });
     }
   });
 
@@ -2511,7 +2585,8 @@ export async function registerRoutes(
       const pulls = await getRecentPullRequests(token, parsed.owner, parsed.repo);
       res.json(pulls);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to fetch pull requests" });
+      console.error("Failed to fetch pull requests:", error);
+      res.status(500).json({ message: "Failed to fetch pull requests" });
     }
   });
 
@@ -2606,7 +2681,8 @@ export async function registerRoutes(
         taskCompletionByIntern,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to load analytics" });
+      console.error("Failed to load analytics:", error);
+      res.status(500).json({ message: "Failed to load analytics" });
     }
   });
 
@@ -2674,7 +2750,8 @@ export async function registerRoutes(
         activityByWeek,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to load analytics" });
+      console.error("Failed to load analytics:", error);
+      res.status(500).json({ message: "Failed to load analytics" });
     }
   });
 
@@ -2689,7 +2766,8 @@ export async function registerRoutes(
       const messages = await storage.getTeamMessages(user.companyId, limit);
       res.json(messages);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to load team messages" });
+      console.error("Failed to load team messages:", error);
+      res.status(500).json({ message: "Failed to load team messages" });
     }
   });
 
@@ -2710,7 +2788,8 @@ export async function registerRoutes(
       });
       res.json(message);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to send message" });
+      console.error("Failed to send message:", error);
+      res.status(500).json({ message: "Failed to send message" });
     }
   });
 
@@ -2725,7 +2804,8 @@ export async function registerRoutes(
       const allChannels = await storage.getChannelsByCompany(companyId, userId);
       res.json(allChannels);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to list channels" });
+      console.error("Failed to list channels:", error);
+      res.status(500).json({ message: "Failed to list channels" });
     }
   });
 
@@ -2752,7 +2832,8 @@ export async function registerRoutes(
       }
       res.status(201).json(channel);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to create channel" });
+      console.error("Failed to create channel:", error);
+      res.status(500).json({ message: "Failed to create channel" });
     }
   });
 
@@ -2765,7 +2846,8 @@ export async function registerRoutes(
       const totalCount = await storage.getTotalUnreadCount(companyId, userId);
       res.json({ count: totalCount });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get unread count" });
+      console.error("Failed to get unread count:", error);
+      res.status(500).json({ message: "Failed to get unread count" });
     }
   });
 
@@ -2778,7 +2860,8 @@ export async function registerRoutes(
       await storage.deleteChannel(channel.id);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to delete channel" });
+      console.error("Failed to delete channel:", error);
+      res.status(500).json({ message: "Failed to delete channel" });
     }
   });
 
@@ -2792,7 +2875,8 @@ export async function registerRoutes(
       const messages = await storage.getChannelMessages(req.params.id, limit);
       res.json(messages);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to load messages" });
+      console.error("Failed to load messages:", error);
+      res.status(500).json({ message: "Failed to load messages" });
     }
   });
 
@@ -2813,7 +2897,8 @@ export async function registerRoutes(
       await storage.updateLastReadAt(req.params.id, userId);
       res.status(201).json(message);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to send message" });
+      console.error("Failed to send message:", error);
+      res.status(500).json({ message: "Failed to send message" });
     }
   });
 
@@ -2826,7 +2911,8 @@ export async function registerRoutes(
       const members = await storage.getChannelMembers(req.params.id);
       res.json(members);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to load members" });
+      console.error("Failed to load members:", error);
+      res.status(500).json({ message: "Failed to load members" });
     }
   });
 
@@ -2841,7 +2927,8 @@ export async function registerRoutes(
       const member = await storage.addChannelMember(channel.id, userId);
       res.status(201).json(member);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to add member" });
+      console.error("Failed to add member:", error);
+      res.status(500).json({ message: "Failed to add member" });
     }
   });
 
@@ -2854,7 +2941,8 @@ export async function registerRoutes(
       await storage.removeChannelMember(channel.id, req.params.userId);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to remove member" });
+      console.error("Failed to remove member:", error);
+      res.status(500).json({ message: "Failed to remove member" });
     }
   });
 
@@ -2865,7 +2953,8 @@ export async function registerRoutes(
       await storage.updateLastReadAt(req.params.id, userId);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to mark as read" });
+      console.error("Failed to mark as read:", error);
+      res.status(500).json({ message: "Failed to mark as read" });
     }
   });
 
@@ -2887,7 +2976,8 @@ export async function registerRoutes(
       );
       res.json(channel);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to create DM" });
+      console.error("Failed to create DM:", error);
+      res.status(500).json({ message: "Failed to create DM" });
     }
   });
 
@@ -2899,7 +2989,8 @@ export async function registerRoutes(
       const allUsers = await storage.getUsersByCompany(companyId);
       res.json(allUsers.map(u => ({ id: u.id, name: u.name, role: u.role })));
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to list users" });
+      console.error("Failed to list users:", error);
+      res.status(500).json({ message: "Failed to list users" });
     }
   });
 
@@ -2935,7 +3026,8 @@ export async function registerRoutes(
 
       res.json({ message: `Migrated ${migrated} messages to #general channel`, migrated });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Migration failed" });
+      console.error("Migration failed:", error);
+      res.status(500).json({ message: "Migration failed" });
     }
   });
 
@@ -2954,7 +3046,8 @@ export async function registerRoutes(
       const currentDeviceId = (req as any).deviceId;
       res.json(devices.map(d => ({ ...d, isCurrent: d.deviceId === currentDeviceId })));
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get devices" });
+      console.error("Failed to get devices:", error);
+      res.status(500).json({ message: "Failed to get devices" });
     }
   });
 
@@ -2968,7 +3061,8 @@ export async function registerRoutes(
       if (!updated) return res.status(404).json({ message: "Device not found" });
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to rename device" });
+      console.error("Failed to rename device:", error);
+      res.status(500).json({ message: "Failed to rename device" });
     }
   });
 
@@ -2986,7 +3080,8 @@ export async function registerRoutes(
       });
       res.json({ message: "Device access revoked" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to revoke device" });
+      console.error("Failed to revoke device:", error);
+      res.status(500).json({ message: "Failed to revoke device" });
     }
   });
 
@@ -2997,7 +3092,8 @@ export async function registerRoutes(
       const logs = await storage.getAuditLogsByCompany(companyId);
       res.json(logs);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get audit logs" });
+      console.error("Failed to get audit logs:", error);
+      res.status(500).json({ message: "Failed to get audit logs" });
     }
   });
 
