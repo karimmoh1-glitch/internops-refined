@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -17,7 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Loader2, Clock, AlertTriangle, CheckCircle2, Circle, PlayCircle,
-  Eye, Ban, Pencil, Trash2, ListTodo, Calendar, User,
+  Eye, Ban, Pencil, Trash2, ListTodo, Calendar, User, X, UserCog, Flag,
 } from "lucide-react";
 
 interface TaskUser {
@@ -116,12 +117,20 @@ function ManagerTasksView({ user }: TasksPageProps) {
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const params = new URLSearchParams(search);
     const assigneeId = params.get("assigneeId");
     if (assigneeId) setAssigneeFilter(assigneeId);
   }, [search]);
+
+  // Switching filters can hide selected rows, which would let a bulk action
+  // silently apply to tasks the admin can no longer see — clear the
+  // selection instead so "N selected" always matches what's on screen.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [statusFilter, assigneeFilter]);
 
   const { data: taskList = [], isLoading: tasksLoading, isError: tasksError } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
@@ -217,6 +226,76 @@ function ManagerTasksView({ user }: TasksPageProps) {
     onError: (err: any) => toast({ title: "Failed to request changes", description: err.message, variant: "destructive" }),
   });
 
+  // Bulk actions reuse the existing single-task PUT/DELETE endpoints — fired
+  // in parallel rather than adding new bulk-specific server routes. Each
+  // call is tracked individually so a partial failure (e.g. one task was
+  // deleted by someone else mid-selection) still reports an accurate count
+  // instead of an all-or-nothing error.
+  const runBulk = async (ids: string[], op: (id: string) => Promise<Response>) => {
+    const results = await Promise.allSettled(ids.map(op));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    return { succeeded: ids.length - failed, failed };
+  };
+
+  const bulkReassignMutation = useMutation({
+    mutationFn: async ({ ids, assigneeId }: { ids: string[]; assigneeId: string }) =>
+      runBulk(ids, (id) => apiRequest("PUT", `/api/tasks/${id}`, { assigneeId })),
+    onSuccess: ({ succeeded, failed }, { assigneeId }) => {
+      invalidateTasks();
+      setSelectedIds(new Set());
+      const name = internNameById.get(assigneeId) || "the new assignee";
+      toast({
+        title: failed === 0 ? "Tasks reassigned" : "Some tasks couldn't be reassigned",
+        description: failed === 0
+          ? `${succeeded} task${succeeded === 1 ? "" : "s"} reassigned to ${name}.`
+          : `${succeeded} reassigned, ${failed} failed.`,
+        variant: failed === 0 ? undefined : "destructive",
+      });
+    },
+    onError: (err: any) => toast({ title: "Bulk reassign failed", description: err.message, variant: "destructive" }),
+  });
+
+  const bulkPriorityMutation = useMutation({
+    mutationFn: async ({ ids, priority }: { ids: string[]; priority: string }) =>
+      runBulk(ids, (id) => apiRequest("PUT", `/api/tasks/${id}`, { priority })),
+    onSuccess: ({ succeeded, failed }, { priority }) => {
+      invalidateTasks();
+      setSelectedIds(new Set());
+      toast({
+        title: failed === 0 ? "Priority updated" : "Some tasks couldn't be updated",
+        description: failed === 0
+          ? `${succeeded} task${succeeded === 1 ? "" : "s"} set to ${priority} priority.`
+          : `${succeeded} updated, ${failed} failed.`,
+        variant: failed === 0 ? undefined : "destructive",
+      });
+    },
+    onError: (err: any) => toast({ title: "Bulk priority update failed", description: err.message, variant: "destructive" }),
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => runBulk(ids, (id) => apiRequest("DELETE", `/api/tasks/${id}`)),
+    onSuccess: ({ succeeded, failed }) => {
+      invalidateTasks();
+      setSelectedIds(new Set());
+      toast({
+        title: failed === 0 ? "Tasks deleted" : "Some tasks couldn't be deleted",
+        description: failed === 0
+          ? `${succeeded} task${succeeded === 1 ? "" : "s"} deleted.`
+          : `${succeeded} deleted, ${failed} failed.`,
+        variant: failed === 0 ? undefined : "destructive",
+      });
+    },
+    onError: (err: any) => toast({ title: "Bulk delete failed", description: err.message, variant: "destructive" }),
+  });
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   if (tasksLoading) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-10 flex items-center justify-center min-h-[40vh]">
@@ -298,41 +377,82 @@ function ManagerTasksView({ user }: TasksPageProps) {
           </p>
         </div>
       ) : (
-        <div className="border border-white/[0.08] rounded-xl overflow-hidden divide-y divide-white/[0.06]">
-          {filteredTasks.map((task) => {
-            const overdue = isOverdue(task);
-            return (
-              <button
-                key={task.id}
-                onClick={() => setSelectedTask(task)}
-                className="w-full text-left px-4 py-3 hover:bg-[#141110]/[0.06] transition-colors flex items-center gap-3"
-                data-testid={`row-task-${task.id}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-white truncate">{task.title}</span>
-                    {task.projectId && projectTitleById.get(task.projectId) && (
-                      <span className="text-xs text-white/40 truncate">in {projectTitleById.get(task.projectId)}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-white/50">
-                    <User className="w-3 h-3" />
-                    {internNameById.get(task.assigneeId) || "Unknown"}
-                    {task.dueDate && (
-                      <span className={`flex items-center gap-1 ${overdue ? "text-red-400 font-medium" : ""}`}>
-                        <Calendar className="w-3 h-3" />
-                        {formatDate(task.dueDate)}
-                        {overdue && " (overdue)"}
-                      </span>
-                    )}
-                  </div>
+        <div className="border border-white/[0.08] rounded-xl overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-2 bg-white/[0.03] border-b border-white/[0.06]">
+            <Checkbox
+              checked={selectedIds.size > 0 && selectedIds.size === filteredTasks.length}
+              onCheckedChange={(checked) => {
+                setSelectedIds(checked ? new Set(filteredTasks.map((t) => t.id)) : new Set());
+              }}
+              data-testid="checkbox-select-all-tasks"
+              aria-label="Select all tasks"
+            />
+            <span className="text-xs text-white/40">
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : `${filteredTasks.length} task${filteredTasks.length === 1 ? "" : "s"}`}
+            </span>
+          </div>
+          <div className="divide-y divide-white/[0.06]">
+            {filteredTasks.map((task) => {
+              const overdue = isOverdue(task);
+              const checked = selectedIds.has(task.id);
+              return (
+                <div
+                  key={task.id}
+                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${checked ? "bg-[#6D5EF5]/[0.06]" : "hover:bg-white/[0.03]"}`}
+                  data-testid={`row-task-${task.id}`}
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() => toggleSelected(task.id)}
+                    data-testid={`checkbox-task-${task.id}`}
+                    aria-label={`Select ${task.title}`}
+                  />
+                  <button
+                    onClick={() => setSelectedTask(task)}
+                    className="flex-1 min-w-0 text-left flex items-center gap-3"
+                    data-testid={`button-open-task-${task.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-white truncate">{task.title}</span>
+                        {task.projectId && projectTitleById.get(task.projectId) && (
+                          <span className="text-xs text-white/40 truncate">in {projectTitleById.get(task.projectId)}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-white/50">
+                        <User className="w-3 h-3" />
+                        {internNameById.get(task.assigneeId) || "Unknown"}
+                        {task.dueDate && (
+                          <span className={`flex items-center gap-1 ${overdue ? "text-red-400 font-medium" : ""}`}>
+                            <Calendar className="w-3 h-3" />
+                            {formatDate(task.dueDate)}
+                            {overdue && " (overdue)"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <PriorityBadge priority={task.priority} />
+                    <StatusBadge status={task.status} />
+                  </button>
                 </div>
-                <PriorityBadge priority={task.priority} />
-                <StatusBadge status={task.status} />
-              </button>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
+      )}
+
+      {selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          interns={interns}
+          onReassign={(assigneeId) => bulkReassignMutation.mutate({ ids: Array.from(selectedIds), assigneeId })}
+          onSetPriority={(priority) => bulkPriorityMutation.mutate({ ids: Array.from(selectedIds), priority })}
+          onDelete={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+          onClear={() => setSelectedIds(new Set())}
+          isReassigning={bulkReassignMutation.isPending}
+          isSettingPriority={bulkPriorityMutation.isPending}
+          isDeleting={bulkDeleteMutation.isPending}
+        />
       )}
 
       <CreateTaskDialog
@@ -358,6 +478,94 @@ function ManagerTasksView({ user }: TasksPageProps) {
           isDeleting={deleteMutation.isPending}
         />
       )}
+    </div>
+  );
+}
+
+function BulkActionBar({
+  count, interns, onReassign, onSetPriority, onDelete, onClear,
+  isReassigning, isSettingPriority, isDeleting,
+}: {
+  count: number;
+  interns: TaskUser[];
+  onReassign: (assigneeId: string) => void;
+  onSetPriority: (priority: string) => void;
+  onDelete: () => void;
+  onClear: () => void;
+  isReassigning: boolean;
+  isSettingPriority: boolean;
+  isDeleting: boolean;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const isBusy = isReassigning || isSettingPriority || isDeleting;
+
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-2xl" data-testid="bar-bulk-actions">
+      <div className="bg-[#171412] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 pr-3 border-r border-white/[0.08]">
+          <span className="text-sm font-semibold text-white tabular-nums" data-testid="text-bulk-selected-count">{count} selected</span>
+          <button
+            onClick={onClear}
+            className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+            data-testid="button-clear-selection"
+            title="Clear selection"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {!confirmDelete ? (
+          <>
+            <Select onValueChange={onReassign} disabled={isBusy}>
+              <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-bulk-reassign">
+                <UserCog className="w-3.5 h-3.5 mr-1.5 text-white/40" />
+                <SelectValue placeholder="Reassign to..." />
+              </SelectTrigger>
+              <SelectContent>
+                {interns.filter((i) => !i.deactivatedAt).map((i) => (
+                  <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select onValueChange={onSetPriority} disabled={isBusy}>
+              <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-bulk-priority">
+                <Flag className="w-3.5 h-3.5 mr-1.5 text-white/40" />
+                <SelectValue placeholder="Set priority..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs text-red-400 hover:text-red-400 hover:bg-red-500/10 ml-auto"
+              onClick={() => setConfirmDelete(true)}
+              disabled={isBusy}
+              data-testid="button-bulk-delete"
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              Delete
+            </Button>
+
+            {isBusy && <Loader2 className="w-4 h-4 animate-spin text-white/40" />}
+          </>
+        ) : (
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs text-white/60">Delete {count} task{count === 1 ? "" : "s"}? This can't be undone.</span>
+            <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={onDelete} disabled={isDeleting} data-testid="button-confirm-bulk-delete">
+              {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm"}
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setConfirmDelete(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -521,7 +729,7 @@ function TaskDetailDialog({
           {task.feedback && (
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
               <p className="text-xs font-semibold text-blue-400 mb-1">Feedback</p>
-              <p className="text-sm text-blue-900 whitespace-pre-wrap">{task.feedback}</p>
+              <p className="text-sm text-blue-200 whitespace-pre-wrap">{task.feedback}</p>
             </div>
           )}
 
@@ -536,7 +744,7 @@ function TaskDetailDialog({
         <DialogFooter className="flex-wrap gap-2 sm:justify-between">
           <div className="flex items-center gap-2">
             {!confirmDelete ? (
-              <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-400 hover:bg-red-500/100/10" onClick={() => setConfirmDelete(true)} data-testid="button-delete-task">
+              <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-400 hover:bg-red-500/10" onClick={() => setConfirmDelete(true)} data-testid="button-delete-task">
                 <Trash2 className="w-4 h-4 mr-1" />
                 Delete
               </Button>

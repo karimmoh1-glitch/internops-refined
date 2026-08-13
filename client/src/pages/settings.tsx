@@ -111,7 +111,7 @@ function DeviceRow({ device }: { device: Device }) {
         <Button
           variant="outline"
           size="sm"
-          className="border-red-500/20 text-red-400 hover:bg-red-500/100/10 shrink-0"
+          className="border-red-500/20 text-red-400 hover:bg-red-500/10 shrink-0"
           onClick={() => setConfirmRevoke(true)}
           data-testid={`button-revoke-device-${device.id}`}
         >
