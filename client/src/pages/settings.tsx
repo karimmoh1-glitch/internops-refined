@@ -10,7 +10,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Laptop, Smartphone, Pencil, Check, X, ShieldAlert, History, User as UserIcon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Laptop, Smartphone, Pencil, Check, X, ShieldAlert, History, User as UserIcon, Globe, Copy, Award } from "lucide-react";
 
 interface SettingsProps {
   user: { id: string; name: string; email: string; role: string; companyId: string | null };
@@ -267,6 +268,80 @@ function ChangePasswordCard() {
   );
 }
 
+interface MeResponse {
+  publicProfileEnabled: boolean;
+  publicProfileSlug: string | null;
+  completionBadgeAwardedAt: string | null;
+}
+
+function PublicProfileCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: me } = useQuery<MeResponse>({ queryKey: ["/api/auth/me"] });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await apiRequest("PUT", "/api/settings/public-profile", { enabled });
+      return res.json();
+    },
+    onSuccess: (data: { publicProfileEnabled: boolean; publicProfileSlug: string | null }) => {
+      queryClient.setQueryData(["/api/auth/me"], (prev: MeResponse | undefined) =>
+        prev ? { ...prev, ...data } : prev
+      );
+      toast({ title: data.publicProfileEnabled ? "Public profile enabled" : "Public profile disabled" });
+    },
+    onError: (err: any) => toast({ title: "Failed to update", description: err.message, variant: "destructive" }),
+  });
+
+  const shareUrl = me?.publicProfileSlug ? `${window.location.origin}/i/${me.publicProfileSlug}` : null;
+
+  return (
+    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <Globe className="w-5 h-5 text-white/50 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-white">Public Profile</p>
+            <p className="text-xs text-white/50 mt-0.5">
+              Share a public page with your completed work and skills — great for LinkedIn or a resume.
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={!!me?.publicProfileEnabled}
+          onCheckedChange={(checked) => toggleMutation.mutate(checked)}
+          disabled={toggleMutation.isPending}
+          data-testid="switch-public-profile"
+        />
+      </div>
+
+      {me?.completionBadgeAwardedAt && (
+        <div className="flex items-center gap-2 text-xs text-emerald-400">
+          <Award className="w-3.5 h-3.5" />
+          Your admin has awarded you a completion badge — it'll show on your public profile.
+        </div>
+      )}
+
+      {shareUrl && me?.publicProfileEnabled && (
+        <div className="flex items-center gap-2 bg-[#0B0A09] border border-white/[0.08] rounded-lg px-3 py-2">
+          <span className="text-sm text-white/70 flex-1 truncate" data-testid="text-public-profile-url">{shareUrl}</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              navigator.clipboard.writeText(shareUrl);
+              toast({ title: "Link copied" });
+            }}
+            data-testid="button-copy-public-profile-url"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Settings({ user }: SettingsProps) {
   return (
     <div className="min-h-screen bg-[#0B0A09]">
@@ -299,6 +374,10 @@ export default function Settings({ user }: SettingsProps) {
                 <label className="text-xs font-medium text-white/50 uppercase tracking-wide">Role</label>
                 <p className="text-sm text-white mt-1 capitalize" data-testid="text-profile-role">{user.role === "admin" ? "Admin" : user.role}</p>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <PublicProfileCard />
             </div>
 
             <div className="mt-4">

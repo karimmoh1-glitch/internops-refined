@@ -1,6 +1,7 @@
 import { eq, desc, and, count, inArray, gt, isNull, sql, or } from "drizzle-orm";
 import { db } from "./db";
 import { lt } from "drizzle-orm";
+import crypto from "crypto";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
   channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives,
@@ -31,12 +32,15 @@ import {
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByPublicSlug(slug: string): Promise<User | undefined>;
   createUser(data: InsertUser): Promise<User>;
   getUsersByCompany(companyId: string): Promise<User[]>;
   getInternsByCompany(companyId: string): Promise<User[]>;
   getAdminsByCompany(companyId: string): Promise<User[]>;
   updateUserPassword(id: string, passwordHash: string): Promise<void>;
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
+  setUserPublicProfile(id: string, enabled: boolean): Promise<User | undefined>;
+  setUserCompletionBadge(id: string, awarded: boolean, awardedByUserId: string | null): Promise<User | undefined>;
   promoteToAdmin(id: string): Promise<User | undefined>;
   demoteToIntern(id: string): Promise<User | undefined>;
   deleteUserPermanently(id: string): Promise<void>;
@@ -185,6 +189,11 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByPublicSlug(slug: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.publicProfileSlug, slug));
+    return user;
+  }
+
   async createUser(data: InsertUser): Promise<User> {
     const [created] = await db.insert(users).values(data).returning();
     return created;
@@ -213,6 +222,46 @@ export class DatabaseStorage implements IStorage {
   async setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined> {
     const [updated] = await db.update(users)
       .set({ deactivatedAt: deactivated ? new Date() : null })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Slug is generated once, on first enable, and kept across future
+  // toggles (disabling never clears it) so a previously shared link never
+  // changes. Always suffixed with a random token — unlike company slugs,
+  // this is a personal page, and a slug derived from name alone would be
+  // guessable/enumerable.
+  async setUserPublicProfile(id: string, enabled: boolean): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    if (!user) return undefined;
+
+    let slug = user.publicProfileSlug;
+    if (enabled && !slug) {
+      const base = user.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "intern";
+      let candidate = `${base}-${crypto.randomBytes(3).toString("hex")}`;
+      let attempt = 0;
+      while (await this.getUserByPublicSlug(candidate)) {
+        attempt++;
+        candidate = `${base}-${crypto.randomBytes(3).toString("hex")}`;
+        if (attempt > 5) break;
+      }
+      slug = candidate;
+    }
+
+    const [updated] = await db.update(users)
+      .set({ publicProfileEnabled: enabled, publicProfileSlug: slug })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  async setUserCompletionBadge(id: string, awarded: boolean, awardedByUserId: string | null): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({
+        completionBadgeAwardedAt: awarded ? new Date() : null,
+        completionBadgeAwardedByUserId: awarded ? awardedByUserId : null,
+      })
       .where(eq(users.id, id))
       .returning();
     return updated;

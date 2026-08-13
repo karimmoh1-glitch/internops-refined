@@ -113,6 +113,10 @@ async function generateUniqueCompanySlug(name: string): Promise<string> {
   return slug;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 // Coarse, display-only parsing — never used for security decisions.
 // Device identity/trust is entirely the server-generated deviceId below.
 function parseUserAgent(ua: string | undefined): { platform: string; browser: string } {
@@ -233,6 +237,34 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // Production-only: rewrites <title>/og:title/og:description in the
+  // static index.html for this one dynamic path before falling through to
+  // the normal SPA render, so link-preview crawlers (which don't execute
+  // JS) see per-profile metadata. In dev, Vite's own middleware already
+  // serves the SPA correctly for this path, so just fall through.
+  app.get("/i/:slug", async (req, res, next) => {
+    if (process.env.NODE_ENV !== "production") return next();
+    try {
+      const user = await storage.getUserByPublicSlug(req.params.slug as string);
+      if (!user || !user.publicProfileEnabled || user.deactivatedAt) return next();
+
+      const indexPath = path.resolve(__dirname, "public", "index.html");
+      const template = await fs.promises.readFile(indexPath, "utf-8");
+      const title = `${escapeHtml(user.name)} — InternOps Profile`;
+      const description = `See ${escapeHtml(user.name)}'s completed work and skills on InternOps.`;
+      const html = template
+        .replace(/<title>.*?<\/title>/, `<title>${title}</title>`)
+        .replace(/property="og:title" content=".*?"/, `property="og:title" content="${title}"`)
+        .replace(/property="og:description" content=".*?"/, `property="og:description" content="${description}"`)
+        .replace(/name="twitter:title" content=".*?"/, `name="twitter:title" content="${title}"`)
+        .replace(/name="twitter:description" content=".*?"/, `name="twitter:description" content="${description}"`);
+      res.status(200).set({ "Content-Type": "text/html" }).send(html);
+    } catch (error) {
+      console.error("Failed to pre-render public profile page:", error);
+      next();
+    }
+  });
 
   app.use("/uploads", (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -412,7 +444,11 @@ export async function registerRoutes(
     try {
       const user = await storage.getUser((req as any).userId);
       if (!user) return res.status(404).json({ message: "User not found" });
-      res.json({ id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId });
+      res.json({
+        id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId,
+        publicProfileEnabled: user.publicProfileEnabled, publicProfileSlug: user.publicProfileSlug,
+        completionBadgeAwardedAt: user.completionBadgeAwardedAt,
+      });
     } catch (error: any) {
       console.error("Failed to get user:", error);
       res.status(500).json({ message: "Failed to get user" });
@@ -455,6 +491,24 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to change password:", error);
       res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
+  // Self-service — any role can opt their own account in/out of having a
+  // public profile page. Distinct from the completion badge, which is
+  // admin-awarded only.
+  app.put("/api/settings/public-profile", requireAuth, async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ message: "enabled must be a boolean" });
+      }
+      const updated = await storage.setUserPublicProfile((req as any).userId, enabled);
+      if (!updated) return res.status(404).json({ message: "User not found" });
+      res.json({ publicProfileEnabled: updated.publicProfileEnabled, publicProfileSlug: updated.publicProfileSlug });
+    } catch (error: any) {
+      console.error("Failed to update public profile setting:", error);
+      res.status(500).json({ message: "Failed to update public profile setting" });
     }
   });
 
@@ -695,6 +749,36 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to load company:", error);
       res.status(500).json({ message: "Failed to load company" });
+    }
+  });
+
+  // Public: curated, opt-in intern profile — mirrors the company/public
+  // pattern above. Deliberately projects only fields the intern consented
+  // to expose; never email, feedback, blockedReason, or submission text.
+  // Disappears immediately if the intern disables it or is deactivated,
+  // same immediacy principle as requireAuth's live deactivation check.
+  app.get("/api/public/interns/:slug", async (req, res) => {
+    try {
+      const user = await storage.getUserByPublicSlug(req.params.slug as string);
+      if (!user || !user.publicProfileEnabled || user.deactivatedAt) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+      const tasks = await storage.getTasksByAssignee(user.id);
+      const completed = tasks
+        .filter((t) => t.status === "completed")
+        .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+        .slice(0, 50);
+
+      res.json({
+        name: user.name,
+        completionBadge: !!user.completionBadgeAwardedAt,
+        memberSince: user.createdAt ? new Date(user.createdAt).getFullYear() : null,
+        completedTasks: completed.map((t) => ({ title: t.title, completedAt: t.completedAt })),
+        skillTags: aggregateSkillTags(completed),
+      });
+    } catch (error: any) {
+      console.error("Failed to load public intern profile:", error);
+      res.status(500).json({ message: "Failed to load profile" });
     }
   });
 
@@ -1077,6 +1161,36 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to generate performance narrative:", error);
       res.status(500).json({ message: "Failed to generate performance narrative" });
+    }
+  });
+
+  // Admin-awarded institutional credential, shown on the intern's public
+  // profile if they've opted in. Never self-asserted by the intern.
+  app.post("/api/interns/:id/completion-badge", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+      const { awarded } = req.body;
+      if (typeof awarded !== "boolean") {
+        return res.status(400).json({ message: "awarded must be a boolean" });
+      }
+      const updated = await storage.setUserCompletionBadge(intern.id, awarded, awarded ? (req as any).userId : null);
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: awarded ? "intern.completion_badge_awarded" : "intern.completion_badge_revoked",
+        targetType: "user",
+        targetId: intern.id,
+      });
+
+      res.json({ completionBadgeAwardedAt: updated?.completionBadgeAwardedAt });
+    } catch (error: any) {
+      console.error("Failed to update completion badge:", error);
+      res.status(500).json({ message: "Failed to update completion badge" });
     }
   });
 
@@ -2377,6 +2491,7 @@ export async function registerRoutes(
           name: intern.name,
           email: intern.email,
           deactivatedAt: intern.deactivatedAt,
+          completionBadgeAwardedAt: intern.completionBadgeAwardedAt,
           projects: projectDetails,
         };
       });
