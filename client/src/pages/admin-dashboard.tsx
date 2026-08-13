@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Users, UserPlus, Briefcase, AlertCircle, ChevronDown, ChevronRight,
   Loader2, X, Copy, Clock, MessageSquare, CheckCircle2, Pencil, Trash2,
-  Target, BarChart3, Filter, ListTodo, Sparkles, Send, ShieldPlus, Activity,
+  Target, BarChart3, Filter, ListTodo, Sparkles, Send, ShieldPlus, Activity, Download,
 } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/dashboard-skeleton";
 import SearchFilterBar from "@/components/search-filter-bar";
@@ -20,6 +20,8 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ProjectStatusPieChart, CompletionRateBarChart, WeeklyActivityLineChart, HoursComparisonChart, TaskStatusPieChart, TaskCompletionByInternChart } from "@/components/analytics-charts";
 import GitHubPanel, { GitHubTokenSettings, GitHubRepoInput } from "@/components/github-panel";
 import ApplicationsPanel from "@/components/applications-panel";
+import PulseScoreCard from "@/components/pulse-score";
+import { exportTeamReport } from "@/lib/export-report";
 
 interface AdminDashboardProps {
   user: { id: string; name: string; role: string; companyId: string | null };
@@ -1129,6 +1131,23 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50" data-testid="button-open-assign">
                 <Briefcase className="w-4 h-4 mr-2" />Assign Project
               </Button>
+              <Button
+                onClick={() => {
+                  exportTeamReport({
+                    companyName: company?.name || "Company",
+                    interns: allDashboardInterns,
+                    completionRates: analytics?.completionRates || [],
+                    taskCompletionByIntern: analytics?.taskCompletionByIntern || [],
+                    hoursComparison: analytics?.hoursComparison || [],
+                  });
+                  toast({ title: "Report exported", description: "Your team report CSV has been downloaded." });
+                }}
+                variant="outline"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                data-testid="button-export-report"
+              >
+                <Download className="w-4 h-4 mr-2" />Export Report
+              </Button>
               <GitHubTokenSettings companyId={user.companyId || ""} />
             </div>
           </div>
@@ -1162,6 +1181,14 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             </div>
           )}
         </div>
+
+        <PulseScoreCard
+          completionRates={analytics?.completionRates || []}
+          taskCompletionByIntern={analytics?.taskCompletionByIntern || []}
+          activeProjects={activeProjects}
+          totalProjects={totalProjects}
+          pendingReview={pendingReview}
+        />
 
         <TaskOverviewSection interns={allDashboardInterns} />
 
