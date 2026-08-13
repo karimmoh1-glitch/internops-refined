@@ -28,12 +28,12 @@ interface AdminDashboardProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  assigned: "bg-gray-100 text-gray-700 border-gray-200",
-  planning: "bg-blue-50 text-blue-700 border-blue-200",
-  submitted: "bg-amber-50 text-amber-700 border-amber-200",
-  approved: "bg-green-50 text-green-700 border-green-200",
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  draft: "bg-gray-100 text-gray-600 border-gray-200",
+  assigned: "bg-white/10 text-white/70 border-white/[0.08]",
+  planning: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  submitted: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  approved: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  active: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  draft: "bg-white/10 text-white/60 border-white/[0.08]",
 };
 
 function statusBadge(status: string) {
@@ -91,40 +91,40 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
   });
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm" data-testid={`plan-review-${project.id}`}>
-      <div className="p-5 border-b border-gray-100">
+    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid={`plan-review-${project.id}`}>
+      <div className="p-5 border-b border-white/[0.06]">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900" data-testid={`text-review-title-${project.id}`}>{project.title}</h3>
+          <h3 className="text-lg font-semibold text-white" data-testid={`text-review-title-${project.id}`}>{project.title}</h3>
           {statusBadge(version.status)}
         </div>
         <div className="flex items-center gap-2 mb-1" data-testid={`text-review-intern-${project.id}`}>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-800 rounded-full text-sm font-semibold border border-blue-200">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 text-blue-300 rounded-full text-sm font-semibold border border-blue-500/20">
             <Users className="w-3.5 h-3.5" /> {project.internName}
           </span>
-          <span className="text-sm text-gray-400">{project.internEmail}</span>
+          <span className="text-sm text-white/40">{project.internEmail}</span>
         </div>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-white/50 mt-1">
           Version {version.versionNumber} · {content.numberOfWeeks} weeks · {content.totalPlannedHours}h planned · {content.hoursPerDay}h/day, {content.daysPerWeek} days/week
         </p>
       </div>
 
       <div className="p-5 space-y-3">
-        <h4 className="text-sm font-semibold text-gray-700">Weekly Plan</h4>
+        <h4 className="text-sm font-semibold text-white/70">Weekly Plan</h4>
         {weeks.map((week: any) => {
           const key = `${version.id}-w${week.weekNumber}`;
           const isOpen = expandedWeeks[key];
           return (
-            <div key={key} className="border border-gray-100 rounded-lg">
-              <button className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 transition-colors" onClick={() => onToggleWeek(key)} data-testid={`button-toggle-week-${version.id}-${week.weekNumber}`}>
-                <span className="text-sm font-medium text-gray-800">Week {week.weekNumber}: {week.milestone}</span>
-                {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+            <div key={key} className="border border-white/[0.06] rounded-lg">
+              <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06] transition-colors" onClick={() => onToggleWeek(key)} data-testid={`button-toggle-week-${version.id}-${week.weekNumber}`}>
+                <span className="text-sm font-medium text-white/90">Week {week.weekNumber}: {week.milestone}</span>
+                {isOpen ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
               </button>
               {isOpen && (
-                <div className="px-3 pb-3 space-y-2 text-sm text-gray-600">
-                  <p><span className="font-medium text-gray-700">Hours:</span> {week.hours}h</p>
-                  <p><span className="font-medium text-gray-700">Success Criteria:</span> {week.successCriteria}</p>
+                <div className="px-3 pb-3 space-y-2 text-sm text-white/60">
+                  <p><span className="font-medium text-white/70">Hours:</span> {week.hours}h</p>
+                  <p><span className="font-medium text-white/70">Success Criteria:</span> {week.successCriteria}</p>
                   <div>
-                    <span className="font-medium text-gray-700">Deliverables:</span>
+                    <span className="font-medium text-white/70">Deliverables:</span>
                     <ul className="list-disc ml-5 mt-1">
                       {(week.deliverables || []).map((d: string, i: number) => (<li key={i}>{d}</li>))}
                     </ul>
@@ -138,32 +138,32 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
 
       {comments.length > 0 && (
         <div className="px-5 pb-3">
-          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
+          <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-1">
             <MessageSquare className="w-4 h-4" /> Comments
           </h4>
           <div className="space-y-2">
             {comments.map((c: any) => (
-              <div key={c.id} className="bg-gray-50 rounded p-2 text-sm" data-testid={`comment-${c.id}`}>
-                <p className="text-gray-800">{c.content}</p>
-                <p className="text-gray-400 text-xs mt-1">{formatLogDate(c.createdAt)}</p>
+              <div key={c.id} className="bg-[#0B0A09] rounded p-2 text-sm" data-testid={`comment-${c.id}`}>
+                <p className="text-white/90">{c.content}</p>
+                <p className="text-white/40 text-xs mt-1">{formatLogDate(c.createdAt)}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="p-5 border-t border-gray-100 space-y-3">
-        <Textarea placeholder="Add a comment (required for revision request)..." value={comment} onChange={(e) => onCommentChange(e.target.value)} className="border-gray-300 text-sm" rows={3} data-testid={`input-review-comment-${project.id}`} />
+      <div className="p-5 border-t border-white/[0.06] space-y-3">
+        <Textarea placeholder="Add a comment (required for revision request)..." value={comment} onChange={(e) => onCommentChange(e.target.value)} className="border-white/[0.15] text-sm" rows={3} data-testid={`input-review-comment-${project.id}`} />
         <div className="flex items-center gap-2">
-          <Button onClick={onApprove} disabled={isApproving} size="lg" className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 shadow-sm hover:shadow-md transition-all" data-testid={`button-approve-${project.id}`}>
+          <Button onClick={onApprove} disabled={isApproving} size="lg" className="bg-emerald-600 hover:bg-emerald-600 text-white font-semibold px-6 shadow-sm hover:shadow-md transition-all" data-testid={`button-approve-${project.id}`}>
             {isApproving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
             Approve Plan
           </Button>
-          <Button onClick={onRequestRevision} disabled={isRequestingRevision} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50" data-testid={`button-request-revision-${project.id}`}>
+          <Button onClick={onRequestRevision} disabled={isRequestingRevision} variant="outline" className="border-amber-300 text-amber-400 hover:bg-amber-500/10" data-testid={`button-request-revision-${project.id}`}>
             {isRequestingRevision ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Request Revision
           </Button>
-          <Button onClick={onAddComment} variant="outline" className="border-gray-300 text-gray-600 hover:bg-gray-50 ml-auto" data-testid={`button-add-comment-${project.id}`}>
+          <Button onClick={onAddComment} variant="outline" className="border-white/[0.15] text-white/60 hover:bg-[#141110]/[0.06] ml-auto" data-testid={`button-add-comment-${project.id}`}>
             <MessageSquare className="w-4 h-4 mr-2" />
             Add Comment
           </Button>
@@ -272,42 +272,42 @@ function InternProjectDetail({ project }: { project: any }) {
   const toggleWeek = (key: string) => setExpandedWeeks((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm" data-testid={`project-detail-${project.id}`}>
-      <div className="p-5 border-b border-gray-100">
+    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid={`project-detail-${project.id}`}>
+      <div className="p-5 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-semibold text-gray-900 truncate" data-testid={`text-detail-title-${project.id}`}>{project.title}</h4>
+              <h4 className="font-semibold text-white truncate" data-testid={`text-detail-title-${project.id}`}>{project.title}</h4>
               {statusBadge(project.status)}
-              {approvedVersion && <span className="text-xs text-gray-400">v{approvedVersion.versionNumber}</span>}
+              {approvedVersion && <span className="text-xs text-white/40">v{approvedVersion.versionNumber}</span>}
             </div>
-            <p className="text-sm text-gray-500 truncate">{project.idea}</p>
+            <p className="text-sm text-white/50 truncate">{project.idea}</p>
             {content.totalPlannedHours && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-white/40 mt-1">
                 {content.totalPlannedHours}h planned · {content.hoursPerDay}h/day · {content.daysPerWeek} days/week · {content.numberOfWeeks} weeks
               </p>
             )}
           </div>
           <div className="flex items-center gap-1 ml-3 shrink-0">
-            <button onClick={() => { setEditTitle(project.title); setEditIdea(project.idea); setEditMinHours(String(project.minimumTotalHours || "")); setEditGithubUrl(project.githubRepoUrl || ""); setShowEditModal(true); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-testid={`button-edit-project-${project.id}`} title="Edit project">
+            <button onClick={() => { setEditTitle(project.title); setEditIdea(project.idea); setEditMinHours(String(project.minimumTotalHours || "")); setEditGithubUrl(project.githubRepoUrl || ""); setShowEditModal(true); }} className="p-1.5 text-white/40 hover:text-blue-400 hover:bg-blue-500/10 rounded-md transition-colors" data-testid={`button-edit-project-${project.id}`} title="Edit project">
               <Pencil className="w-4 h-4" />
             </button>
-            <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" data-testid={`button-delete-project-${project.id}`} title="Delete project">
+            <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 text-white/40 hover:text-red-400 hover:bg-red-500/100/10 rounded-md transition-colors" data-testid={`button-delete-project-${project.id}`} title="Delete project">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {project.status === "active" && subtaskCompletion.total > 0 && (
-          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+          <div className="mt-3 p-3 bg-[#0B0A09] rounded-lg">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
+              <span className="text-xs font-medium text-white/60 flex items-center gap-1">
                 <BarChart3 className="w-3.5 h-3.5" /> Subtask Progress
               </span>
-              <span className="text-xs text-gray-500">{subtaskCompletion.completed}/{subtaskCompletion.total} tasks ({subtaskCompletion.pct}%)</span>
+              <span className="text-xs text-white/50">{subtaskCompletion.completed}/{subtaskCompletion.total} tasks ({subtaskCompletion.pct}%)</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className={`h-2 rounded-full transition-all ${subtaskCompletion.pct >= 100 ? "bg-green-500" : subtaskCompletion.pct > 50 ? "bg-blue-500" : subtaskCompletion.pct > 0 ? "bg-amber-500" : "bg-gray-200"}`} style={{ width: `${Math.max(subtaskCompletion.pct, 1)}%` }} data-testid={`progress-subtask-${project.id}`} />
+            <div className="w-full bg-white/15 rounded-full h-2">
+              <div className={`h-2 rounded-full transition-all ${subtaskCompletion.pct >= 100 ? "bg-emerald-500/100" : subtaskCompletion.pct > 50 ? "bg-blue-500/100" : subtaskCompletion.pct > 0 ? "bg-amber-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(subtaskCompletion.pct, 1)}%` }} data-testid={`progress-subtask-${project.id}`} />
             </div>
           </div>
         )}
@@ -315,7 +315,7 @@ function InternProjectDetail({ project }: { project: any }) {
 
       {project.status === "active" && planWeeks.length > 0 && (
         <div className="p-4 space-y-2" data-testid={`execution-tracking-${project.id}`}>
-          <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <h5 className="text-sm font-semibold text-white/70 mb-3 flex items-center gap-2">
             <Target className="w-4 h-4 text-indigo-500" /> Execution Tracking
           </h5>
           {planWeeks.map((week: any) => {
@@ -328,25 +328,25 @@ function InternProjectDetail({ project }: { project: any }) {
             const weekPct = deliverables.length > 0 ? Math.round((subtasksWithLogs.size / deliverables.length) * 100) : 0;
 
             return (
-              <div key={key} className={`border rounded-lg transition-all ${isOpen ? "border-indigo-200 bg-indigo-50/20" : "border-gray-100"}`}>
-                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 transition-colors rounded-lg" onClick={() => toggleWeek(key)} data-testid={`button-expand-week-${project.id}-${week.weekNumber}`}>
+              <div key={key} className={`border rounded-lg transition-all ${isOpen ? "border-indigo-500/20 bg-indigo-500/10" : "border-white/[0.06]"}`}>
+                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-lg" onClick={() => toggleWeek(key)} data-testid={`button-expand-week-${project.id}-${week.weekNumber}`}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {isOpen ? <ChevronDown className="w-4 h-4 text-indigo-500 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
-                    <span className="text-sm font-medium text-gray-800">W{week.weekNumber}: {week.milestone}</span>
+                    {isOpen ? <ChevronDown className="w-4 h-4 text-indigo-500 shrink-0" /> : <ChevronRight className="w-4 h-4 text-white/40 shrink-0" />}
+                    <span className="text-sm font-medium text-white/90">W{week.weekNumber}: {week.milestone}</span>
                   </div>
                   <div className="flex items-center gap-3 ml-2 shrink-0">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                        <div className={`h-1.5 rounded-full transition-all ${weekPct >= 100 ? "bg-green-500" : weekPct > 0 ? "bg-blue-500" : "bg-gray-200"}`} style={{ width: `${Math.max(weekPct, 3)}%` }} />
+                      <div className="w-16 bg-white/15 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full transition-all ${weekPct >= 100 ? "bg-emerald-500/100" : weekPct > 0 ? "bg-blue-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(weekPct, 3)}%` }} />
                       </div>
-                      <span className="text-[11px] text-gray-400 w-8">{weekPct}%</span>
+                      <span className="text-[11px] text-white/40 w-8">{weekPct}%</span>
                     </div>
-                    <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{logs.length} log{logs.length !== 1 ? "s" : ""}</Badge>
+                    <Badge className="bg-white/10 text-white/60 border-white/[0.08] text-[11px]">{logs.length} log{logs.length !== 1 ? "s" : ""}</Badge>
                   </div>
                 </button>
                 {isOpen && (
-                  <div className="px-3 pb-3 border-t border-gray-100">
-                    <div className="pt-2 mb-2 flex items-center gap-4 text-xs text-gray-400">
+                  <div className="px-3 pb-3 border-t border-white/[0.06]">
+                    <div className="pt-2 mb-2 flex items-center gap-4 text-xs text-white/40">
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {week.hours}h planned</span>
                       <span className="flex items-center gap-1"><Target className="w-3 h-3" /> {week.successCriteria}</span>
                     </div>
@@ -359,13 +359,13 @@ function InternProjectDetail({ project }: { project: any }) {
                         const isSubtaskOpen = expandedWeeks[subtaskKey];
 
                         return (
-                          <div key={dIdx} className={`border rounded-lg transition-all ${isSubtaskOpen ? "border-indigo-200" : "border-gray-100"}`} data-testid={`subtask-${project.id}-${week.weekNumber}-${dIdx}`}>
-                            <button onClick={() => toggleWeek(subtaskKey)} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 rounded-lg">
+                          <div key={dIdx} className={`border rounded-lg transition-all ${isSubtaskOpen ? "border-indigo-500/20" : "border-white/[0.06]"}`} data-testid={`subtask-${project.id}-${week.weekNumber}-${dIdx}`}>
+                            <button onClick={() => toggleWeek(subtaskKey)} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[#141110]/[0.06] rounded-lg">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
-                                {hasLogs ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> : <div className="w-4 h-4 rounded-full border-2 border-gray-300 shrink-0" />}
-                                <span className="text-sm text-gray-700">{deliverable}</span>
+                                {hasLogs ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> : <div className="w-4 h-4 rounded-full border-2 border-white/[0.15] shrink-0" />}
+                                <span className="text-sm text-white/70">{deliverable}</span>
                               </div>
-                              <span className="text-xs text-gray-400 ml-2">{subtaskLogs.length} log{subtaskLogs.length !== 1 ? "s" : ""}</span>
+                              <span className="text-xs text-white/40 ml-2">{subtaskLogs.length} log{subtaskLogs.length !== 1 ? "s" : ""}</span>
                             </button>
                             {isSubtaskOpen && subtaskLogs.length > 0 && (
                               <div className="px-3 pb-3 space-y-1.5">
@@ -374,17 +374,17 @@ function InternProjectDetail({ project }: { project: any }) {
                                   const commentValue = logCommentInputs[log.id] || "";
                                   return (
                                     <div key={log.id} className="space-y-1">
-                                      <div className="bg-gray-50 rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
-                                        <p className="text-gray-800 whitespace-pre-wrap" data-testid={`text-log-${log.id}`}>{log.logText}</p>
-                                        <p className="text-gray-400 text-xs mt-1" data-testid={`text-log-date-${log.id}`}>
+                                      <div className="bg-[#0B0A09] rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
+                                        <p className="text-white/90 whitespace-pre-wrap" data-testid={`text-log-${log.id}`}>{log.logText}</p>
+                                        <p className="text-white/40 text-xs mt-1" data-testid={`text-log-date-${log.id}`}>
                                           {log.dayNumber ? `Day ${log.dayNumber} · ` : ""}{formatLogDate(log.createdAt)}
                                         </p>
                                       </div>
                                       {commentsForLog.length > 0 && (
                                         <div className="ml-4 space-y-1">
                                           {commentsForLog.map((c: any) => (
-                                            <div key={c.id} className="bg-blue-50 rounded px-3 py-1.5 text-xs" data-testid={`log-comment-${c.id}`}>
-                                              <p className="text-blue-800">{c.content}</p>
+                                            <div key={c.id} className="bg-blue-500/10 rounded px-3 py-1.5 text-xs" data-testid={`log-comment-${c.id}`}>
+                                              <p className="text-blue-300">{c.content}</p>
                                               <p className="text-blue-400 mt-0.5">{formatLogDate(c.createdAt)}</p>
                                             </div>
                                           ))}
@@ -403,7 +403,7 @@ function InternProjectDetail({ project }: { project: any }) {
                             )}
                             {isSubtaskOpen && subtaskLogs.length === 0 && (
                               <div className="px-3 pb-3">
-                                <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                                <p className="text-xs text-white/40 flex items-center gap-1.5">
                                   <Clock className="w-3 h-3" /> No logs yet for this task
                                 </p>
                               </div>
@@ -417,20 +417,20 @@ function InternProjectDetail({ project }: { project: any }) {
                       const generalLogs = logs.filter((l: any) => l.subtaskIndex === null || l.subtaskIndex === undefined);
                       if (generalLogs.length === 0) return null;
                       return (
-                        <div className="mt-2 pt-2 border-t border-gray-100">
-                          <p className="text-xs font-medium text-gray-500 mb-1.5">General Logs</p>
+                        <div className="mt-2 pt-2 border-t border-white/[0.06]">
+                          <p className="text-xs font-medium text-white/50 mb-1.5">General Logs</p>
                           {generalLogs.map((log: any) => {
                             const commentsForLog = commentsByLogId[log.id] || [];
                             const commentValue = logCommentInputs[log.id] || "";
                             return (
                               <div key={log.id} className="space-y-1 mb-1.5">
-                                <div className="bg-gray-50 rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
-                                  <p className="text-gray-800 whitespace-pre-wrap">{log.logText}</p>
-                                  <p className="text-gray-400 text-xs mt-1">{formatLogDate(log.createdAt)}</p>
+                                <div className="bg-[#0B0A09] rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
+                                  <p className="text-white/90 whitespace-pre-wrap">{log.logText}</p>
+                                  <p className="text-white/40 text-xs mt-1">{formatLogDate(log.createdAt)}</p>
                                 </div>
                                 {commentsForLog.length > 0 && commentsForLog.map((c: any) => (
-                                  <div key={c.id} className="ml-4 bg-blue-50 rounded px-3 py-1.5 text-xs">
-                                    <p className="text-blue-800">{c.content}</p>
+                                  <div key={c.id} className="ml-4 bg-blue-500/10 rounded px-3 py-1.5 text-xs">
+                                    <p className="text-blue-300">{c.content}</p>
                                     <p className="text-blue-400 mt-0.5">{formatLogDate(c.createdAt)}</p>
                                   </div>
                                 ))}
@@ -454,22 +454,22 @@ function InternProjectDetail({ project }: { project: any }) {
 
       {project.status !== "active" && planWeeks.length > 0 && (
         <div className="p-4 space-y-2">
-          <h5 className="text-sm font-semibold text-gray-700 mb-2">Plan Overview</h5>
+          <h5 className="text-sm font-semibold text-white/70 mb-2">Plan Overview</h5>
           {planWeeks.map((week: any) => {
             const key = `plan-${project.id}-w${week.weekNumber}`;
             const isOpen = expandedWeeks[key];
             return (
-              <div key={key} className="border border-gray-100 rounded-lg">
-                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50" onClick={() => toggleWeek(key)} data-testid={`button-plan-week-${project.id}-${week.weekNumber}`}>
-                  <span className="text-sm font-medium text-gray-800">Week {week.weekNumber}: {week.milestone}</span>
-                  {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+              <div key={key} className="border border-white/[0.06] rounded-lg">
+                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06]" onClick={() => toggleWeek(key)} data-testid={`button-plan-week-${project.id}-${week.weekNumber}`}>
+                  <span className="text-sm font-medium text-white/90">Week {week.weekNumber}: {week.milestone}</span>
+                  {isOpen ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
                 </button>
                 {isOpen && (
-                  <div className="px-3 pb-3 space-y-1 text-sm text-gray-600">
-                    <p><span className="font-medium text-gray-700">Hours:</span> {week.hours}h</p>
-                    <p><span className="font-medium text-gray-700">Success Criteria:</span> {week.successCriteria}</p>
+                  <div className="px-3 pb-3 space-y-1 text-sm text-white/60">
+                    <p><span className="font-medium text-white/70">Hours:</span> {week.hours}h</p>
+                    <p><span className="font-medium text-white/70">Success Criteria:</span> {week.successCriteria}</p>
                     <div>
-                      <span className="font-medium text-gray-700">Deliverables:</span>
+                      <span className="font-medium text-white/70">Deliverables:</span>
                       <ul className="list-disc ml-5 mt-1">
                         {(week.deliverables || []).map((d: string, i: number) => (<li key={i}>{d}</li>))}
                       </ul>
@@ -483,16 +483,16 @@ function InternProjectDetail({ project }: { project: any }) {
       )}
 
       {latestVersion && (
-        <div className="p-4 border-t border-gray-100" data-testid={`plan-comments-section-${project.id}`}>
-          <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+        <div className="p-4 border-t border-white/[0.06]" data-testid={`plan-comments-section-${project.id}`}>
+          <h5 className="text-sm font-semibold text-white/70 mb-3 flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-blue-500" /> Plan Comments
           </h5>
           {planComments.length > 0 && (
             <div className="space-y-2 mb-3">
               {planComments.map((c: any) => (
-                <div key={c.id} className="bg-blue-50 rounded-lg px-3 py-2 text-sm" data-testid={`plan-comment-${c.id}`}>
-                  <p className="text-gray-800">{c.content}</p>
-                  <p className="text-gray-400 text-xs mt-1">{formatLogDate(c.createdAt)}</p>
+                <div key={c.id} className="bg-blue-500/10 rounded-lg px-3 py-2 text-sm" data-testid={`plan-comment-${c.id}`}>
+                  <p className="text-white/90">{c.content}</p>
+                  <p className="text-white/40 text-xs mt-1">{formatLogDate(c.createdAt)}</p>
                 </div>
               ))}
             </div>
@@ -529,23 +529,23 @@ function InternProjectDetail({ project }: { project: any }) {
 
       {showEditModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowEditModal(false); }} data-testid={`modal-edit-project-${project.id}`}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Project</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.08]">
+              <h3 className="text-lg font-semibold text-white">Edit Project</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-white/40 hover:text-white/70"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="border-gray-300" data-testid={`input-edit-title-${project.id}`} />
+                <label className="block text-sm font-medium text-white/70 mb-1">Title</label>
+                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="border-white/[0.15]" data-testid={`input-edit-title-${project.id}`} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Idea</label>
-                <Textarea value={editIdea} onChange={(e) => setEditIdea(e.target.value)} className="border-gray-300" rows={3} data-testid={`input-edit-idea-${project.id}`} />
+                <label className="block text-sm font-medium text-white/70 mb-1">Idea</label>
+                <Textarea value={editIdea} onChange={(e) => setEditIdea(e.target.value)} className="border-white/[0.15]" rows={3} data-testid={`input-edit-idea-${project.id}`} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Total Hours</label>
-                <Input type="number" min="1" value={editMinHours} onChange={(e) => setEditMinHours(e.target.value)} className="border-gray-300" data-testid={`input-edit-hours-${project.id}`} />
+                <label className="block text-sm font-medium text-white/70 mb-1">Minimum Total Hours</label>
+                <Input type="number" min="1" value={editMinHours} onChange={(e) => setEditMinHours(e.target.value)} className="border-white/[0.15]" data-testid={`input-edit-hours-${project.id}`} />
               </div>
               <GitHubRepoInput value={editGithubUrl} onChange={setEditGithubUrl} />
               <div className="flex gap-3">
@@ -561,16 +561,16 @@ function InternProjectDetail({ project }: { project: any }) {
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteConfirm(false); }} data-testid={`modal-delete-project-${project.id}`}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4">
+          <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-sm mx-4">
             <div className="p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center"><Trash2 className="w-5 h-5 text-red-600" /></div>
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center"><Trash2 className="w-5 h-5 text-red-400" /></div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
-                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                  <h3 className="text-lg font-semibold text-white">Delete Project</h3>
+                  <p className="text-sm text-white/50">This action cannot be undone</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete <span className="font-semibold">"{project.title}"</span>? All plans, logs, and comments will be permanently removed.</p>
+              <p className="text-sm text-white/60 mb-4">Are you sure you want to delete <span className="font-semibold">"{project.title}"</span>? All plans, logs, and comments will be permanently removed.</p>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="flex-1" data-testid={`button-cancel-delete-${project.id}`}>Cancel</Button>
                 <Button onClick={() => deleteProjectMutation.mutate()} disabled={deleteProjectMutation.isPending} className="flex-1 bg-red-600 hover:bg-red-700 text-white" data-testid={`button-confirm-delete-${project.id}`}>
@@ -619,11 +619,11 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
 
   if (tasks.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center" data-testid="section-task-overview-empty">
-        <ListTodo className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-        <p className="text-gray-500 font-medium">No tasks yet</p>
-        <p className="text-sm text-gray-400 mt-1">
-          <Link href="/tasks" className="text-blue-600 hover:underline">Create your first task</Link> to start tracking real work.
+      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 text-center" data-testid="section-task-overview-empty">
+        <ListTodo className="w-8 h-8 text-white/30 mx-auto mb-2" />
+        <p className="text-white/50 font-medium">No tasks yet</p>
+        <p className="text-sm text-white/40 mt-1">
+          <Link href="/tasks" className="text-blue-400 hover:underline">Create your first task</Link> to start tracking real work.
         </p>
       </div>
     );
@@ -631,68 +631,68 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="section-task-overview">
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-600" />Attention Required</h3>
-          {attentionCount > 0 && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">{attentionCount}</Badge>}
+          <h3 className="font-semibold text-white flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-400" />Attention Required</h3>
+          {attentionCount > 0 && <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20">{attentionCount}</Badge>}
         </div>
         {attentionCount === 0 ? (
-          <p className="text-sm text-gray-400">Nothing needs your attention right now.</p>
+          <p className="text-sm text-white/40">Nothing needs your attention right now.</p>
         ) : (
           <div className="space-y-1.5">
             {inReview.slice(0, 4).map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-gray-50 no-underline" data-testid={`activity-review-${t.id}`}>
-                <span className="text-amber-700 font-medium">Review: </span>
-                <span className="text-gray-700">{t.title}</span>
-                <span className="text-gray-400"> — {internName(t.assigneeId)}</span>
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-review-${t.id}`}>
+                <span className="text-amber-400 font-medium">Review: </span>
+                <span className="text-white/70">{t.title}</span>
+                <span className="text-white/40"> — {internName(t.assigneeId)}</span>
               </Link>
             ))}
             {blocked.slice(0, 4).map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-gray-50 no-underline" data-testid={`activity-blocked-${t.id}`}>
-                <span className="text-red-700 font-medium">Blocked: </span>
-                <span className="text-gray-700">{t.title}</span>
-                <span className="text-gray-400"> — {internName(t.assigneeId)}</span>
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-blocked-${t.id}`}>
+                <span className="text-red-400 font-medium">Blocked: </span>
+                <span className="text-white/70">{t.title}</span>
+                <span className="text-white/40"> — {internName(t.assigneeId)}</span>
               </Link>
             ))}
             {overdue.slice(0, 4).map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-gray-50 no-underline" data-testid={`activity-overdue-${t.id}`}>
-                <span className="text-gray-900 font-medium">Overdue: </span>
-                <span className="text-gray-700">{t.title}</span>
-                <span className="text-gray-400"> — {internName(t.assigneeId)}</span>
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-overdue-${t.id}`}>
+                <span className="text-white font-medium">Overdue: </span>
+                <span className="text-white/70">{t.title}</span>
+                <span className="text-white/40"> — {internName(t.assigneeId)}</span>
               </Link>
             ))}
           </div>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h3 className="font-semibold text-gray-900 flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-blue-600" />Due Today</h3>
+      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+        <h3 className="font-semibold text-white flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-blue-400" />Due Today</h3>
         {dueToday.length === 0 ? (
-          <p className="text-sm text-gray-400">Nothing due today.</p>
+          <p className="text-sm text-white/40">Nothing due today.</p>
         ) : (
           <div className="space-y-1.5">
             {dueToday.map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-gray-50 no-underline" data-testid={`activity-due-today-${t.id}`}>
-                <span className="text-gray-700">{t.title}</span>
-                <span className="text-gray-400"> — {internName(t.assigneeId)}</span>
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-due-today-${t.id}`}>
+                <span className="text-white/70">{t.title}</span>
+                <span className="text-white/40"> — {internName(t.assigneeId)}</span>
               </Link>
             ))}
           </div>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h3 className="font-semibold text-gray-900 flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-gray-500" />Recent Activity</h3>
+      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+        <h3 className="font-semibold text-white flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-white/50" />Recent Activity</h3>
         {recentActivity.length === 0 ? (
-          <p className="text-sm text-gray-400">No activity yet.</p>
+          <p className="text-sm text-white/40">No activity yet.</p>
         ) : (
           <div className="space-y-2.5 max-h-64 overflow-y-auto">
             {recentActivity.map((a, i) => (
               <div key={i} className="text-sm" data-testid={`activity-item-${i}`}>
-                <span className="text-gray-700">{a.intern}</span>
-                <span className="text-gray-400"> {a.event} </span>
-                <span className="text-gray-900 font-medium">"{a.title}"</span>
-                <p className="text-xs text-gray-400">{formatRelativeTime(a.ts)}</p>
+                <span className="text-white/70">{a.intern}</span>
+                <span className="text-white/40"> {a.event} </span>
+                <span className="text-white font-medium">"{a.title}"</span>
+                <p className="text-xs text-white/40">{formatRelativeTime(a.ts)}</p>
               </div>
             ))}
           </div>
@@ -713,7 +713,7 @@ function TaskCompletionBadge({ internId }: { internId: string }) {
   return (
     <Badge
       variant="outline"
-      className={`text-xs font-medium ${blocked > 0 ? "bg-red-50 text-red-700 border-red-200" : "bg-gray-50 text-gray-600 border-gray-200"}`}
+      className={`text-xs font-medium ${blocked > 0 ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-[#0B0A09] text-white/60 border-white/[0.08]"}`}
       data-testid={`badge-task-completion-${internId}`}
     >
       {completed}/{mine.length} tasks{blocked > 0 ? ` · ${blocked} blocked` : ""}
@@ -744,26 +744,26 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
 
   return (
     <div data-testid="managers-section">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <ShieldPlus className="w-5 h-5 text-gray-600" />Admins
+      <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <ShieldPlus className="w-5 h-5 text-white/60" />Admins
       </h2>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100">
+      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
         {managers.map((manager: any) => {
           const isSelf = manager.id === currentUserId;
           return (
             <div key={manager.id} className="p-4 flex items-center justify-between gap-3" data-testid={`row-manager-${manager.id}`}>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{manager.name}</p>
-                  {isSelf && <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200 text-xs">You</Badge>}
+                  <p className="text-sm font-semibold text-white truncate">{manager.name}</p>
+                  {isSelf && <Badge variant="outline" className="bg-white/10 text-white/50 border-white/[0.08] text-xs">You</Badge>}
                 </div>
-                <p className="text-xs text-gray-500 truncate">{manager.email}</p>
+                <p className="text-xs text-white/50 truncate">{manager.email}</p>
               </div>
               {!isSelf && (
                 <Button
                   size="sm"
                   variant="outline"
-                  className="text-xs text-red-600 border-red-200 hover:bg-red-50 shrink-0"
+                  className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/100/10 shrink-0"
                   onClick={() => { if (confirm(`Demote ${manager.name} to intern? They'll lose admin access immediately and go back to the intern dashboard.`)) { demoteMutation.mutate(manager.id); } }}
                   disabled={demoteMutation.isPending}
                   data-testid={`button-demote-manager-${manager.id}`}
@@ -822,26 +822,26 @@ function OrgAssistantPanel() {
 
   return (
     <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-[#6D5EF5]/40 via-[#8B7FF7]/20 to-transparent" data-testid="section-org-assistant">
-      <div className="bg-white rounded-[11px] p-5">
+      <div className="bg-[#141110] rounded-[11px] p-5">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="w-7 h-7 rounded-lg bg-[#12101C] flex items-center justify-center shrink-0">
             <Activity className="w-3.5 h-3.5 text-[#8B7FF7]" />
           </div>
           <div>
-            <h3 className="font-heading font-semibold text-gray-900 leading-tight">Pulse</h3>
-            <p className="text-[11px] text-gray-400 leading-tight">AI insights for your org</p>
+            <h3 className="font-heading font-semibold text-white leading-tight">Pulse</h3>
+            <p className="text-[11px] text-white/40 leading-tight">AI insights for your org</p>
           </div>
         </div>
 
         {messages.length === 0 ? (
           <div className="mb-3">
-            <p className="text-sm text-gray-500 mb-3">Ask about blockers, who's behind, or get a quick briefing — answered from your real task data.</p>
+            <p className="text-sm text-white/50 mb-3">Ask about blockers, who's behind, or get a quick briefing — answered from your real task data.</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTED_PROMPTS.map((p) => (
                 <button
                   key={p}
                   onClick={() => ask(p)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-full border border-white/[0.08] text-white/60 hover:bg-[#141110]/[0.06] transition-colors"
                   data-testid={`button-suggested-prompt-${p.replace(/\s+/g, "-").toLowerCase()}`}
                 >
                   {p}
@@ -853,14 +853,14 @@ function OrgAssistantPanel() {
           <div className="space-y-3 mb-3 max-h-96 overflow-y-auto">
             {messages.map((m, i) => (
               <div key={i} className={`text-sm ${m.role === "user" ? "text-right" : ""}`} data-testid={`assistant-message-${i}`}>
-                <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-[#12101C] text-white" : "bg-gray-50 text-gray-800 border border-gray-100"}`}>
+                <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-[#12101C] text-white" : "bg-[#0B0A09] text-white/90 border border-white/[0.06]"}`}>
                   {m.content}
                 </div>
               </div>
             ))}
             {askMutation.isPending && (
               <div className="text-sm">
-                <div className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-gray-400">
+                <div className="inline-flex items-center gap-1.5 bg-[#0B0A09] border border-white/[0.06] rounded-lg px-3 py-2 text-white/40">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Pulse is thinking...
                 </div>
               </div>
@@ -1116,19 +1116,19 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#0B0A09]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6" data-testid="header-section">
+        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6" data-testid="header-section">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900" data-testid="text-company-name">{company?.name || "Company"}</h1>
-              <p className="text-gray-500 text-sm mt-1" data-testid="text-dashboard-title">Admin Dashboard</p>
+              <h1 className="text-2xl font-bold text-white" data-testid="text-company-name">{company?.name || "Company"}</h1>
+              <p className="text-white/50 text-sm mt-1" data-testid="text-dashboard-title">Admin Dashboard</p>
             </div>
             <div className="flex items-center flex-wrap gap-3">
               <Button onClick={() => setShowInviteModal(true)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-open-invite">
                 <UserPlus className="w-4 h-4 mr-2" />Add Intern
               </Button>
-              <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50" data-testid="button-open-assign">
+              <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-white/[0.15] text-white/70 hover:bg-[#141110]/[0.06]" data-testid="button-open-assign">
                 <Briefcase className="w-4 h-4 mr-2" />Assign Project
               </Button>
               <Button
@@ -1143,7 +1143,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                   toast({ title: "Report exported", description: "Your team report CSV has been downloaded." });
                 }}
                 variant="outline"
-                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="border-white/[0.15] text-white/70 hover:bg-[#141110]/[0.06]"
                 data-testid="button-export-report"
               >
                 <Download className="w-4 h-4 mr-2" />Export Report
@@ -1152,30 +1152,30 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <button onClick={() => { setFilter(filter === "interns" ? null : "interns"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "interns" ? "bg-blue-50 border-blue-300 ring-2 ring-blue-200" : "bg-gray-50 border-gray-100 hover:border-blue-200"}`} data-testid="stat-total-interns">
-              <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Interns</span></div>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{allDashboardInterns.length}</p>
+            <button onClick={() => { setFilter(filter === "interns" ? null : "interns"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "interns" ? "bg-blue-500/10 border-blue-300 ring-2 ring-blue-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-blue-500/20"}`} data-testid="stat-total-interns">
+              <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-blue-400" /><span className="text-xs font-medium text-white/50 uppercase tracking-wide">Interns</span></div>
+              <p className="text-2xl font-bold text-white tabular-nums">{allDashboardInterns.length}</p>
             </button>
-            <button onClick={() => { setFilter(filter === "projects" ? null : "projects"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "projects" ? "bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200" : "bg-gray-50 border-gray-100 hover:border-indigo-200"}`} data-testid="stat-total-projects">
-              <div className="flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-indigo-600" /><span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Projects</span></div>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{totalProjects}</p>
+            <button onClick={() => { setFilter(filter === "projects" ? null : "projects"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "projects" ? "bg-indigo-500/10 border-indigo-300 ring-2 ring-indigo-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-indigo-500/20"}`} data-testid="stat-total-projects">
+              <div className="flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-indigo-400" /><span className="text-xs font-medium text-white/50 uppercase tracking-wide">Projects</span></div>
+              <p className="text-2xl font-bold text-white tabular-nums">{totalProjects}</p>
             </button>
-            <button onClick={() => { setFilter(filter === "active" ? null : "active"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "active" ? "bg-emerald-50 border-emerald-300 ring-2 ring-emerald-200" : "bg-gray-50 border-gray-100 hover:border-emerald-200"}`} data-testid="stat-active-projects">
-              <div className="flex items-center gap-2 mb-1"><CheckCircle2 className="w-4 h-4 text-emerald-600" /><span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Active</span></div>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{activeProjects}</p>
+            <button onClick={() => { setFilter(filter === "active" ? null : "active"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "active" ? "bg-emerald-500/10 border-emerald-300 ring-2 ring-emerald-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-emerald-500/20"}`} data-testid="stat-active-projects">
+              <div className="flex items-center gap-2 mb-1"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-xs font-medium text-white/50 uppercase tracking-wide">Active</span></div>
+              <p className="text-2xl font-bold text-white tabular-nums">{activeProjects}</p>
             </button>
-            <button onClick={() => { const newFilter = filter === "review" ? null : "review"; setFilter(newFilter); if (newFilter === "review") setShowPlanReview(true); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "review" ? "bg-amber-50 border-amber-300 ring-2 ring-amber-200" : "bg-gray-50 border-gray-100 hover:border-amber-200"}`} data-testid="stat-pending-review">
-              <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-amber-600" /><span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pending Review</span></div>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{pendingReview}</p>
+            <button onClick={() => { const newFilter = filter === "review" ? null : "review"; setFilter(newFilter); if (newFilter === "review") setShowPlanReview(true); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "review" ? "bg-amber-500/10 border-amber-300 ring-2 ring-amber-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-amber-500/20"}`} data-testid="stat-pending-review">
+              <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-amber-400" /><span className="text-xs font-medium text-white/50 uppercase tracking-wide">Pending Review</span></div>
+              <p className="text-2xl font-bold text-white tabular-nums">{pendingReview}</p>
             </button>
           </div>
           {filter && (
             <div className="mt-4 flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1 text-sm flex items-center gap-1.5" data-testid="badge-active-filter">
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 px-3 py-1 text-sm flex items-center gap-1.5" data-testid="badge-active-filter">
                 <Filter className="w-3 h-3" />
                 Filtering: {filter === "interns" ? "All Interns" : filter === "projects" ? "All Projects" : filter === "active" ? "Active Projects" : "Pending Review"}
               </Badge>
-              <button onClick={() => { setFilter(null); }} className="text-xs text-gray-500 hover:text-red-600 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-50 transition-colors" data-testid="button-clear-filter">
+              <button onClick={() => { setFilter(null); }} className="text-xs text-white/50 hover:text-red-400 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/100/10 transition-colors" data-testid="button-clear-filter">
                 <X className="w-3 h-3" /> Clear filter
               </button>
             </div>
@@ -1195,10 +1195,10 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         <OrgAssistantPanel />
 
         {pendingReview > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4" data-testid="alert-pending-review">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4" data-testid="alert-pending-review">
             <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600" />
-              <span className="text-amber-800 font-medium">{pendingReview} plan{pendingReview > 1 ? "s" : ""} awaiting your review</span>
+              <AlertCircle className="w-5 h-5 text-amber-400" />
+              <span className="text-amber-300 font-medium">{pendingReview} plan{pendingReview > 1 ? "s" : ""} awaiting your review</span>
             </div>
           </div>
         )}
@@ -1207,10 +1207,10 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           <div className="space-y-4" data-testid="plan-review-panel">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2" data-testid="text-review-header">
-                  <AlertCircle className="w-5 h-5 text-amber-600" /> Review Now
+                <h2 className="text-xl font-bold text-white flex items-center gap-2" data-testid="text-review-header">
+                  <AlertCircle className="w-5 h-5 text-amber-400" /> Review Now
                 </h2>
-                <p className="text-sm text-gray-500 mt-1" data-testid="text-review-count">
+                <p className="text-sm text-white/50 mt-1" data-testid="text-review-count">
                   {submittedProjects.length} plan{submittedProjects.length !== 1 ? "s" : ""} need{submittedProjects.length === 1 ? "s" : ""} your review
                 </p>
               </div>
@@ -1238,17 +1238,17 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         )}
 
         {analytics && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm" data-testid="analytics-section">
+          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid="analytics-section">
             <button
               onClick={() => setShowAnalytics(!showAnalytics)}
-              className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors rounded-xl"
+              className="w-full flex items-center justify-between p-5 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-xl"
               data-testid="button-toggle-analytics"
             >
               <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Analytics</h2>
+                <BarChart3 className="w-5 h-5 text-indigo-400" />
+                <h2 className="text-lg font-semibold text-white">Analytics</h2>
               </div>
-              {showAnalytics ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}
+              {showAnalytics ? <ChevronDown className="w-5 h-5 text-white/40" /> : <ChevronRight className="w-5 h-5 text-white/40" />}
             </button>
             {showAnalytics && (
               <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="analytics-charts">
@@ -1268,8 +1268,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         <ManagersSection currentUserId={user.id} />
 
         <div ref={internOverviewRef} data-testid="intern-overview-section">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5 text-gray-600" />Intern Overview
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-white/60" />Intern Overview
           </h2>
 
           {allDashboardInterns.length > 0 && (
@@ -1278,8 +1278,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               searchValue={searchQuery}
               onSearchChange={setSearchQuery}
               filterOptions={[
-                { value: "active", label: "Active", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-                { value: "review", label: "Pending Review", color: "bg-amber-50 text-amber-700 border-amber-200" },
+                { value: "active", label: "Active", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+                { value: "review", label: "Pending Review", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
               ]}
               activeFilter={filter}
               onFilterChange={setFilter}
@@ -1288,18 +1288,18 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           )}
 
           {filteredInterns.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center" data-testid="text-no-interns">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-12 text-center" data-testid="text-no-interns">
+              <Users className="w-12 h-12 text-white/30 mx-auto mb-3" />
               {searchQuery || filter ? (
                 <>
-                  <p className="text-gray-500 text-lg mb-1">No matching results</p>
-                  <p className="text-gray-400 text-sm mb-3">Try adjusting your search or filters.</p>
+                  <p className="text-white/50 text-lg mb-1">No matching results</p>
+                  <p className="text-white/40 text-sm mb-3">Try adjusting your search or filters.</p>
                   <Button variant="outline" size="sm" onClick={() => { setSearchQuery(""); setFilter(null); }}>Clear filters</Button>
                 </>
               ) : (
                 <>
-                  <p className="text-gray-500 text-lg mb-1">No interns yet</p>
-                  <p className="text-gray-400 text-sm mb-3">Add your first intern to get started.</p>
+                  <p className="text-white/50 text-lg mb-1">No interns yet</p>
+                  <p className="text-white/40 text-sm mb-3">Add your first intern to get started.</p>
                   <Button onClick={() => setShowInviteModal(true)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white">
                     <UserPlus className="w-4 h-4 mr-2" />Add Intern
                   </Button>
@@ -1320,7 +1320,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
                 return (
                   <div key={intern.id} data-testid={`card-intern-${intern.id}`}>
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" onClick={() => setExpandedIntern(isExpanded ? null : intern.id)}>
+                    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" onClick={() => setExpandedIntern(isExpanded ? null : intern.id)}>
                       <div className="p-4 sm:p-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -1328,7 +1328,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                               <Link
                                 href={`/interns/${intern.id}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-gray-900 font-semibold hover:text-[#6D5EF5] hover:underline no-underline"
+                                className="text-white font-semibold hover:text-[#6D5EF5] hover:underline no-underline"
                                 data-testid={`text-intern-name-${intern.id}`}
                               >
                                 {intern.name}
@@ -1337,36 +1337,36 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                                 <TaskCompletionBadge internId={intern.id} />
                               </Link>
                               {intern.deactivatedAt && (
-                                <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200 text-xs" data-testid={`badge-deactivated-${intern.id}`}>
+                                <Badge variant="outline" className="bg-white/10 text-white/50 border-white/[0.08] text-xs" data-testid={`badge-deactivated-${intern.id}`}>
                                   Deactivated
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-gray-500 text-sm" data-testid={`text-intern-email-${intern.id}`}>{intern.email}</p>
+                            <p className="text-white/50 text-sm" data-testid={`text-intern-email-${intern.id}`}>{intern.email}</p>
                           </div>
                           <div className="flex flex-wrap items-center gap-3">
                             {projects.length === 0 ? (
-                              <span className="text-gray-400 text-sm">No projects</span>
+                              <span className="text-white/40 text-sm">No projects</span>
                             ) : (
                               <>
                                 {projects.map((project: any) => (
                                   <div key={project.id} className="flex items-center gap-2 text-sm">
-                                    <span className="text-gray-700 font-medium truncate max-w-[200px]" data-testid={`text-project-title-${project.id}`}>{project.title}</span>
+                                    <span className="text-white/70 font-medium truncate max-w-[200px]" data-testid={`text-project-title-${project.id}`}>{project.title}</span>
                                     {statusBadge(project.status)}
                                   </div>
                                 ))}
                                 {overallCompletion.total > 0 && (
                                   <div className="flex items-center gap-1.5">
-                                    <div className="w-20 bg-gray-200 rounded-full h-1.5">
-                                      <div className={`h-1.5 rounded-full transition-all ${overallCompletion.pct >= 100 ? "bg-green-500" : overallCompletion.pct > 50 ? "bg-blue-500" : overallCompletion.pct > 0 ? "bg-amber-500" : "bg-gray-200"}`} style={{ width: `${Math.max(overallCompletion.pct, 3)}%` }} />
+                                    <div className="w-20 bg-white/15 rounded-full h-1.5">
+                                      <div className={`h-1.5 rounded-full transition-all ${overallCompletion.pct >= 100 ? "bg-emerald-500/100" : overallCompletion.pct > 50 ? "bg-blue-500/100" : overallCompletion.pct > 0 ? "bg-amber-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(overallCompletion.pct, 3)}%` }} />
                                     </div>
-                                    <span className="text-xs text-gray-400">{overallCompletion.pct}%</span>
+                                    <span className="text-xs text-white/40">{overallCompletion.pct}%</span>
                                   </div>
                                 )}
                               </>
                             )}
                           </div>
-                          <div>{isExpanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}</div>
+                          <div>{isExpanded ? <ChevronDown className="w-5 h-5 text-white/40" /> : <ChevronRight className="w-5 h-5 text-white/40" />}</div>
                         </div>
                       </div>
                     </div>
@@ -1378,7 +1378,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                              className="text-xs text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/10"
                               onClick={(e) => { e.stopPropagation(); if (confirm(`Promote ${intern.name} to admin? They'll get full admin access — all interns, tasks, and settings. This can't be undone from here.`)) { promoteInternMutation.mutate(intern.id); } }}
                               disabled={promoteInternMutation.isPending}
                               data-testid={`button-promote-intern-${intern.id}`}
@@ -1391,7 +1391,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                              className="text-xs text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10"
                               onClick={(e) => { e.stopPropagation(); deactivateInternMutation.mutate({ internId: intern.id, deactivate: false }); }}
                               disabled={deactivateInternMutation.isPending}
                               data-testid={`button-reactivate-intern-${intern.id}`}
@@ -1403,7 +1403,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs text-gray-600 border-gray-300 hover:bg-gray-50"
+                              className="text-xs text-white/60 border-white/[0.15] hover:bg-[#141110]/[0.06]"
                               onClick={(e) => { e.stopPropagation(); if (confirm(`Deactivate ${intern.name}? They won't be able to log in, but their tasks and history stay intact. You can reactivate them anytime.`)) { deactivateInternMutation.mutate({ internId: intern.id, deactivate: true }); } }}
                               disabled={deactivateInternMutation.isPending}
                               data-testid={`button-deactivate-intern-${intern.id}`}
@@ -1415,7 +1415,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-xs text-red-700 border-red-300 hover:bg-red-50"
+                            className="text-xs text-red-400 border-red-300 hover:bg-red-500/100/10"
                             onClick={(e) => {
                               e.stopPropagation();
                               const typed = window.prompt(`This permanently deletes ${intern.name}'s account and every task, log, and message tied to it. This cannot be undone.\n\nType their name to confirm: ${intern.name}`);
@@ -1437,7 +1437,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                              className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/100/10"
                               onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ALL ${projects.length} projects for ${intern.name}? This cannot be undone.`)) { deleteAllProjectsMutation.mutate(intern.id); } }}
                               disabled={deleteAllProjectsMutation.isPending}
                               data-testid={`button-delete-all-projects-${intern.id}`}
@@ -1448,9 +1448,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                           </div>
                         )}
                         {projects.length === 0 ? (
-                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-                            <Briefcase className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                            <p className="text-gray-400 text-sm">No projects assigned yet</p>
+                          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-8 text-center">
+                            <Briefcase className="w-8 h-8 text-white/30 mx-auto mb-2" />
+                            <p className="text-white/40 text-sm">No projects assigned yet</p>
                           </div>
                         ) : (
                           projects.map((project: any) => (<InternProjectDetail key={project.id} project={project} />))
@@ -1463,7 +1463,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
               {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between pt-4">
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-white/40">
                     Showing {(pagination.page - 1) * 10 + 1}-{Math.min(pagination.page * 10, pagination.totalItems)} of {pagination.totalItems}
                   </span>
                   <div className="flex items-center gap-1">
@@ -1500,29 +1500,29 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="modal-invite">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Add Intern</h3>
-              <button onClick={() => { setShowInviteModal(false); setCreatedIntern(null); }} className="text-gray-400 hover:text-gray-600" data-testid="button-close-invite"><X className="w-5 h-5" /></button>
+          <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.08]">
+              <h3 className="text-lg font-semibold text-white">Add Intern</h3>
+              <button onClick={() => { setShowInviteModal(false); setCreatedIntern(null); }} className="text-white/40 hover:text-white/70" data-testid="button-close-invite"><X className="w-5 h-5" /></button>
             </div>
             {createdIntern ? (
               <div className="p-5 space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4" data-testid="invite-link-display">
-                  <p className="text-green-800 text-sm font-medium mb-3">Account created — {createdIntern.name} can log in right now.</p>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4" data-testid="invite-link-display">
+                  <p className="text-emerald-400 text-sm font-medium mb-3">Account created — {createdIntern.name} can log in right now.</p>
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-2 bg-white border border-green-200 rounded px-3 py-2">
-                      <span className="text-gray-500">Email</span>
-                      <span className="text-gray-900 font-medium" data-testid="text-created-intern-email">{createdIntern.email}</span>
+                    <div className="flex items-center justify-between gap-2 bg-[#0B0A09] border border-emerald-500/20 rounded px-3 py-2">
+                      <span className="text-white/50">Email</span>
+                      <span className="text-white font-medium" data-testid="text-created-intern-email">{createdIntern.email}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-2 bg-white border border-green-200 rounded px-3 py-2">
-                      <span className="text-gray-500">Password</span>
-                      <span className="text-gray-900 font-medium" data-testid="text-created-intern-password">{createdIntern.password}</span>
+                    <div className="flex items-center justify-between gap-2 bg-[#0B0A09] border border-emerald-500/20 rounded px-3 py-2">
+                      <span className="text-white/50">Password</span>
+                      <span className="text-white font-medium" data-testid="text-created-intern-password">{createdIntern.password}</span>
                     </div>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="w-full mt-3 border-green-300 text-green-700 hover:bg-green-100"
+                    className="w-full mt-3 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
                     onClick={() => copyLink(`Email: ${createdIntern.email}\nPassword: ${createdIntern.password}`)}
                     data-testid="button-copy-link"
                   >
@@ -1541,16 +1541,16 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             ) : (
               <div className="p-5 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <Input placeholder="Intern's full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} className="border-gray-300" data-testid="input-invite-name" />
+                  <label className="block text-sm font-medium text-white/70 mb-1">Name</label>
+                  <Input placeholder="Intern's full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} className="border-white/[0.15]" data-testid="input-invite-name" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <Input type="email" placeholder="intern@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="border-gray-300" data-testid="input-invite-email" />
+                  <label className="block text-sm font-medium text-white/70 mb-1">Email</label>
+                  <Input type="email" placeholder="intern@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="border-white/[0.15]" data-testid="input-invite-email" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                  <Input type="password" placeholder="At least 6 characters" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} className="border-gray-300" data-testid="input-invite-password" />
+                  <label className="block text-sm font-medium text-white/70 mb-1">Password</label>
+                  <Input type="password" placeholder="At least 6 characters" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} className="border-white/[0.15]" data-testid="input-invite-password" />
                 </div>
                 <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || invitePassword.length < 6 || inviteMutation.isPending} className="w-full bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-send-invite">
                   {inviteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>) : "Create Account"}
@@ -1563,30 +1563,30 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="modal-assign">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Assign Project</h3>
-              <button onClick={() => setShowAssignModal(false)} className="text-gray-400 hover:text-gray-600" data-testid="button-close-assign"><X className="w-5 h-5" /></button>
+          <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.08]">
+              <h3 className="text-lg font-semibold text-white">Assign Project</h3>
+              <button onClick={() => setShowAssignModal(false)} className="text-white/40 hover:text-white/70" data-testid="button-close-assign"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Intern</label>
-                <select value={assignInternId} onChange={(e) => setAssignInternId(e.target.value)} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="select-assign-intern">
+                <label className="block text-sm font-medium text-white/70 mb-1">Intern</label>
+                <select value={assignInternId} onChange={(e) => setAssignInternId(e.target.value)} className="w-full rounded-md border border-white/[0.15] bg-[#141110] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="select-assign-intern">
                   <option value="">Select an intern...</option>
                   {(interns as any[]).filter((intern: any) => !intern.deactivatedAt).map((intern: any) => (<option key={intern.id} value={intern.id}>{intern.name} ({intern.email})</option>))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
-                <Input placeholder="e.g., Customer Portal Redesign" value={assignTitle} onChange={(e) => setAssignTitle(e.target.value)} className="border-gray-300" data-testid="input-assign-title" />
+                <label className="block text-sm font-medium text-white/70 mb-1">Project Title</label>
+                <Input placeholder="e.g., Customer Portal Redesign" value={assignTitle} onChange={(e) => setAssignTitle(e.target.value)} className="border-white/[0.15]" data-testid="input-assign-title" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Project Idea</label>
-                <Textarea placeholder="Brief description of the project..." value={assignIdea} onChange={(e) => setAssignIdea(e.target.value)} className="border-gray-300" rows={3} data-testid="input-assign-idea" />
+                <label className="block text-sm font-medium text-white/70 mb-1">Project Idea</label>
+                <Textarea placeholder="Brief description of the project..." value={assignIdea} onChange={(e) => setAssignIdea(e.target.value)} className="border-white/[0.15]" rows={3} data-testid="input-assign-idea" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Total Hours</label>
-                <Input type="number" min="1" placeholder="e.g., 160" value={assignMinHours} onChange={(e) => setAssignMinHours(e.target.value)} className="border-gray-300" data-testid="input-assign-hours" />
+                <label className="block text-sm font-medium text-white/70 mb-1">Minimum Total Hours</label>
+                <Input type="number" min="1" placeholder="e.g., 160" value={assignMinHours} onChange={(e) => setAssignMinHours(e.target.value)} className="border-white/[0.15]" data-testid="input-assign-hours" />
               </div>
               <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-assign-project">
                 {assignProjectMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Assigning...</>) : "Assign Project"}

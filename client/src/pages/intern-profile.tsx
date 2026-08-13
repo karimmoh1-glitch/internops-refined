@@ -13,11 +13,11 @@ interface InternProfileProps {
 }
 
 const TASK_STATUS_META: Record<string, { label: string; cls: string; icon: any }> = {
-  todo: { label: "To Do", cls: "bg-gray-100 text-gray-700 border-gray-200", icon: Circle },
-  in_progress: { label: "In Progress", cls: "bg-blue-50 text-blue-700 border-blue-200", icon: PlayCircle },
-  in_review: { label: "In Review", cls: "bg-amber-50 text-amber-700 border-amber-200", icon: Eye },
-  completed: { label: "Completed", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
-  blocked: { label: "Blocked", cls: "bg-red-50 text-red-700 border-red-200", icon: Ban },
+  todo: { label: "To Do", cls: "bg-white/10 text-white/70 border-white/[0.08]", icon: Circle },
+  in_progress: { label: "In Progress", cls: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: PlayCircle },
+  in_review: { label: "In Review", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20", icon: Eye },
+  completed: { label: "Completed", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
+  blocked: { label: "Blocked", cls: "bg-red-500/10 text-red-400 border-red-500/20", icon: Ban },
 };
 
 function formatDateTime(dateStr: string) {
@@ -87,7 +87,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-10 flex items-center justify-center min-h-[40vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-white/40" />
       </div>
     );
   }
@@ -95,55 +95,55 @@ export default function InternProfile({ internId }: InternProfileProps) {
   if (!intern) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-10 text-center">
-        <p className="text-gray-500 font-medium">Intern not found.</p>
+        <p className="text-white/50 font-medium">Intern not found.</p>
         <Button variant="outline" className="mt-4" onClick={() => setLocation("/")}>Back to Dashboard</Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#0B0A09]">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-gray-500" onClick={() => setLocation("/")} data-testid="button-back-to-dashboard">
+        <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-white/50" onClick={() => setLocation("/")} data-testid="button-back-to-dashboard">
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Dashboard
         </Button>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
+        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-[#6D5EF5]/15 rounded-full flex items-center justify-center text-[#6D5EF5] font-semibold text-xl shrink-0">
               {intern.name[0]?.toUpperCase() || "?"}
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900" data-testid="text-intern-profile-name">{intern.name}</h1>
-              <p className="text-sm text-gray-500" data-testid="text-intern-profile-email">{intern.email}</p>
+              <h1 className="text-xl font-bold text-white" data-testid="text-intern-profile-name">{intern.name}</h1>
+              <p className="text-sm text-white/50" data-testid="text-intern-profile-email">{intern.email}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Tasks</p>
-              <p className="text-xl font-bold text-gray-900">{stats.completed}/{stats.total}</p>
-              <p className="text-xs text-gray-400">{stats.completionPct}% complete</p>
+            <div className="bg-[#0B0A09] rounded-lg p-3 border border-white/[0.06]">
+              <p className="text-xs text-white/50 uppercase tracking-wide">Tasks</p>
+              <p className="text-xl font-bold text-white">{stats.completed}/{stats.total}</p>
+              <p className="text-xs text-white/40">{stats.completionPct}% complete</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">In Progress</p>
-              <p className="text-xl font-bold text-gray-900">{stats.inProgress}</p>
+            <div className="bg-[#0B0A09] rounded-lg p-3 border border-white/[0.06]">
+              <p className="text-xs text-white/50 uppercase tracking-wide">In Progress</p>
+              <p className="text-xl font-bold text-white">{stats.inProgress}</p>
             </div>
-            <div className={`rounded-lg p-3 border ${stats.blocked > 0 ? "bg-red-50 border-red-100" : "bg-gray-50 border-gray-100"}`}>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Blocked</p>
-              <p className={`text-xl font-bold ${stats.blocked > 0 ? "text-red-700" : "text-gray-900"}`}>{stats.blocked}</p>
+            <div className={`rounded-lg p-3 border ${stats.blocked > 0 ? "bg-red-500/10 border-red-500/15" : "bg-[#0B0A09] border-white/[0.06]"}`}>
+              <p className="text-xs text-white/50 uppercase tracking-wide">Blocked</p>
+              <p className={`text-xl font-bold ${stats.blocked > 0 ? "text-red-400" : "text-white"}`}>{stats.blocked}</p>
             </div>
-            <div className={`rounded-lg p-3 border ${stats.overdue > 0 ? "bg-amber-50 border-amber-100" : "bg-gray-50 border-gray-100"}`}>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Overdue</p>
-              <p className={`text-xl font-bold ${stats.overdue > 0 ? "text-amber-700" : "text-gray-900"}`}>{stats.overdue}</p>
+            <div className={`rounded-lg p-3 border ${stats.overdue > 0 ? "bg-amber-500/10 border-amber-500/15" : "bg-[#0B0A09] border-white/[0.06]"}`}>
+              <p className="text-xs text-white/50 uppercase tracking-wide">Overdue</p>
+              <p className={`text-xl font-bold ${stats.overdue > 0 ? "text-amber-400" : "text-white"}`}>{stats.overdue}</p>
             </div>
           </div>
 
           {intern.projects?.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {intern.projects.map((p: any) => (
-                <Badge key={p.id} variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 gap-1">
+                <Badge key={p.id} variant="outline" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 gap-1">
                   <Briefcase className="w-3 h-3" />
                   {p.title}
                 </Badge>
@@ -152,29 +152,29 @@ export default function InternProfile({ internId }: InternProfileProps) {
           )}
         </div>
 
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-gray-600" />
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-white/60" />
           Work History
         </h2>
 
         {timeline.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-gray-200 rounded-xl bg-white">
-            <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-500 font-medium">No activity yet</p>
+          <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl bg-[#141110]">
+            <FileText className="w-8 h-8 text-white/30 mx-auto mb-2" />
+            <p className="text-white/50 font-medium">No activity yet</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100">
+          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
             {timeline.map((event, i) => (
               <div key={i} className="p-4 flex gap-3" data-testid={`timeline-event-${i}`}>
                 <div className="mt-0.5 shrink-0">
                   {event.kind === "task" && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
-                  {event.kind === "log" && <Clock className="w-4 h-4 text-gray-400" />}
+                  {event.kind === "log" && <Clock className="w-4 h-4 text-white/40" />}
                   {event.kind === "plan" && <FileText className="w-4 h-4 text-indigo-500" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-900 font-medium">{event.title}</p>
-                  {event.detail && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{event.detail}</p>}
-                  <p className="text-xs text-gray-400 mt-1">{formatDateTime(event.ts)}</p>
+                  <p className="text-sm text-white font-medium">{event.title}</p>
+                  {event.detail && <p className="text-sm text-white/50 mt-0.5 line-clamp-2">{event.detail}</p>}
+                  <p className="text-xs text-white/40 mt-1">{formatDateTime(event.ts)}</p>
                 </div>
               </div>
             ))}

@@ -52,17 +52,17 @@ interface Project {
 }
 
 const STATUS_META: Record<string, { label: string; cls: string; icon: any }> = {
-  todo: { label: "To Do", cls: "bg-gray-100 text-gray-700 border-gray-200", icon: Circle },
-  in_progress: { label: "In Progress", cls: "bg-blue-50 text-blue-700 border-blue-200", icon: PlayCircle },
-  in_review: { label: "In Review", cls: "bg-amber-50 text-amber-700 border-amber-200", icon: Eye },
-  completed: { label: "Completed", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
-  blocked: { label: "Blocked", cls: "bg-red-50 text-red-700 border-red-200", icon: Ban },
+  todo: { label: "To Do", cls: "bg-white/10 text-white/70 border-white/[0.08]", icon: Circle },
+  in_progress: { label: "In Progress", cls: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: PlayCircle },
+  in_review: { label: "In Review", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20", icon: Eye },
+  completed: { label: "Completed", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
+  blocked: { label: "Blocked", cls: "bg-red-500/10 text-red-400 border-red-500/20", icon: Ban },
 };
 
 const PRIORITY_META: Record<string, string> = {
-  low: "bg-gray-100 text-gray-600 border-gray-200",
-  medium: "bg-blue-50 text-blue-700 border-blue-200",
-  high: "bg-red-50 text-red-700 border-red-200",
+  low: "bg-white/10 text-white/60 border-white/[0.08]",
+  medium: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  high: "bg-red-500/10 text-red-400 border-red-500/20",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -220,7 +220,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
   if (tasksLoading) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-10 flex items-center justify-center min-h-[40vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-white/40" />
       </div>
     );
   }
@@ -228,7 +228,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
   if (tasksError) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-10 text-center">
-        <p className="text-red-600 font-medium">Couldn't load tasks. Try refreshing the page.</p>
+        <p className="text-red-400 font-medium">Couldn't load tasks. Try refreshing the page.</p>
       </div>
     );
   }
@@ -247,8 +247,8 @@ function ManagerTasksView({ user }: TasksPageProps) {
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900" data-testid="text-tasks-title">Tasks</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Assign, track, and review work across the team</p>
+          <h1 className="text-2xl font-bold text-white" data-testid="text-tasks-title">Tasks</h1>
+          <p className="text-sm text-white/50 mt-0.5">Assign, track, and review work across the team</p>
         </div>
         <Button onClick={() => setCreateOpen(true)} data-testid="button-new-task">
           <Plus className="w-4 h-4 mr-1.5" />
@@ -263,7 +263,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
               key={tab.key}
               onClick={() => setStatusFilter(tab.key)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === tab.key ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+                statusFilter === tab.key ? "bg-white/10 text-white" : "text-white/60 hover:bg-[#141110]/10"
               }`}
               data-testid={`filter-status-${tab.key}`}
             >
@@ -288,38 +288,38 @@ function ManagerTasksView({ user }: TasksPageProps) {
       </div>
 
       {filteredTasks.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-gray-200 rounded-xl">
-          <ListTodo className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-gray-500 font-medium">
+        <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl">
+          <ListTodo className="w-8 h-8 text-white/30 mx-auto mb-2" />
+          <p className="text-white/50 font-medium">
             {taskList.length === 0 ? "No tasks yet" : "No tasks match this filter"}
           </p>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-white/40 mt-1">
             {taskList.length === 0 ? "Create the first task to get started." : "Try a different filter."}
           </p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+        <div className="border border-white/[0.08] rounded-xl overflow-hidden divide-y divide-white/[0.06]">
           {filteredTasks.map((task) => {
             const overdue = isOverdue(task);
             return (
               <button
                 key={task.id}
                 onClick={() => setSelectedTask(task)}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                className="w-full text-left px-4 py-3 hover:bg-[#141110]/[0.06] transition-colors flex items-center gap-3"
                 data-testid={`row-task-${task.id}`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-gray-900 truncate">{task.title}</span>
+                    <span className="font-medium text-white truncate">{task.title}</span>
                     {task.projectId && projectTitleById.get(task.projectId) && (
-                      <span className="text-xs text-gray-400 truncate">in {projectTitleById.get(task.projectId)}</span>
+                      <span className="text-xs text-white/40 truncate">in {projectTitleById.get(task.projectId)}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 mt-1 text-xs text-white/50">
                     <User className="w-3 h-3" />
                     {internNameById.get(task.assigneeId) || "Unknown"}
                     {task.dueDate && (
-                      <span className={`flex items-center gap-1 ${overdue ? "text-red-600 font-medium" : ""}`}>
+                      <span className={`flex items-center gap-1 ${overdue ? "text-red-400 font-medium" : ""}`}>
                         <Calendar className="w-3 h-3" />
                         {formatDate(task.dueDate)}
                         {overdue && " (overdue)"}
@@ -496,31 +496,31 @@ function TaskDetailDialog({
 
         <div className="space-y-4">
           {task.description && (
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.description}</p>
+            <p className="text-sm text-white/70 whitespace-pre-wrap">{task.description}</p>
           )}
 
           {task.status === "blocked" && task.blockedReason && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex gap-2">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex gap-2">
               <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-semibold text-red-700">Blocked</p>
-                <p className="text-sm text-red-700 mt-0.5">{task.blockedReason}</p>
+                <p className="text-xs font-semibold text-red-400">Blocked</p>
+                <p className="text-sm text-red-400 mt-0.5">{task.blockedReason}</p>
               </div>
             </div>
           )}
 
           {task.submission && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <p className="text-xs font-semibold text-gray-500 mb-1">
+            <div className="bg-[#0B0A09] border border-white/[0.08] rounded-lg p-3">
+              <p className="text-xs font-semibold text-white/50 mb-1">
                 Submission {task.submittedAt ? `· ${formatDate(task.submittedAt)}` : ""}
               </p>
-              <p className="text-sm text-gray-800 whitespace-pre-wrap">{task.submission}</p>
+              <p className="text-sm text-white/90 whitespace-pre-wrap">{task.submission}</p>
             </div>
           )}
 
           {task.feedback && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs font-semibold text-blue-700 mb-1">Feedback</p>
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+              <p className="text-xs font-semibold text-blue-400 mb-1">Feedback</p>
               <p className="text-sm text-blue-900 whitespace-pre-wrap">{task.feedback}</p>
             </div>
           )}
@@ -536,13 +536,13 @@ function TaskDetailDialog({
         <DialogFooter className="flex-wrap gap-2 sm:justify-between">
           <div className="flex items-center gap-2">
             {!confirmDelete ? (
-              <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setConfirmDelete(true)} data-testid="button-delete-task">
+              <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-400 hover:bg-red-500/100/10" onClick={() => setConfirmDelete(true)} data-testid="button-delete-task">
                 <Trash2 className="w-4 h-4 mr-1" />
                 Delete
               </Button>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Delete this task?</span>
+                <span className="text-xs text-white/50">Delete this task?</span>
                 <Button variant="destructive" size="sm" onClick={onDelete} disabled={isDeleting} data-testid="button-confirm-delete-task">
                   {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirm"}
                 </Button>
@@ -631,7 +631,7 @@ function InternTasksView({ user }: TasksPageProps) {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-10 flex items-center justify-center min-h-[40vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-white/40" />
       </div>
     );
   }
@@ -639,7 +639,7 @@ function InternTasksView({ user }: TasksPageProps) {
   if (isError) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-10 text-center">
-        <p className="text-red-600 font-medium">Couldn't load your tasks. Try refreshing the page.</p>
+        <p className="text-red-400 font-medium">Couldn't load your tasks. Try refreshing the page.</p>
       </div>
     );
   }
@@ -651,15 +651,15 @@ function InternTasksView({ user }: TasksPageProps) {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900" data-testid="text-tasks-title">My Tasks</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Everything assigned to you, grouped by status</p>
+        <h1 className="text-2xl font-bold text-white" data-testid="text-tasks-title">My Tasks</h1>
+        <p className="text-sm text-white/50 mt-0.5">Everything assigned to you, grouped by status</p>
       </div>
 
       {taskList.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-gray-200 rounded-xl">
-          <ListTodo className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-gray-500 font-medium">No tasks assigned yet</p>
-          <p className="text-sm text-gray-400 mt-1">Your manager hasn't assigned you anything yet.</p>
+        <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl">
+          <ListTodo className="w-8 h-8 text-white/30 mx-auto mb-2" />
+          <p className="text-white/50 font-medium">No tasks assigned yet</p>
+          <p className="text-sm text-white/40 mt-1">Your manager hasn't assigned you anything yet.</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -670,37 +670,37 @@ function InternTasksView({ user }: TasksPageProps) {
               <div key={group.key}>
                 <div className="flex items-center gap-2 mb-2">
                   <StatusBadge status={group.key} />
-                  <span className="text-xs text-gray-400">{items.length}</span>
+                  <span className="text-xs text-white/40">{items.length}</span>
                 </div>
                 <div className="space-y-2">
                   {items.map((task) => {
                     const overdue = isOverdue(task);
                     return (
-                      <div key={task.id} className="border border-gray-200 rounded-xl p-4" data-testid={`card-task-${task.id}`}>
+                      <div key={task.id} className="border border-white/[0.08] rounded-xl p-4" data-testid={`card-task-${task.id}`}>
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-gray-900">{task.title}</span>
+                              <span className="font-medium text-white">{task.title}</span>
                               <PriorityBadge priority={task.priority} />
                             </div>
                             {task.description && (
-                              <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                              <p className="text-sm text-white/60 mt-1">{task.description}</p>
                             )}
                             {task.dueDate && (
-                              <p className={`text-xs mt-1.5 flex items-center gap-1 ${overdue ? "text-red-600 font-medium" : "text-gray-400"}`}>
+                              <p className={`text-xs mt-1.5 flex items-center gap-1 ${overdue ? "text-red-400 font-medium" : "text-white/40"}`}>
                                 <Clock className="w-3 h-3" />
                                 Due {formatDate(task.dueDate)}{overdue ? " (overdue)" : ""}
                               </p>
                             )}
                             {task.status === "blocked" && task.blockedReason && (
-                              <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+                              <div className="mt-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-sm text-red-400">
                                 {task.blockedReason}
                               </div>
                             )}
                             {task.feedback && (task.status === "in_progress" || task.status === "completed") && (
                               <button
                                 onClick={() => setFeedbackTask(task)}
-                                className="mt-2 text-xs text-blue-600 hover:underline"
+                                className="mt-2 text-xs text-blue-400 hover:underline"
                                 data-testid={`button-view-feedback-${task.id}`}
                               >
                                 View manager feedback
@@ -774,7 +774,7 @@ function InternTasksView({ user }: TasksPageProps) {
             <DialogHeader>
               <DialogTitle>Feedback on "{feedbackTask.title}"</DialogTitle>
             </DialogHeader>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{feedbackTask.feedback}</p>
+            <p className="text-sm text-white/70 whitespace-pre-wrap">{feedbackTask.feedback}</p>
             <DialogFooter>
               <Button onClick={() => setFeedbackTask(null)}>Close</Button>
             </DialogFooter>

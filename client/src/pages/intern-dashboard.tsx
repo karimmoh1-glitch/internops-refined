@@ -98,12 +98,12 @@ const STATUS_ORDER: Record<string, number> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-100 text-green-700 border-green-200",
-  submitted: "bg-blue-100 text-blue-700 border-blue-200",
-  planning: "bg-amber-100 text-amber-700 border-amber-200",
-  assigned: "bg-gray-100 text-gray-600 border-gray-200",
-  approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  completed: "bg-purple-100 text-purple-700 border-purple-200",
+  active: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  submitted: "bg-blue-100 text-blue-400 border-blue-500/20",
+  planning: "bg-amber-100 text-amber-400 border-amber-500/20",
+  assigned: "bg-white/10 text-white/60 border-white/[0.08]",
+  approved: "bg-emerald-100 text-emerald-400 border-emerald-500/20",
+  completed: "bg-purple-100 text-purple-400 border-purple-500/20",
 };
 
 function getCompletionRate(project: any): number {
@@ -236,22 +236,22 @@ function InternTaskOverview() {
   return (
     <div className="mb-8 space-y-4" data-testid="section-intern-task-overview">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Today</h2>
+        <h2 className="text-lg font-semibold text-white">Today</h2>
         <Button size="sm" variant="outline" onClick={() => setLocation("/tasks")} data-testid="button-view-all-tasks">
           View All Tasks
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-900 text-sm mb-3">Due Today {dueToday.length > 0 && `(${dueToday.length})`}</h3>
+        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+          <h3 className="font-semibold text-white text-sm mb-3">Due Today {dueToday.length > 0 && `(${dueToday.length})`}</h3>
           {dueToday.length === 0 ? (
-            <p className="text-sm text-gray-400">Nothing due today.</p>
+            <p className="text-sm text-white/40">Nothing due today.</p>
           ) : (
             <div className="space-y-2">
               {dueToday.map((t: any) => (
                 <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-gray-700 truncate">{t.title}</span>
+                  <span className="text-white/70 truncate">{t.title}</span>
                   {t.status === "todo" && (
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => startMutation.mutate(t.id)} data-testid={`button-quick-start-${t.id}`}>Start</Button>
                   )}
@@ -261,16 +261,16 @@ function InternTaskOverview() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-900 text-sm mb-3">My Work {myWork.length > 0 && `(${myWork.length})`}</h3>
+        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+          <h3 className="font-semibold text-white text-sm mb-3">My Work {myWork.length > 0 && `(${myWork.length})`}</h3>
           {myWork.length === 0 ? (
-            <p className="text-sm text-gray-400">{todoCount > 0 ? `${todoCount} task${todoCount > 1 ? "s" : ""} waiting to be started.` : "Nothing in progress."}</p>
+            <p className="text-sm text-white/40">{todoCount > 0 ? `${todoCount} task${todoCount > 1 ? "s" : ""} waiting to be started.` : "Nothing in progress."}</p>
           ) : (
             <div className="space-y-2">
               {myWork.map((t: any) => (
                 <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-gray-700 truncate">{t.title}</span>
-                  <Badge variant="outline" className={t.status === "blocked" ? "bg-red-50 text-red-700 border-red-200 text-xs" : "bg-blue-50 text-blue-700 border-blue-200 text-xs"}>
+                  <span className="text-white/70 truncate">{t.title}</span>
+                  <Badge variant="outline" className={t.status === "blocked" ? "bg-red-500/10 text-red-400 border-red-500/20 text-xs" : "bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs"}>
                     {t.status === "blocked" ? "Blocked" : "In Progress"}
                   </Badge>
                 </div>
@@ -280,13 +280,13 @@ function InternTaskOverview() {
         </div>
 
         {upcoming.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 className="font-semibold text-gray-900 text-sm mb-3">Upcoming</h3>
+          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+            <h3 className="font-semibold text-white text-sm mb-3">Upcoming</h3>
             <div className="space-y-2">
               {upcoming.map((t: any) => (
                 <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-gray-700 truncate">{t.title}</span>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  <span className="text-white/70 truncate">{t.title}</span>
+                  <span className="text-xs text-white/40 whitespace-nowrap">{new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                 </div>
               ))}
             </div>
@@ -294,13 +294,13 @@ function InternTaskOverview() {
         )}
 
         {recentlyCompleted.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 className="font-semibold text-gray-900 text-sm mb-3">Recently Completed</h3>
+          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+            <h3 className="font-semibold text-white text-sm mb-3">Recently Completed</h3>
             <div className="space-y-2">
               {recentlyCompleted.map((t: any) => (
                 <div key={t.id} className="flex items-center gap-2 text-sm">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="text-gray-700 truncate">{t.title}</span>
+                  <span className="text-white/70 truncate">{t.title}</span>
                 </div>
               ))}
             </div>
@@ -308,13 +308,13 @@ function InternTaskOverview() {
         )}
 
         {withFeedback.length > 0 && (
-          <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-5 md:col-span-2">
-            <h3 className="font-semibold text-gray-900 text-sm mb-3">Recent Feedback</h3>
+          <div className="bg-blue-500/10 rounded-xl border border-blue-500/15 p-5 md:col-span-2">
+            <h3 className="font-semibold text-white text-sm mb-3">Recent Feedback</h3>
             <div className="space-y-3">
               {withFeedback.map((t: any) => (
                 <div key={t.id} className="text-sm">
-                  <span className="text-gray-900 font-medium">{t.title}: </span>
-                  <span className="text-gray-600">{t.feedback}</span>
+                  <span className="text-white font-medium">{t.title}: </span>
+                  <span className="text-white/60">{t.feedback}</span>
                 </div>
               ))}
             </div>
@@ -348,16 +348,16 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
 
   if (projects.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50" data-testid="no-project-state">
+      <div className="min-h-screen bg-[#0B0A09]" data-testid="no-project-state">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <InternTaskOverview />
           <div className="flex items-center justify-center py-12">
             <div className="text-center p-8 max-w-md">
-              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-gray-300" />
+              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-8 h-8 text-white/30" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-700 mb-1">No Projects Yet</h2>
-              <p className="text-gray-500 text-sm" data-testid="text-no-project">
+              <h2 className="text-lg font-semibold text-white/70 mb-1">No Projects Yet</h2>
+              <p className="text-white/50 text-sm" data-testid="text-no-project">
                 Your manager will assign you a project soon. You'll be able to plan and track your work here.
               </p>
             </div>
@@ -368,12 +368,12 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" data-testid="project-list">
+    <div className="min-h-screen bg-[#0B0A09]" data-testid="project-list">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900" data-testid="text-dashboard-title">My Projects</h1>
-            <p className="text-sm text-gray-500 mt-1">{projects.length} project{projects.length !== 1 ? "s" : ""} assigned</p>
+            <h1 className="text-2xl font-bold text-white" data-testid="text-dashboard-title">My Projects</h1>
+            <p className="text-sm text-white/50 mt-1">{projects.length} project{projects.length !== 1 ? "s" : ""} assigned</p>
           </div>
           <Button
             onClick={() => setLocation("/chat")}
@@ -400,10 +400,10 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
             searchValue={search}
             onSearchChange={setSearch}
             filterOptions={[
-              { value: "active", label: "Active", color: "bg-green-50 text-green-700 border-green-200" },
-              { value: "planning", label: "Planning", color: "bg-amber-50 text-amber-700 border-amber-200" },
-              { value: "submitted", label: "Submitted", color: "bg-blue-50 text-blue-700 border-blue-200" },
-              { value: "assigned", label: "Assigned", color: "bg-gray-50 text-gray-600 border-gray-200" },
+              { value: "active", label: "Active", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+              { value: "planning", label: "Planning", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+              { value: "submitted", label: "Submitted", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+              { value: "assigned", label: "Assigned", color: "bg-[#0B0A09] text-white/60 border-white/[0.08]" },
             ]}
             activeFilter={statusFilter}
             onFilterChange={setStatusFilter}
@@ -412,9 +412,9 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
         )}
 
         {filtered.length === 0 && (search || statusFilter) ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
-            <Search className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 mb-2">No matching projects</p>
+          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-12 text-center">
+            <Search className="w-10 h-10 text-white/30 mx-auto mb-3" />
+            <p className="text-white/50 mb-2">No matching projects</p>
             <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter(null); }}>Clear filters</Button>
           </div>
         ) : (
@@ -423,16 +423,16 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
             <button
               key={project.id}
               onClick={() => onSelectProject(project.id)}
-              className="w-full text-left bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200"
+              className="w-full text-left bg-[#141110] border border-white/[0.08] rounded-xl p-5 shadow-sm hover:shadow-md hover:border-white/20 transition-all duration-200"
               data-testid={`card-project-${project.id}`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0 mr-3">
-                  <h3 className="text-base font-semibold text-gray-900 truncate" data-testid={`text-project-title-${project.id}`}>
+                  <h3 className="text-base font-semibold text-white truncate" data-testid={`text-project-title-${project.id}`}>
                     {project.title || project.idea || "Untitled Project"}
                   </h3>
                   {project.idea && project.title && (
-                    <p className="text-sm text-gray-500 mt-0.5 truncate">{project.idea}</p>
+                    <p className="text-sm text-white/50 mt-0.5 truncate">{project.idea}</p>
                   )}
                 </div>
                 <Badge className={`${STATUS_COLORS[project.status] || STATUS_COLORS.assigned} capitalize`} data-testid={`badge-status-${project.id}`}>
@@ -441,19 +441,19 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <div className="flex items-center justify-between text-xs text-white/50 mb-1">
                     <span>Completion</span>
                     <span>{Math.round(getCompletionRate(project))}%</span>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div className="w-full bg-white/10 rounded-full h-1.5">
                     <div
-                      className={`h-1.5 rounded-full transition-all ${getCompletionRate(project) >= 100 ? "bg-green-500" : getCompletionRate(project) > 0 ? "bg-blue-500" : "bg-gray-200"}`}
+                      className={`h-1.5 rounded-full transition-all ${getCompletionRate(project) >= 100 ? "bg-emerald-500/100" : getCompletionRate(project) > 0 ? "bg-blue-500/100" : "bg-white/15"}`}
                       style={{ width: `${Math.max(getCompletionRate(project), 2)}%` }}
                       data-testid={`progress-completion-${project.id}`}
                     />
                   </div>
                 </div>
-                <div className="text-xs text-gray-400 flex items-center gap-1 whitespace-nowrap">
+                <div className="text-xs text-white/40 flex items-center gap-1 whitespace-nowrap">
                   <Clock className="w-3 h-3" />
                   <span data-testid={`text-last-activity-${project.id}`}>{formatRelativeTime(getLastActivity(project))}</span>
                 </div>
@@ -507,14 +507,14 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
   const hasPlan = !!planContent;
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50" data-testid="project-workspace">
-      <div className="border-b border-gray-200 bg-white px-4 py-3 flex items-center gap-4 shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors" data-testid="button-back">
+    <div className="h-screen flex flex-col bg-[#0B0A09]" data-testid="project-workspace">
+      <div className="border-b border-white/[0.08] bg-[#141110] px-4 py-3 flex items-center gap-4 shrink-0">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors" data-testid="button-back">
           <ArrowLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Projects</span>
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-gray-900 truncate" data-testid="text-project-title">
+          <h1 className="text-lg font-bold text-white truncate" data-testid="text-project-title">
             {project.title || project.idea || "My Project"}
           </h1>
           <div className="flex items-center gap-2 mt-0.5">
@@ -522,7 +522,7 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
               {status}
             </Badge>
             {project.minimumTotalHours && (
-              <span className="text-xs text-gray-400 flex items-center gap-1">
+              <span className="text-xs text-white/40 flex items-center gap-1">
                 <Clock className="w-3 h-3" /> Min {project.minimumTotalHours}h
               </span>
             )}
@@ -531,11 +531,11 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
       </div>
 
       {isMobile && (
-        <div className="flex border-b border-gray-200 bg-white shrink-0">
+        <div className="flex border-b border-white/[0.08] bg-[#141110] shrink-0">
           <button
             onClick={() => setMobileTab("plan")}
             className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
-              mobileTab === "plan" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-gray-500 hover:text-gray-700"
+              mobileTab === "plan" ? "text-indigo-400 border-b-2 border-indigo-600" : "text-white/50 hover:text-white/80"
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -544,7 +544,7 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
           <button
             onClick={() => setMobileTab("chat")}
             className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
-              mobileTab === "chat" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-gray-500 hover:text-gray-700"
+              mobileTab === "chat" ? "text-indigo-400 border-b-2 border-indigo-600" : "text-white/50 hover:text-white/80"
             }`}
           >
             <MessageSquare className="w-4 h-4" />
@@ -555,7 +555,7 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
 
       <div className="flex-1 flex min-h-0">
         {(!isMobile || mobileTab === "chat") && (
-          <div className={`${isMobile ? "w-full" : "w-[38%] lg:w-[35%]"} border-r border-gray-200 flex flex-col min-h-0`}>
+          <div className={`${isMobile ? "w-full" : "w-[38%] lg:w-[35%]"} border-r border-white/[0.08] flex flex-col min-h-0`}>
             <UnifiedAIChat
               projectId={project.id}
               projectStatus={status}
@@ -570,7 +570,7 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto">
               {loadingDetail ? (
-                <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-white/40" /></div>
               ) : (
                 <RightPanel
                   project={project}
@@ -623,20 +623,20 @@ function RightPanel({ project, projectDetail, status, planContent, currentVersio
       <div className="p-6 flex flex-col items-center justify-center h-full text-center" data-testid="no-plan-display">
         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8 max-w-md">
           <Sparkles className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Let's Plan Your Project</h2>
-          <p className="text-sm text-gray-600 mb-4">
+          <h2 className="text-xl font-bold text-white mb-2">Let's Plan Your Project</h2>
+          <p className="text-sm text-white/60 mb-4">
             Use the AI assistant on the left to plan your project. Tell it how many weeks you'd like to spread the work over,
             how many hours per day you can commit, and it will help you create a detailed execution plan.
           </p>
-          <div className="bg-white/80 rounded-xl p-4 text-left space-y-2">
-            <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Try saying:</p>
-            <p className="text-sm text-indigo-600 italic">"I want to work 4 hours a day, 5 days a week, for 6 weeks"</p>
-            <p className="text-sm text-indigo-600 italic">"Generate a plan for my project"</p>
-            <p className="text-sm text-indigo-600 italic">"How should I spread {project.minimumTotalHours || 100} hours over 8 weeks?"</p>
+          <div className="bg-[#141110]/80 rounded-xl p-4 text-left space-y-2">
+            <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">Try saying:</p>
+            <p className="text-sm text-indigo-400 italic">"I want to work 4 hours a day, 5 days a week, for 6 weeks"</p>
+            <p className="text-sm text-indigo-400 italic">"Generate a plan for my project"</p>
+            <p className="text-sm text-indigo-400 italic">"How should I spread {project.minimumTotalHours || 100} hours over 8 weeks?"</p>
           </div>
           {project.minimumTotalHours && (
-            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-              <p className="text-sm text-blue-700">
+            <div className="mt-4 bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-2">
+              <p className="text-sm text-blue-400">
                 Minimum required: <span className="font-bold">{project.minimumTotalHours} hours</span>
               </p>
             </div>
@@ -648,16 +648,16 @@ function RightPanel({ project, projectDetail, status, planContent, currentVersio
 
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4" data-testid="plan-summary-card">
+      <div className="bg-[#141110] border border-white/[0.08] rounded-xl shadow-sm p-4" data-testid="plan-summary-card">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-900">Project Plan</h2>
+            <h2 className="text-lg font-semibold text-white">Project Plan</h2>
             {currentVersion && (
               <Badge className={
-                currentVersion.status === "draft" ? "bg-amber-100 text-amber-700 border-amber-200"
-                  : currentVersion.status === "submitted" ? "bg-blue-100 text-blue-700 border-blue-200"
-                  : currentVersion.status === "approved" ? "bg-green-100 text-green-700 border-green-200"
-                  : "bg-gray-100 text-gray-600 border-gray-200"
+                currentVersion.status === "draft" ? "bg-amber-100 text-amber-400 border-amber-500/20"
+                  : currentVersion.status === "submitted" ? "bg-blue-100 text-blue-400 border-blue-500/20"
+                  : currentVersion.status === "approved" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : "bg-white/10 text-white/60 border-white/[0.08]"
               }>
                 v{currentVersion.versionNumber}.0 {currentVersion.status}
               </Badge>
@@ -672,31 +672,31 @@ function RightPanel({ project, projectDetail, status, planContent, currentVersio
         </div>
 
         {status === "submitted" && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-3">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-600" />
-              <p className="text-sm text-blue-700 font-medium">Plan is under review by your manager</p>
+              <Clock className="w-4 h-4 text-blue-400" />
+              <p className="text-sm text-blue-400 font-medium">Plan is under review by your manager</p>
             </div>
           </div>
         )}
 
         {planContent && (
           <div className="grid grid-cols-4 gap-3 mb-3">
-            <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Hours/Day</p>
-              <p className="text-base font-bold text-gray-900">{planContent.hoursPerDay}</p>
+            <div className="bg-[#0B0A09] rounded-lg p-2.5 text-center">
+              <p className="text-[10px] text-white/50 uppercase tracking-wide">Hours/Day</p>
+              <p className="text-base font-bold text-white">{planContent.hoursPerDay}</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Days/Week</p>
-              <p className="text-base font-bold text-gray-900">{planContent.daysPerWeek}</p>
+            <div className="bg-[#0B0A09] rounded-lg p-2.5 text-center">
+              <p className="text-[10px] text-white/50 uppercase tracking-wide">Days/Week</p>
+              <p className="text-base font-bold text-white">{planContent.daysPerWeek}</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Weeks</p>
-              <p className="text-base font-bold text-gray-900">{planContent.numberOfWeeks}</p>
+            <div className="bg-[#0B0A09] rounded-lg p-2.5 text-center">
+              <p className="text-[10px] text-white/50 uppercase tracking-wide">Weeks</p>
+              <p className="text-base font-bold text-white">{planContent.numberOfWeeks}</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Total Hours</p>
-              <p className={`text-base font-bold ${planContent.totalPlannedHours >= (project.minimumTotalHours || 0) ? "text-green-600" : "text-red-600"}`}>
+            <div className="bg-[#0B0A09] rounded-lg p-2.5 text-center">
+              <p className="text-[10px] text-white/50 uppercase tracking-wide">Total Hours</p>
+              <p className={`text-base font-bold ${planContent.totalPlannedHours >= (project.minimumTotalHours || 0) ? "text-emerald-400" : "text-red-400"}`}>
                 {planContent.totalPlannedHours}h
               </p>
             </div>
@@ -704,9 +704,9 @@ function RightPanel({ project, projectDetail, status, planContent, currentVersio
         )}
 
         {planContent && project.minimumTotalHours && (
-          <div className="w-full bg-gray-200 rounded-full h-1.5">
+          <div className="w-full bg-white/15 rounded-full h-1.5">
             <div
-              className={`h-1.5 rounded-full transition-all ${planContent.totalPlannedHours >= project.minimumTotalHours ? "bg-green-500" : "bg-amber-500"}`}
+              className={`h-1.5 rounded-full transition-all ${planContent.totalPlannedHours >= project.minimumTotalHours ? "bg-emerald-500/100" : "bg-amber-500/100"}`}
               style={{ width: `${Math.min((planContent.totalPlannedHours / project.minimumTotalHours) * 100, 100)}%` }}
               data-testid="progress-hours"
             />
@@ -740,17 +740,17 @@ function RightPanel({ project, projectDetail, status, planContent, currentVersio
       )}
 
       {versions.length > 1 && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">Version History</h3>
+        <div className="bg-[#141110] border border-white/[0.08] rounded-xl shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-white mb-2">Version History</h3>
           <div className="space-y-1.5">
             {versions.map((v: any) => (
-              <div key={v.id} className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-100 text-sm" data-testid={`version-item-${v.id}`}>
-                <span className="text-gray-700 font-medium">v{v.versionNumber || 1}.0</span>
+              <div key={v.id} className="flex items-center justify-between px-3 py-2 rounded-lg border border-white/[0.06] text-sm" data-testid={`version-item-${v.id}`}>
+                <span className="text-white/70 font-medium">v{v.versionNumber || 1}.0</span>
                 <Badge className={
-                  v.status === "draft" ? "bg-amber-100 text-amber-700 border-amber-200"
-                    : v.status === "submitted" ? "bg-blue-100 text-blue-700 border-blue-200"
-                    : v.status === "approved" ? "bg-green-100 text-green-700 border-green-200"
-                    : "bg-gray-100 text-gray-600 border-gray-200"
+                  v.status === "draft" ? "bg-amber-100 text-amber-400 border-amber-500/20"
+                    : v.status === "submitted" ? "bg-blue-100 text-blue-400 border-blue-500/20"
+                    : v.status === "approved" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-white/10 text-white/60 border-white/[0.08]"
                 }>{v.status}</Badge>
               </div>
             ))}
@@ -776,34 +776,34 @@ function PlanDisplay({ planContent }: { planContent: PlanContent }) {
   return (
     <div className="space-y-2" data-testid="plan-display">
       {planContent.weeks.map((week) => (
-        <div key={week.weekNumber} className={`bg-white border rounded-xl shadow-sm transition-all duration-200 ${
-          expandedWeeks.has(week.weekNumber) ? "border-indigo-200 ring-1 ring-indigo-100" : "border-gray-200"
+        <div key={week.weekNumber} className={`bg-[#141110] border rounded-xl shadow-sm transition-all duration-200 ${
+          expandedWeeks.has(week.weekNumber) ? "border-indigo-500/20 ring-1 ring-indigo-100" : "border-white/[0.08]"
         }`} data-testid={`week-card-${week.weekNumber}`}>
           <button
             onClick={() => toggleWeek(week.weekNumber)}
-            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors rounded-xl"
+            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-xl"
             data-testid={`toggle-week-${week.weekNumber}`}
           >
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              {expandedWeeks.has(week.weekNumber) ? <ChevronDown className="w-4 h-4 text-indigo-500 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
-              <span className="text-sm font-semibold text-gray-900">W{week.weekNumber}</span>
-              <span className="text-sm text-gray-600 truncate">{week.milestone}</span>
+              {expandedWeeks.has(week.weekNumber) ? <ChevronDown className="w-4 h-4 text-indigo-500 shrink-0" /> : <ChevronRight className="w-4 h-4 text-white/40 shrink-0" />}
+              <span className="text-sm font-semibold text-white">W{week.weekNumber}</span>
+              <span className="text-sm text-white/60 truncate">{week.milestone}</span>
             </div>
-            <span className="text-xs text-gray-400 font-medium ml-2 shrink-0">{week.hours}h</span>
+            <span className="text-xs text-white/40 font-medium ml-2 shrink-0">{week.hours}h</span>
           </button>
 
           {expandedWeeks.has(week.weekNumber) && (
-            <div className="px-4 pb-4 border-t border-gray-100">
-              <div className="pt-3 space-y-2 text-sm text-gray-600">
-                <p><span className="font-medium text-gray-700">Milestone:</span> {week.milestone}</p>
+            <div className="px-4 pb-4 border-t border-white/[0.06]">
+              <div className="pt-3 space-y-2 text-sm text-white/60">
+                <p><span className="font-medium text-white/70">Milestone:</span> {week.milestone}</p>
                 <div>
-                  <span className="font-medium text-gray-700">Deliverables:</span>
+                  <span className="font-medium text-white/70">Deliverables:</span>
                   <ul className="list-disc ml-5 mt-1 space-y-0.5">
                     {(week.deliverables || []).map((d, i) => <li key={i}>{d}</li>)}
                   </ul>
                 </div>
-                <p><span className="font-medium text-gray-700">Success Criteria:</span> {week.successCriteria}</p>
-                <p><span className="font-medium text-gray-700">Hours:</span> {week.hours}h</p>
+                <p><span className="font-medium text-white/70">Success Criteria:</span> {week.successCriteria}</p>
+                <p><span className="font-medium text-white/70">Hours:</span> {week.hours}h</p>
               </div>
             </div>
           )}
@@ -829,7 +829,7 @@ function ExecutionDisplay({ project, planContent, weeklyLogs, logComments }: {
             className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${
               activeWeek === w.weekNumber
                 ? "bg-[#6D5EF5] text-white shadow-sm"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                : "bg-white/10 text-white/50 hover:bg-[#141110]/15"
             }`}
             title={`Week ${w.weekNumber}: ${w.milestone}`}
             data-testid={`nav-week-${w.weekNumber}`}
@@ -932,7 +932,7 @@ function WeekExecutionCard({ week, logs, comments, projectId, daysPerWeek }: {
     const logCmts = comments.filter(c => c.logId === log.id);
     const isEditing = editingLogId === log.id;
     return (
-      <div key={log.id} className="bg-white rounded-lg px-3 py-2 border border-gray-100" data-testid={`log-entry-${log.id}`}>
+      <div key={log.id} className="bg-[#141110] rounded-lg px-3 py-2 border border-white/[0.06]" data-testid={`log-entry-${log.id}`}>
         {isEditing ? (
           <div className="space-y-2">
             <Textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="min-h-[40px] text-sm" data-testid={`input-edit-log-${log.id}`} />
@@ -946,21 +946,21 @@ function WeekExecutionCard({ week, logs, comments, projectId, daysPerWeek }: {
         ) : (
           <>
             <div className="flex items-start justify-between">
-              <p className="text-sm text-gray-800 flex-1">{log.logText}</p>
-              <button onClick={() => { setEditingLogId(log.id); setEditingText(log.logText); }} className="ml-2 text-gray-300 hover:text-gray-600 p-0.5">
+              <p className="text-sm text-white/90 flex-1">{log.logText}</p>
+              <button onClick={() => { setEditingLogId(log.id); setEditingText(log.logText); }} className="ml-2 text-white/30 hover:text-white/70 p-0.5">
                 <Pencil className="w-3 h-3" />
               </button>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
+            <p className="text-[11px] text-white/40 mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" />{formatDateTime(log.createdAt)}
             </p>
           </>
         )}
         {logCmts.length > 0 && logCmts.map((comment) => (
-          <div key={comment.id} className="mt-1.5 bg-amber-50 border border-amber-100 rounded px-2 py-1.5 flex items-start gap-1.5" data-testid={`log-comment-${comment.id}`}>
+          <div key={comment.id} className="mt-1.5 bg-amber-500/10 border border-amber-500/15 rounded px-2 py-1.5 flex items-start gap-1.5" data-testid={`log-comment-${comment.id}`}>
             <MessageCircle className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
             <div>
-              <p className="text-xs text-amber-800">{comment.content}</p>
+              <p className="text-xs text-amber-300">{comment.content}</p>
               <p className="text-[10px] text-amber-500 mt-0.5">{comment.managerName ? `${comment.managerName} · ` : ""}{formatRelativeTime(comment.createdAt)}</p>
             </div>
           </div>
@@ -970,24 +970,24 @@ function WeekExecutionCard({ week, logs, comments, projectId, daysPerWeek }: {
   };
 
   return (
-    <div className="bg-white border border-indigo-200 rounded-xl shadow-sm ring-1 ring-indigo-100" data-testid={`execution-week-${week.weekNumber}`}>
-      <div className="px-4 py-3 border-b border-gray-100">
+    <div className="bg-[#141110] border border-indigo-500/20 rounded-xl shadow-sm ring-1 ring-indigo-100" data-testid={`execution-week-${week.weekNumber}`}>
+      <div className="px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">Week {week.weekNumber}</span>
-            <span className="text-sm text-gray-600">{week.milestone}</span>
+            <span className="text-sm font-semibold text-white">Week {week.weekNumber}</span>
+            <span className="text-sm text-white/60">{week.milestone}</span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-1.5">
-              <div className="w-16 bg-gray-100 rounded-full h-1.5">
-                <div className={`h-1.5 rounded-full transition-all ${completionPct >= 100 ? "bg-green-500" : completionPct > 0 ? "bg-indigo-500" : "bg-gray-200"}`} style={{ width: `${Math.max(completionPct, 3)}%` }} />
+              <div className="w-16 bg-white/10 rounded-full h-1.5">
+                <div className={`h-1.5 rounded-full transition-all ${completionPct >= 100 ? "bg-emerald-500/100" : completionPct > 0 ? "bg-indigo-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(completionPct, 3)}%` }} />
               </div>
-              <span className="text-xs text-gray-400">{completionPct}%</span>
+              <span className="text-xs text-white/40">{completionPct}%</span>
             </div>
-            <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-xs">{logs.length} logs</Badge>
+            <Badge className="bg-white/10 text-white/60 border-white/[0.08] text-xs">{logs.length} logs</Badge>
           </div>
         </div>
-        <div className="mt-2 flex items-center gap-4 text-xs text-gray-400">
+        <div className="mt-2 flex items-center gap-4 text-xs text-white/40">
           <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {week.hours}h planned</span>
           <span className="flex items-center gap-1"><Target className="w-3 h-3" /> {week.successCriteria}</span>
         </div>
@@ -1000,19 +1000,19 @@ function WeekExecutionCard({ week, logs, comments, projectId, daysPerWeek }: {
           const dayLabel = DAY_LABELS[(dayNum - 1) % 7] || `D${dayNum}`;
 
           return (
-            <div key={dayNum} className={`border rounded-lg transition-all ${isDayOpen ? "border-indigo-200 bg-indigo-50/20" : "border-gray-100"}`} data-testid={`day-${week.weekNumber}-${dayNum}`}>
+            <div key={dayNum} className={`border rounded-lg transition-all ${isDayOpen ? "border-indigo-500/20 bg-indigo-500/10" : "border-white/[0.06]"}`} data-testid={`day-${week.weekNumber}-${dayNum}`}>
               <button
                 onClick={() => toggleDay(dayNum)}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-gray-50 rounded-lg"
+                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-[#141110]/[0.06] rounded-lg"
                 data-testid={`toggle-day-${week.weekNumber}-${dayNum}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {isDayOpen ? <ChevronDown className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+                  {isDayOpen ? <ChevronDown className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-white/40 shrink-0" />}
                   <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span className="text-sm font-medium text-gray-800">Day {dayNum}</span>
-                  <span className="text-xs text-gray-400">({dayLabel})</span>
+                  <span className="text-sm font-medium text-white/90">Day {dayNum}</span>
+                  <span className="text-xs text-white/40">({dayLabel})</span>
                 </div>
-                <span className="text-xs text-gray-400 ml-2 shrink-0">{dayLogs.length} log{dayLogs.length !== 1 ? "s" : ""}</span>
+                <span className="text-xs text-white/40 ml-2 shrink-0">{dayLogs.length} log{dayLogs.length !== 1 ? "s" : ""}</span>
               </button>
 
               {isDayOpen && (
@@ -1024,20 +1024,20 @@ function WeekExecutionCard({ week, logs, comments, projectId, daysPerWeek }: {
                     const logVal = logInputs[subtaskKey] || "";
 
                     return (
-                      <div key={dIdx} className={`border rounded-lg transition-all ${isSubtaskOpen ? "border-indigo-100 bg-white" : "border-gray-50 bg-gray-50/50"}`} data-testid={`subtask-${week.weekNumber}-${dayNum}-${dIdx}`}>
+                      <div key={dIdx} className={`border rounded-lg transition-all ${isSubtaskOpen ? "border-indigo-100 bg-[#141110]" : "border-white/[0.05] bg-[#0B0A09]/50"}`} data-testid={`subtask-${week.weekNumber}-${dayNum}-${dIdx}`}>
                         <button
                           onClick={() => toggleSubtask(subtaskKey)}
-                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 rounded-lg"
+                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[#141110]/[0.06] rounded-lg"
                         >
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                             {subtaskDayLogs.length > 0 ? (
                               <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
                             ) : (
-                              <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 shrink-0" />
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-white/[0.15] shrink-0" />
                             )}
-                            <span className="text-xs text-gray-700">{deliverable}</span>
+                            <span className="text-xs text-white/70">{deliverable}</span>
                           </div>
-                          <span className="text-[11px] text-gray-400 ml-2 shrink-0">{subtaskDayLogs.length} log{subtaskDayLogs.length !== 1 ? "s" : ""}</span>
+                          <span className="text-[11px] text-white/40 ml-2 shrink-0">{subtaskDayLogs.length} log{subtaskDayLogs.length !== 1 ? "s" : ""}</span>
                         </button>
 
                         {isSubtaskOpen && (
@@ -1052,7 +1052,7 @@ function WeekExecutionCard({ week, logs, comments, projectId, daysPerWeek }: {
                                 value={logVal}
                                 onChange={(e) => setLogInputs(prev => ({ ...prev, [subtaskKey]: e.target.value }))}
                                 placeholder="What did you do for this task?"
-                                className="text-sm h-8 bg-white"
+                                className="text-sm h-8 bg-[#141110]"
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" && !e.shiftKey && logVal.trim()) {
                                     addLogMutation.mutate({ subtaskIndex: dIdx, dayNumber: dayNum, logText: logVal });
@@ -1310,9 +1310,9 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
   ];
 
   return (
-    <div className="flex flex-col h-full bg-white" data-testid="ai-chat-panel">
+    <div className="flex flex-col h-full bg-[#141110]" data-testid="ai-chat-panel">
       {/* Header — mode-aware gradient */}
-      <div className={`px-4 py-3 border-b border-gray-200 flex items-center gap-2 shrink-0 transition-all duration-500 ${
+      <div className={`px-4 py-3 border-b border-white/[0.08] flex items-center gap-2 shrink-0 transition-all duration-500 ${
         chatMode === "brainstorm"
           ? "bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50"
           : "bg-gradient-to-r from-indigo-50 to-purple-50"
@@ -1321,17 +1321,17 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
           ? <Zap className="w-4 h-4 text-amber-500" />
           : <Sparkles className="w-4 h-4 text-indigo-500" />
         }
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-sm font-semibold text-white">
           {chatMode === "brainstorm" ? "Creative Space" : "AI Mentor"}
         </h3>
-        <div className="flex items-center gap-1 ml-auto bg-white rounded-lg p-0.5 border border-gray-200">
+        <div className="flex items-center gap-1 ml-auto bg-[#141110] rounded-lg p-0.5 border border-white/[0.08]">
           <button
             onClick={() => switchMode("brainstorm")}
             disabled={sending}
             className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-300 ${
               chatMode === "brainstorm"
-                ? "bg-amber-100 text-amber-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-amber-100 text-amber-400 shadow-sm"
+                : "text-white/50 hover:text-white/80"
             }`}
           >
             <Zap className="w-3 h-3" />
@@ -1342,8 +1342,8 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
             disabled={sending}
             className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-300 ${
               chatMode === "plan"
-                ? "bg-indigo-100 text-indigo-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-indigo-100 text-indigo-400 shadow-sm"
+                : "text-white/50 hover:text-white/80"
             }`}
           >
             <Target className="w-3 h-3" />
@@ -1354,18 +1354,18 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
 
       {/* Messages — mode-aware styling */}
       <div className={`flex-1 overflow-y-auto p-4 space-y-3 min-h-0 transition-colors duration-500 ${
-        chatMode === "brainstorm" ? "bg-gradient-to-b from-amber-50/30 to-white" : "bg-white"
+        chatMode === "brainstorm" ? "bg-gradient-to-b from-amber-50/30 to-white" : "bg-[#141110]"
       }`}>
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`} data-testid={`chat-message-${i}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
               msg.role === "user"
                 ? chatMode === "brainstorm"
-                  ? "bg-amber-500 text-white rounded-br-md"
+                  ? "bg-amber-500/100 text-white rounded-br-md"
                   : "bg-[#6D5EF5] text-white rounded-br-md"
                 : chatMode === "brainstorm"
-                  ? "bg-orange-50 text-gray-800 rounded-bl-md border border-orange-100"
-                  : "bg-gray-100 text-gray-800 rounded-bl-md"
+                  ? "bg-orange-500/10 text-white/90 rounded-bl-md border border-orange-500/20"
+                  : "bg-white/10 text-white/90 rounded-bl-md"
             }`}>
               {msg.content}
             </div>
@@ -1375,21 +1375,21 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
           <div className="flex justify-start" data-testid="chat-typing-indicator">
             <div className={`rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5 ${
               chatMode === "brainstorm"
-                ? "bg-orange-50 border border-orange-100"
-                : "bg-gray-100"
+                ? "bg-orange-500/10 border border-orange-500/20"
+                : "bg-white/10"
             }`}>
               {chatMode === "brainstorm" ? (
                 <>
                   <span className="w-2 h-2 bg-amber-400 rounded-full animate-spark" style={{ animationDelay: "0ms" }} />
                   <span className="w-2 h-2 bg-orange-400 rounded-full animate-spark" style={{ animationDelay: "200ms" }} />
                   <span className="w-2 h-2 bg-yellow-400 rounded-full animate-spark" style={{ animationDelay: "400ms" }} />
-                  <span className="text-xs text-amber-600 ml-1 animate-pulse">sparking ideas...</span>
+                  <span className="text-xs text-amber-400 ml-1 animate-pulse">sparking ideas...</span>
                 </>
               ) : (
                 <>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <span className="w-2 h-2 bg-white/30 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-white/30 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-white/30 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                 </>
               )}
             </div>
@@ -1399,7 +1399,7 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
       </div>
 
       {/* Bottom bar — quick actions + input */}
-      <div className="border-t border-gray-200 p-3 space-y-2 shrink-0">
+      <div className="border-t border-white/[0.08] p-3 space-y-2 shrink-0">
         {/* Brainstorm quick starters — show when conversation is fresh */}
         {chatMode === "brainstorm" && messages.length <= 2 && (
           <div className="flex flex-wrap gap-1.5">
@@ -1408,7 +1408,7 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
                 key={i}
                 onClick={() => sendMessage(starter.prompt)}
                 disabled={sending}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-all hover:shadow-sm disabled:opacity-50"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 hover:bg-amber-100 border border-amber-500/20 transition-all hover:shadow-sm disabled:opacity-50"
                 data-testid={`brainstorm-starter-${i}`}
               >
                 <starter.icon className="w-3 h-3" />
@@ -1426,7 +1426,7 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
                 key={i}
                 onClick={qa.action}
                 disabled={sending}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-400 hover:bg-indigo-100 transition-colors disabled:opacity-50"
                 data-testid={`quick-action-${i}`}
               >
                 <qa.icon className="w-3.5 h-3.5" />
@@ -1444,7 +1444,7 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
               disabled={sparkLoading || sending}
               size="icon"
               variant="outline"
-              className="shrink-0 border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+              className="shrink-0 border-amber-500/20 text-amber-400 hover:bg-amber-500/10 hover:text-amber-400"
               title="Random creative prompt"
               data-testid="button-spark"
             >
@@ -1458,14 +1458,14 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
               ? "Share your ideas, explore wild approaches..."
               : "Ask your mentor anything about planning..."}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            className={`text-sm ${chatMode === "brainstorm" ? "border-amber-200 focus-visible:ring-amber-300" : ""}`}
+            className={`text-sm ${chatMode === "brainstorm" ? "border-amber-500/20 focus-visible:ring-amber-300" : ""}`}
             data-testid="input-chat-message"
           />
           <Button
             onClick={() => sendMessage()}
             disabled={!input.trim() || sending}
             size="icon"
-            className={`shrink-0 ${chatMode === "brainstorm" ? "bg-amber-500 hover:bg-amber-600" : ""}`}
+            className={`shrink-0 ${chatMode === "brainstorm" ? "bg-amber-500/100 hover:bg-amber-600" : ""}`}
             data-testid="button-send-chat"
           >
             <Send className="w-4 h-4" />

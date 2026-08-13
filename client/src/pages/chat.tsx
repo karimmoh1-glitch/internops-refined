@@ -95,13 +95,13 @@ function getInitials(name: string) {
 
 function getAvatarColor(name: string) {
   const colors = [
-    "bg-blue-500",
-    "bg-emerald-500",
-    "bg-purple-500",
-    "bg-amber-500",
+    "bg-blue-500/100",
+    "bg-emerald-500/100",
+    "bg-purple-500/100",
+    "bg-amber-500/100",
     "bg-rose-500",
     "bg-cyan-500",
-    "bg-indigo-500",
+    "bg-indigo-500/100",
     "bg-pink-500",
   ];
   let hash = 0;
@@ -154,7 +154,7 @@ function ChannelSidebar({
       <div key={key} className="mb-1">
         <button
           onClick={() => toggleGroup(key)}
-          className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-300 transition-colors"
+          className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-white/50 uppercase tracking-wider hover:text-white/70 transition-colors"
         >
           <span className="flex items-center gap-1">
             {isCollapsed ? (
@@ -178,7 +178,7 @@ function ChannelSidebar({
               />
             ))}
             {items.length === 0 && (
-              <p className="px-3 py-2 text-xs text-slate-500 italic">None yet</p>
+              <p className="px-3 py-2 text-xs text-white/45 italic">None yet</p>
             )}
           </div>
         )}
@@ -187,8 +187,8 @@ function ChannelSidebar({
   };
 
   return (
-    <div className="w-full md:w-64 bg-slate-800 text-white flex flex-col shrink-0 h-full">
-      <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
+    <div className="w-full md:w-64 bg-[#0B0A09] text-white flex flex-col shrink-0 h-full">
+      <div className="px-4 py-3 border-b border-white/[0.08] flex items-center gap-2">
         <MessageSquare className="w-5 h-5 text-indigo-400" />
         <h2 className="font-semibold text-sm">Messages</h2>
       </div>
@@ -197,7 +197,7 @@ function ChannelSidebar({
         <div className="py-2">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+              <Loader2 className="w-5 h-5 animate-spin text-white/45" />
             </div>
           ) : (
             <>
@@ -213,7 +213,7 @@ function ChannelSidebar({
                     e.stopPropagation();
                     onNewDM();
                   }}
-                  className="p-0.5 hover:bg-slate-600 rounded transition-colors"
+                  className="p-0.5 hover:bg-white/10 rounded transition-colors"
                   title="New DM"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -230,7 +230,7 @@ function ChannelSidebar({
                       e.stopPropagation();
                       onCreateChannel();
                     }}
-                    className="p-0.5 hover:bg-slate-600 rounded transition-colors"
+                    className="p-0.5 hover:bg-white/10 rounded transition-colors"
                     title="Create Channel"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -258,9 +258,9 @@ function ChannelItem({
 }) {
   const icon =
     channel.type === "dm" ? (
-      <AtSign className="w-4 h-4 text-slate-400 shrink-0" />
+      <AtSign className="w-4 h-4 text-white/50 shrink-0" />
     ) : (
-      <Hash className="w-4 h-4 text-slate-400 shrink-0" />
+      <Hash className="w-4 h-4 text-white/50 shrink-0" />
     );
 
   return (
@@ -269,14 +269,14 @@ function ChannelItem({
       className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md mx-1 transition-colors ${
         isActive
           ? "bg-[#6D5EF5] text-white"
-          : "text-slate-300 hover:bg-slate-700 hover:text-white"
+          : "text-white/70 hover:bg-white/10 hover:text-white"
       }`}
       style={{ width: "calc(100% - 8px)" }}
     >
       {icon}
       <span className="truncate flex-1 text-left">{channel.name}</span>
       {channel.unreadCount > 0 && (
-        <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">
+        <span className="w-5 h-5 bg-red-500/100 text-white text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">
           {channel.unreadCount > 99 ? "99" : channel.unreadCount}
         </span>
       )}
@@ -363,8 +363,8 @@ function MessagePane({
 
   if (!channel) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50">
-        <div className="text-center text-slate-400">
+      <div className="flex-1 flex items-center justify-center bg-[#0B0A09]">
+        <div className="text-center text-white/50">
           <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="font-medium">Select a channel</p>
           <p className="text-sm mt-1">Choose a conversation from the sidebar</p>
@@ -377,26 +377,26 @@ function MessagePane({
   let lastDate = "";
 
   return (
-    <div className="flex-1 flex flex-col bg-white h-full">
+    <div className="flex-1 flex flex-col bg-[#141110] h-full">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-3 shrink-0">
+      <div className="px-4 py-3 border-b border-white/[0.08] flex items-center gap-3 shrink-0">
         {onBack && (
-          <button onClick={onBack} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
-            <ArrowLeft className="w-5 h-5 text-slate-500" />
+          <button onClick={onBack} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+            <ArrowLeft className="w-5 h-5 text-white/45" />
           </button>
         )}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {channel.type === "dm" ? (
-            <AtSign className="w-5 h-5 text-slate-400 shrink-0" />
+            <AtSign className="w-5 h-5 text-white/50 shrink-0" />
           ) : (
-            <Hash className="w-5 h-5 text-slate-400 shrink-0" />
+            <Hash className="w-5 h-5 text-white/50 shrink-0" />
           )}
-          <h3 className="font-semibold text-slate-900 truncate">{channel.name}</h3>
+          <h3 className="font-semibold text-white truncate">{channel.name}</h3>
         </div>
         <button
           onClick={() => setShowMembers(!showMembers)}
           className={`p-2 rounded-lg transition-colors ${
-            showMembers ? "bg-indigo-50 text-indigo-600" : "hover:bg-slate-100 text-slate-400"
+            showMembers ? "bg-indigo-500/10 text-indigo-400" : "hover:bg-white/10 text-white/50"
           }`}
           title="Members"
         >
@@ -411,15 +411,15 @@ function MessagePane({
             <div className="py-4 space-y-0.5">
               {loadingMessages ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
+                  <Loader2 className="w-6 h-6 animate-spin text-white/70" />
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Hash className="w-10 h-10 text-slate-200 mb-3" />
-                  <p className="text-slate-500 font-medium">
+                  <Hash className="w-10 h-10 text-white/85 mb-3" />
+                  <p className="text-white/45 font-medium">
                     Welcome to #{channel.name}
                   </p>
-                  <p className="text-slate-400 text-sm mt-1">
+                  <p className="text-white/50 text-sm mt-1">
                     This is the start of the conversation.
                   </p>
                 </div>
@@ -441,13 +441,13 @@ function MessagePane({
                     <div key={msg.id}>
                       {showDateSep && (
                         <div className="flex items-center gap-3 my-4">
-                          <div className="flex-1 h-px bg-slate-200" />
-                          <span className="text-[11px] text-slate-400 font-medium">{msgDate}</span>
-                          <div className="flex-1 h-px bg-slate-200" />
+                          <div className="flex-1 h-px bg-white/15" />
+                          <span className="text-[11px] text-white/50 font-medium">{msgDate}</span>
+                          <div className="flex-1 h-px bg-white/15" />
                         </div>
                       )}
                       <div
-                        className={`flex gap-3 hover:bg-slate-50 px-2 py-0.5 rounded-md transition-colors ${
+                        className={`flex gap-3 hover:bg-white/[0.06] px-2 py-0.5 rounded-md transition-colors ${
                           isCollapsed ? "" : "mt-3"
                         }`}
                       >
@@ -465,15 +465,15 @@ function MessagePane({
                         <div className="flex-1 min-w-0">
                           {!isCollapsed && (
                             <div className="flex items-baseline gap-2">
-                              <span className="font-semibold text-sm text-slate-900">
+                              <span className="font-semibold text-sm text-white">
                                 {msg.userName}
                               </span>
-                              <span className="text-[11px] text-slate-400">
+                              <span className="text-[11px] text-white/50">
                                 {formatMessageTime(msg.createdAt)}
                               </span>
                             </div>
                           )}
-                          <p className="text-sm text-slate-700 break-words whitespace-pre-wrap">
+                          <p className="text-sm text-white/75 break-words whitespace-pre-wrap">
                             {msg.content}
                           </p>
                         </div>
@@ -487,7 +487,7 @@ function MessagePane({
           </ScrollArea>
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-slate-200 shrink-0">
+          <div className="px-4 py-3 border-t border-white/[0.08] shrink-0">
             <div className="flex gap-2">
               <Input
                 value={input}
@@ -516,9 +516,9 @@ function MessagePane({
 
         {/* Members Panel */}
         {showMembers && (
-          <div className="w-60 border-l border-slate-200 bg-slate-50 shrink-0 overflow-y-auto">
-            <div className="p-3 border-b border-slate-200">
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="w-60 border-l border-white/[0.08] bg-[#0B0A09] shrink-0 overflow-y-auto">
+            <div className="p-3 border-b border-white/[0.08]">
+              <h4 className="text-xs font-semibold text-white/45 uppercase tracking-wider">
                 Members — {members.length}
               </h4>
             </div>
@@ -533,8 +533,8 @@ function MessagePane({
                     {getInitials(m.userName)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 truncate font-medium">{m.userName}</p>
-                    <p className="text-[10px] text-slate-400 capitalize">{m.userRole === "admin" ? "Admin" : m.userRole}</p>
+                    <p className="text-sm text-white/75 truncate font-medium">{m.userName}</p>
+                    <p className="text-[10px] text-white/50 capitalize">{m.userRole === "admin" ? "Admin" : m.userRole}</p>
                   </div>
                 </div>
               ))}
@@ -608,7 +608,7 @@ function CreateChannelDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">Channel Name</label>
+            <label className="text-sm font-medium text-white/75 mb-1 block">Channel Name</label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
@@ -617,9 +617,9 @@ function CreateChannelDialog({
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">Add Members</label>
+            <label className="text-sm font-medium text-white/75 mb-1 block">Add Members</label>
             <div className="relative mb-2">
-              <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-white/50" />
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -627,13 +627,13 @@ function CreateChannelDialog({
                 className="pl-8 text-sm"
               />
             </div>
-            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg">
+            <div className="max-h-40 overflow-y-auto border border-white/[0.08] rounded-lg">
               {filteredUsers.map((u) => (
                 <button
                   key={u.id}
                   onClick={() => toggleUser(u.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 transition-colors ${
-                    selectedUsers.includes(u.id) ? "bg-indigo-50" : ""
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/[0.06] transition-colors ${
+                    selectedUsers.includes(u.id) ? "bg-indigo-500/10" : ""
                   }`}
                 >
                   <div
@@ -644,7 +644,7 @@ function CreateChannelDialog({
                     {getInitials(u.name)}
                   </div>
                   <span className="flex-1 text-left truncate">{u.name}</span>
-                  <span className="text-[10px] text-slate-400 capitalize">
+                  <span className="text-[10px] text-white/50 capitalize">
                     {u.role === "admin" ? "Admin" : u.role}
                   </span>
                   {selectedUsers.includes(u.id) && (
@@ -656,7 +656,7 @@ function CreateChannelDialog({
               ))}
             </div>
             {selectedUsers.length > 0 && (
-              <p className="text-xs text-slate-500 mt-1">{selectedUsers.length} selected</p>
+              <p className="text-xs text-white/45 mt-1">{selectedUsers.length} selected</p>
             )}
           </div>
         </div>
@@ -732,7 +732,7 @@ function NewDMDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-white/50" />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -741,16 +741,16 @@ function NewDMDialog({
               autoFocus
             />
           </div>
-          <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg">
+          <div className="max-h-60 overflow-y-auto border border-white/[0.08] rounded-lg">
             {filteredUsers.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-4">No users found</p>
+              <p className="text-sm text-white/50 text-center py-4">No users found</p>
             ) : (
               filteredUsers.map((u) => (
                 <button
                   key={u.id}
                   onClick={() => createDMMutation.mutate(u.id)}
                   disabled={createDMMutation.isPending}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-white/[0.06] transition-colors"
                 >
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAvatarColor(
@@ -760,8 +760,8 @@ function NewDMDialog({
                     {getInitials(u.name)}
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="font-medium text-slate-700">{u.name}</p>
-                    <p className="text-[10px] text-slate-400 capitalize">
+                    <p className="font-medium text-white/75">{u.name}</p>
+                    <p className="text-[10px] text-white/50 capitalize">
                       {u.role === "admin" ? "Admin" : u.role}
                     </p>
                   </div>

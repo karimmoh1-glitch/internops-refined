@@ -39,37 +39,37 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
   if (!hasRepo && !isAdmin) return null;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm" data-testid="github-panel">
+    <div className="bg-[#141110] border border-white/[0.08] rounded-xl shadow-sm" data-testid="github-panel">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors rounded-xl"
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-xl"
         data-testid="button-toggle-github"
       >
         <div className="flex items-center gap-2">
-          <Github className="w-4 h-4 text-gray-700" />
-          <span className="text-sm font-semibold text-gray-900">GitHub</span>
+          <Github className="w-4 h-4 text-white/70" />
+          <span className="text-sm font-semibold text-white">GitHub</span>
           {hasRepo && (
-            <span className="text-xs text-gray-400 truncate max-w-[200px]">{githubRepoUrl}</span>
+            <span className="text-xs text-white/40 truncate max-w-[200px]">{githubRepoUrl}</span>
           )}
         </div>
-        {expanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+        {expanded ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100">
+        <div className="border-t border-white/[0.06]">
           {!hasRepo ? (
             <div className="p-4 text-center">
-              <Github className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 mb-1">No repository linked</p>
-              {isAdmin && <p className="text-xs text-gray-400">Link a GitHub repo from the project edit modal.</p>}
+              <Github className="w-8 h-8 text-white/30 mx-auto mb-2" />
+              <p className="text-sm text-white/50 mb-1">No repository linked</p>
+              {isAdmin && <p className="text-xs text-white/40">Link a GitHub repo from the project edit modal.</p>}
             </div>
           ) : (
             <>
-              <div className="flex border-b border-gray-100">
+              <div className="flex border-b border-white/[0.06]">
                 <button
                   onClick={() => setActiveTab("commits")}
                   className={`flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
-                    activeTab === "commits" ? "text-gray-900 border-b-2 border-gray-900" : "text-gray-400 hover:text-gray-600"
+                    activeTab === "commits" ? "text-white border-b-2 border-white" : "text-white/40 hover:text-white/70"
                   }`}
                 >
                   <GitCommit className="w-3.5 h-3.5" />
@@ -78,7 +78,7 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
                 <button
                   onClick={() => setActiveTab("pulls")}
                   className={`flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
-                    activeTab === "pulls" ? "text-gray-900 border-b-2 border-gray-900" : "text-gray-400 hover:text-gray-600"
+                    activeTab === "pulls" ? "text-white border-b-2 border-white" : "text-white/40 hover:text-white/70"
                   }`}
                 >
                   <GitPullRequest className="w-3.5 h-3.5" />
@@ -89,25 +89,25 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
               <div className="max-h-64 overflow-y-auto">
                 {activeTab === "commits" && (
                   loadingCommits ? (
-                    <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
+                    <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-white/40" /></div>
                   ) : commits.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-gray-400">No commits found</div>
+                    <div className="p-4 text-center text-xs text-white/40">No commits found</div>
                   ) : (
                     <div className="divide-y divide-gray-50">
                       {commits.map((commit: any) => (
                         <div
                           key={commit.fullSha}
-                          className={`px-4 py-2.5 hover:bg-gray-50 transition-colors ${onCommitSelect ? "cursor-pointer" : ""}`}
+                          className={`px-4 py-2.5 hover:bg-[#141110]/[0.06] transition-colors ${onCommitSelect ? "cursor-pointer" : ""}`}
                           onClick={() => onCommitSelect?.(commit.sha)}
                           data-testid={`commit-${commit.sha}`}
                         >
                           <div className="flex items-start gap-2">
-                            <code className="text-xs text-blue-600 font-mono shrink-0 bg-blue-50 px-1.5 py-0.5 rounded">
+                            <code className="text-xs text-blue-400 font-mono shrink-0 bg-blue-500/10 px-1.5 py-0.5 rounded">
                               {commit.sha}
                             </code>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-800 truncate">{commit.message}</p>
-                              <p className="text-[10px] text-gray-400 mt-0.5">
+                              <p className="text-xs text-white/90 truncate">{commit.message}</p>
+                              <p className="text-[10px] text-white/40 mt-0.5">
                                 {commit.author} · {commit.date ? new Date(commit.date).toLocaleDateString() : ""}
                               </p>
                             </div>
@@ -116,7 +116,7 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="text-gray-300 hover:text-blue-500 shrink-0"
+                              className="text-white/30 hover:text-blue-500 shrink-0"
                             >
                               <ExternalLink className="w-3 h-3" />
                             </a>
@@ -129,9 +129,9 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
 
                 {activeTab === "pulls" && (
                   loadingPulls ? (
-                    <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
+                    <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-white/40" /></div>
                   ) : pulls.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-gray-400">No pull requests found</div>
+                    <div className="p-4 text-center text-xs text-white/40">No pull requests found</div>
                   ) : (
                     <div className="divide-y divide-gray-50">
                       {pulls.map((pr: any) => (
@@ -140,26 +140,26 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
                           href={pr.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                          className="block px-4 py-2.5 hover:bg-[#141110]/[0.06] transition-colors"
                           data-testid={`pr-${pr.number}`}
                         >
                           <div className="flex items-start gap-2">
                             <Badge
                               className={`text-[10px] shrink-0 ${
-                                pr.merged ? "bg-purple-100 text-purple-700 border-purple-200" :
-                                pr.state === "open" ? "bg-green-100 text-green-700 border-green-200" :
-                                "bg-red-100 text-red-700 border-red-200"
+                                pr.merged ? "bg-purple-100 text-purple-400 border-purple-500/20" :
+                                pr.state === "open" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                "bg-red-100 text-red-400 border-red-500/20"
                               }`}
                             >
                               #{pr.number}
                             </Badge>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-800 truncate">{pr.title}</p>
-                              <p className="text-[10px] text-gray-400 mt-0.5">
+                              <p className="text-xs text-white/90 truncate">{pr.title}</p>
+                              <p className="text-[10px] text-white/40 mt-0.5">
                                 {pr.author} · {pr.merged ? "Merged" : pr.state} · {new Date(pr.updatedAt).toLocaleDateString()}
                               </p>
                             </div>
-                            <ExternalLink className="w-3 h-3 text-gray-300 shrink-0" />
+                            <ExternalLink className="w-3 h-3 text-white/30 shrink-0" />
                           </div>
                         </a>
                       ))}
@@ -229,14 +229,14 @@ export function GitHubTokenSettings({ companyId }: { companyId: string }) {
 export function GitHubRepoInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">GitHub Repository</label>
+      <label className="block text-sm font-medium text-white/70 mb-1">GitHub Repository</label>
       <div className="relative">
-        <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="https://github.com/owner/repo"
-          className="pl-9 border-gray-300 text-sm"
+          className="pl-9 border-white/[0.15] text-sm"
           data-testid="input-github-repo"
         />
       </div>

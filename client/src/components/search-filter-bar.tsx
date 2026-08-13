@@ -32,20 +32,20 @@ export default function SearchFilterBar({
   return (
     <div className="flex flex-col sm:flex-row gap-2 mb-4">
       <div className={`relative flex-1 transition-all duration-200 ${focused ? "ring-2 ring-blue-200 rounded-lg" : ""}`}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
         <Input
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder={placeholder}
-          className="pl-9 pr-8 h-9 text-sm border-gray-200"
+          className="pl-9 pr-8 h-9 text-sm border-white/[0.08]"
           data-testid="search-input"
         />
         {searchValue && (
           <button
             onClick={() => onSearchChange("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 rounded"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-white/40 hover:text-white/70 rounded"
             data-testid="search-clear"
           >
             <X className="w-3.5 h-3.5" />
@@ -55,15 +55,15 @@ export default function SearchFilterBar({
 
       {filterOptions && filterOptions.length > 0 && onFilterChange && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <Filter className="w-3.5 h-3.5 text-gray-400 hidden sm:block" />
+          <Filter className="w-3.5 h-3.5 text-white/40 hidden sm:block" />
           {filterOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => onFilterChange(activeFilter === opt.value ? null : opt.value)}
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border ${
                 activeFilter === opt.value
-                  ? opt.color || "bg-blue-50 text-blue-700 border-blue-200"
-                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                  ? opt.color || "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                  : "bg-[#141110] text-white/50 border-white/[0.08] hover:border-white/20 hover:bg-[#141110]/[0.06]"
               }`}
               data-testid={`filter-${opt.value}`}
             >
@@ -73,7 +73,7 @@ export default function SearchFilterBar({
           {activeFilter && (
             <button
               onClick={() => onFilterChange(null)}
-              className="px-2 py-1 text-xs text-gray-400 hover:text-red-500 transition-colors"
+              className="px-2 py-1 text-xs text-white/40 hover:text-red-500 transition-colors"
               data-testid="filter-clear"
             >
               <X className="w-3 h-3" />
@@ -83,7 +83,7 @@ export default function SearchFilterBar({
       )}
 
       {resultCount !== undefined && (searchValue || activeFilter) && (
-        <span className="text-xs text-gray-400 self-center whitespace-nowrap" data-testid="search-result-count">
+        <span className="text-xs text-white/40 self-center whitespace-nowrap" data-testid="search-result-count">
           {resultCount} result{resultCount !== 1 ? "s" : ""}
         </span>
       )}
