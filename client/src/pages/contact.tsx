@@ -20,8 +20,7 @@ export default function Contact() {
           <h3 className="text-white font-semibold text-sm mb-1">Everything else</h3>
           <p className="text-zinc-500 text-sm">
             Email{" "}
-            <a href="mailto:support@APP_DOMAIN" className="text-[#6D5EF5] hover:underline">support@APP_DOMAIN</a>
-            {" "}(placeholder — replace with a real support address once this is deployed on your own domain).
+            <a href="mailto:karimamwa@gmail.com" className="text-[#6D5EF5] hover:underline">karimamwa@gmail.com</a>
           </p>
         </div>
       </div>
