@@ -3,7 +3,7 @@ import { db } from "./db";
 import { lt } from "drizzle-orm";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
-  channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks,
+  channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -25,6 +25,7 @@ import {
   type UserDevice, type InsertUserDevice,
   type AuditLog, type InsertAuditLog,
   type Task, type InsertTask,
+  type PerformanceNarrative, type InsertPerformanceNarrative,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -149,6 +150,10 @@ export interface IStorage {
   // Audit log
   createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
   getAuditLogsByCompany(companyId: string, limit?: number): Promise<AuditLog[]>;
+
+  // Performance narratives
+  createPerformanceNarrative(data: InsertPerformanceNarrative): Promise<PerformanceNarrative>;
+  getLatestPerformanceNarrative(userId: string): Promise<PerformanceNarrative | undefined>;
 
   // Applications
   createApplication(data: InsertApplication): Promise<Application>;
@@ -889,6 +894,18 @@ export class DatabaseStorage implements IStorage {
   async getAuditLogsByCompany(companyId: string, limit = 100): Promise<AuditLog[]> {
     return db.select().from(auditLogs).where(eq(auditLogs.companyId, companyId))
       .orderBy(desc(auditLogs.createdAt)).limit(limit);
+  }
+
+  async createPerformanceNarrative(data: InsertPerformanceNarrative): Promise<PerformanceNarrative> {
+    const [created] = await db.insert(performanceNarratives).values(data).returning();
+    return created;
+  }
+
+  async getLatestPerformanceNarrative(userId: string): Promise<PerformanceNarrative | undefined> {
+    const [found] = await db.select().from(performanceNarratives)
+      .where(eq(performanceNarratives.userId, userId))
+      .orderBy(desc(performanceNarratives.createdAt)).limit(1);
+    return found;
   }
 
   async createApplication(data: InsertApplication): Promise<Application> {

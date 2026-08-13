@@ -1,8 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, type OrgDigest } from "./services/aiService";
-import { normalizeSkillTag } from "@shared/skills";
+import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, generatePerformanceNarrative, type OrgDigest, type PerformanceDigest } from "./services/aiService";
+import { normalizeSkillTag, aggregateSkillTags } from "@shared/skills";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
@@ -1009,6 +1009,74 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to delete intern:", error);
       res.status(500).json({ message: "Failed to delete intern" });
+    }
+  });
+
+  // Free — just returns the last generated summary, if any. No AI call.
+  app.get("/api/interns/:id/performance-narrative", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+      const narrative = await storage.getLatestPerformanceNarrative(intern.id);
+      res.json(narrative || null);
+    } catch (error: any) {
+      console.error("Failed to get performance narrative:", error);
+      res.status(500).json({ message: "Failed to get performance narrative" });
+    }
+  });
+
+  app.post("/api/interns/:id/performance-narrative", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+
+      const company = await storage.getCompanyById(companyId);
+      const internTasks = await storage.getTasksByAssignee(intern.id);
+      const completed = internTasks
+        .filter((t) => t.status === "completed")
+        .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+
+      const digest: PerformanceDigest = {
+        internName: intern.name,
+        companyName: company?.name || "the organization",
+        completedTasks: completed.map((t) => ({
+          title: t.title,
+          completedAt: t.completedAt ? new Date(t.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "unknown date",
+          priority: t.priority,
+          skillTags: t.skillTags || [],
+        })),
+        skillCounts: aggregateSkillTags(completed),
+        totalCompleted: completed.length,
+      };
+
+      const { content, aiGenerated } = await generatePerformanceNarrative(digest);
+      const narrative = await storage.createPerformanceNarrative({
+        userId: intern.id,
+        companyId,
+        generatedByUserId: (req as any).userId,
+        content,
+        aiGenerated,
+        taskSnapshotCount: completed.length,
+      });
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "performance_narrative.generated",
+        targetType: "user",
+        targetId: intern.id,
+      });
+
+      res.status(201).json(narrative);
+    } catch (error: any) {
+      console.error("Failed to generate performance narrative:", error);
+      res.status(500).json({ message: "Failed to generate performance narrative" });
     }
   });
 

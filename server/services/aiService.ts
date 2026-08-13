@@ -463,6 +463,101 @@ RULES:
   }
 }
 
+export interface PerformanceDigestTask {
+  title: string;
+  completedAt: string;
+  priority: string;
+  skillTags: string[];
+}
+
+export interface PerformanceDigest {
+  internName: string;
+  companyName: string;
+  completedTasks: PerformanceDigestTask[];
+  skillCounts: { tag: string; count: number }[];
+  totalCompleted: number;
+}
+
+function buildPerformanceDigestBlock(digest: PerformanceDigest): string {
+  const lines: string[] = [];
+  lines.push(`Intern: ${digest.internName} (${digest.companyName})`);
+  lines.push(`Completed tasks: ${digest.totalCompleted}`);
+  if (digest.completedTasks.length > 0) {
+    lines.push("");
+    lines.push("Completed task list:");
+    digest.completedTasks.forEach((t) => {
+      const tags = t.skillTags.length > 0 ? ` [${t.skillTags.join(", ")}]` : "";
+      lines.push(`  - "${t.title}" (${t.priority} priority), completed ${t.completedAt}${tags}`);
+    });
+  }
+  if (digest.skillCounts.length > 0) {
+    lines.push("");
+    lines.push("Skill frequency across completed tasks:");
+    digest.skillCounts.forEach((s) => lines.push(`  - ${s.tag}: ${s.count}`));
+  }
+  return lines.join("\n");
+}
+
+// Deterministic, non-AI narrative built only from real digest data — used
+// whenever no OpenAI key is configured, or the AI call fails. Never
+// fabricates data; if there are no completed tasks, it says so plainly.
+function fallbackPerformanceNarrative(digest: PerformanceDigest): string {
+  if (digest.totalCompleted === 0) {
+    return `${digest.internName} hasn't completed any tasks yet, so there isn't enough history to summarize.\n\n_This is a data summary, not an AI-generated answer — set OPENAI_API_KEY to enable narrative summaries._`;
+  }
+
+  const parts: string[] = [];
+  parts.push(`${digest.internName} has completed ${digest.totalCompleted} task${digest.totalCompleted === 1 ? "" : "s"}.`);
+
+  if (digest.skillCounts.length > 0) {
+    const top = digest.skillCounts.slice(0, 5).map((s) => s.tag).join(", ");
+    parts.push(`Most frequent skills involved: ${top}.`);
+  }
+
+  const recent = digest.completedTasks.slice(0, 5).map((t) => `"${t.title}"`).join(", ");
+  if (recent) parts.push(`Recently completed: ${recent}.`);
+
+  parts.push(`\n_This is a data summary, not an AI-generated answer — set OPENAI_API_KEY to enable narrative summaries._`);
+  return parts.join(" ").replace(" \n_", "\n\n_");
+}
+
+export async function generatePerformanceNarrative(
+  digest: PerformanceDigest,
+): Promise<{ content: string; aiGenerated: boolean }> {
+  if (!hasOpenAiKey()) {
+    return { content: fallbackPerformanceNarrative(digest), aiGenerated: false };
+  }
+
+  const contextBlock = buildPerformanceDigestBlock(digest);
+  const systemMessage = `You are writing a short performance summary paragraph for an intern on InternOps, an intern management platform. The manager may use this text directly in a performance review or a recommendation, so it should read naturally and professionally.
+
+Real, current data for ${digest.internName}:
+${contextBlock}
+
+RULES:
+- Only reference the tasks and skills listed above. Never invent metrics, hours worked (not tracked by this system), outcomes, or dates that aren't present in the data.
+- Write 2-4 sentences in a professional, factual tone — no filler praise not backed by the data.
+- If there are no completed tasks, say so plainly rather than inventing accomplishments.
+- Do not use markdown formatting; return plain prose.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemMessage },
+        { role: "user", content: "Write the performance summary now." },
+      ],
+      max_completion_tokens: 400,
+    });
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("No response from AI");
+    return { content, aiGenerated: true };
+  } catch (error: any) {
+    console.error("Performance narrative AI call failed:", error.message);
+    return { content: fallbackPerformanceNarrative(digest), aiGenerated: false };
+  }
+}
+
 export async function generateRevisionGuidance(
   managerComment: string,
   currentPlan: any,

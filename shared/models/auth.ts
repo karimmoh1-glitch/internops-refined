@@ -263,6 +263,24 @@ export const auditLogs = pgTable("audit_logs", {
   index("idx_audit_logs_company_created").on(table.companyId, table.createdAt),
 ]);
 
+// AI-written (or deterministic-fallback) summaries of an intern's completed
+// work, generated on admin request. Append-only history rather than a
+// mutable field on users — mirrors planVersions: an admin can regenerate
+// without destroying a version they may have already copy-pasted into a
+// review.
+export const performanceNarratives = pgTable("performance_narratives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  generatedByUserId: varchar("generated_by_user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  aiGenerated: boolean("ai_generated").notNull().default(true),
+  taskSnapshotCount: integer("task_snapshot_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_perf_narratives_user_created").on(table.userId, table.createdAt),
+]);
+
 export const insertApplicationSchema = createInsertSchema(applications).omit({ id: true, createdAt: true, reviewedAt: true });
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -283,6 +301,7 @@ export const insertChannelMessageSchema = createInsertSchema(channelMessages).om
 export const insertUserDeviceSchema = createInsertSchema(userDevices).omit({ id: true, firstSeenAt: true, lastSeenAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z.string()) }).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPerformanceNarrativeSchema = createInsertSchema(performanceNarratives).omit({ id: true, createdAt: true });
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
@@ -324,6 +343,8 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type PerformanceNarrative = typeof performanceNarratives.$inferSelect;
+export type InsertPerformanceNarrative = z.infer<typeof insertPerformanceNarrativeSchema>;
 
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "completed", "blocked"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
