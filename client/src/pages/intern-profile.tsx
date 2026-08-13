@@ -1,13 +1,22 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Loader2, CheckCircle2, Circle, PlayCircle, Eye, Ban,
-  FileText, Briefcase, TrendingUp, Clock, Sparkles,
+  FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2,
 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
+
+interface PerformanceNarrative {
+  id: string;
+  content: string;
+  aiGenerated: boolean;
+  createdAt: string;
+}
 
 interface InternProfileProps {
   internId: string;
@@ -34,9 +43,26 @@ interface TimelineEvent {
 
 export default function InternProfile({ internId }: InternProfileProps) {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: dashboard, isLoading: dashboardLoading } = useQuery<any>({ queryKey: ["/api/dashboard"] });
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const { data: narrative } = useQuery<PerformanceNarrative | null>({
+    queryKey: [`/api/interns/${internId}/performance-narrative`],
+  });
+
+  const generateNarrativeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/interns/${internId}/performance-narrative`, {});
+      return res.json();
+    },
+    onSuccess: (created: PerformanceNarrative) => {
+      queryClient.setQueryData([`/api/interns/${internId}/performance-narrative`], created);
+      toast({ title: created.aiGenerated ? "Summary generated" : "Summary generated (no AI key configured)" });
+    },
+    onError: (err: any) => toast({ title: "Failed to generate summary", description: err.message, variant: "destructive" }),
+  });
 
   const intern = useMemo(() => {
     return (dashboard?.interns || []).find((i: any) => i.id === internId);
@@ -155,6 +181,30 @@ export default function InternProfile({ internId }: InternProfileProps) {
                 </Badge>
               ))}
             </div>
+          )}
+        </div>
+
+        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-white/60" />
+              Performance Summary
+            </h2>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => generateNarrativeMutation.mutate()}
+              disabled={generateNarrativeMutation.isPending}
+              data-testid="button-generate-narrative"
+            >
+              {generateNarrativeMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+              {narrative ? "Regenerate" : "Generate Summary"}
+            </Button>
+          </div>
+          {narrative ? (
+            <p className="text-sm text-white/80 whitespace-pre-wrap" data-testid="text-performance-narrative">{narrative.content}</p>
+          ) : (
+            <p className="text-sm text-white/40">No summary yet. Generate one from {intern.name}'s completed work.</p>
           )}
         </div>
 
