@@ -237,6 +237,12 @@ export const tasks = pgTable("tasks", {
   feedback: text("feedback"),
   blockedReason: text("blocked_reason"),
   completedAt: timestamp("completed_at"),
+  // Free-form skill labels an admin tags a task with (e.g. "React", "SQL").
+  // Aggregated per intern from completed tasks to infer a skill graph —
+  // see shared/skills.ts. Not a normalized catalog on purpose: task volume
+  // per company is small, so a skills/task_skills join table would add
+  // real schema complexity for no v1 benefit.
+  skillTags: jsonb("skill_tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -276,7 +282,7 @@ export const insertChannelMemberSchema = createInsertSchema(channelMembers).omit
 export const insertChannelMessageSchema = createInsertSchema(channelMessages).omit({ id: true, createdAt: true });
 export const insertUserDeviceSchema = createInsertSchema(userDevices).omit({ id: true, firstSeenAt: true, lastSeenAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
-export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z.string()) }).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;

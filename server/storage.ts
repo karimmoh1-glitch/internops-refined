@@ -164,7 +164,7 @@ export interface IStorage {
   getTasksByCompany(companyId: string): Promise<Task[]>;
   getTasksByAssignee(assigneeId: string): Promise<Task[]>;
   getTasksByProjectIds(projectIds: string[]): Promise<Task[]>;
-  updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null }): Promise<Task | undefined>;
+  updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null; skillTags?: string[] }): Promise<Task | undefined>;
   updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null }): Promise<Task | undefined>;
   deleteTask(id: string): Promise<void>;
 }
@@ -956,7 +956,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(tasks).where(inArray(tasks.projectId, projectIds)).orderBy(desc(tasks.createdAt));
   }
 
-  async updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null }): Promise<Task | undefined> {
+  async updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null; skillTags?: string[] }): Promise<Task | undefined> {
     const updateData: any = { updatedAt: new Date() };
     if (data.title !== undefined) updateData.title = data.title;
     if (data.description !== undefined) updateData.description = data.description;
@@ -964,6 +964,7 @@ export class DatabaseStorage implements IStorage {
     if (data.projectId !== undefined) updateData.projectId = data.projectId;
     if (data.priority !== undefined) updateData.priority = data.priority;
     if (data.dueDate !== undefined) updateData.dueDate = data.dueDate;
+    if (data.skillTags !== undefined) updateData.skillTags = data.skillTags;
     const [updated] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
     return updated;
   }

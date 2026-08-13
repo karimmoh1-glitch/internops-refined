@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, type OrgDigest } from "./services/aiService";
+import { normalizeSkillTag } from "@shared/skills";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
@@ -1910,7 +1911,7 @@ export async function registerRoutes(
       const companyId = (req as any).companyId;
       if (!companyId) return res.status(400).json({ message: "Admin must belong to a company" });
 
-      const { title, description, assigneeId, projectId, priority, dueDate } = req.body;
+      const { title, description, assigneeId, projectId, priority, dueDate, skillTags } = req.body;
       if (!title?.trim() || !assigneeId) {
         return res.status(400).json({ message: "Title and assignee are required" });
       }
@@ -1941,6 +1942,9 @@ export async function registerRoutes(
         priority: priority || "medium",
         status: "todo",
         dueDate: dueDate ? new Date(dueDate) : null,
+        skillTags: Array.isArray(skillTags)
+          ? skillTags.map(normalizeSkillTag).filter(Boolean).slice(0, 10)
+          : [],
       } as any);
 
       await storage.createNotification({
@@ -2019,7 +2023,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Task not found" });
       }
 
-      const { title, description, assigneeId, projectId, priority, dueDate } = req.body;
+      const { title, description, assigneeId, projectId, priority, dueDate, skillTags } = req.body;
 
       if (assigneeId) {
         const assignee = await storage.getUser(assigneeId);
@@ -2044,6 +2048,7 @@ export async function registerRoutes(
         ...(projectId !== undefined ? { projectId: projectId || null } : {}),
         ...(priority !== undefined ? { priority } : {}),
         ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+        ...(Array.isArray(skillTags) ? { skillTags: skillTags.map(normalizeSkillTag).filter(Boolean).slice(0, 10) } : {}),
       });
 
       if (assigneeId && assigneeId !== task.assigneeId) {

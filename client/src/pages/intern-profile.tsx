@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Loader2, CheckCircle2, Circle, PlayCircle, Eye, Ban,
-  FileText, Briefcase, TrendingUp, Clock,
+  FileText, Briefcase, TrendingUp, Clock, Sparkles,
 } from "lucide-react";
+import { aggregateSkillTags } from "@shared/skills";
 
 interface InternProfileProps {
   internId: string;
@@ -54,6 +55,11 @@ export default function InternProfile({ internId }: InternProfileProps) {
     const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { total, completed, inProgress, blocked, inReview, overdue, completionPct };
   }, [internTasks]);
+
+  const skills = useMemo(
+    () => aggregateSkillTags(internTasks.filter((t: any) => t.status === "completed")),
+    [internTasks]
+  );
 
   const timeline = useMemo(() => {
     const events: TimelineEvent[] = [];
@@ -151,6 +157,29 @@ export default function InternProfile({ internId }: InternProfileProps) {
             </div>
           )}
         </div>
+
+        {skills.length > 0 && (
+          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-white/60" />
+              Skills
+            </h2>
+            <div className="space-y-2.5" data-testid="section-skills">
+              {skills.map(({ tag, count }) => {
+                const pct = Math.round((count / skills[0].count) * 100);
+                return (
+                  <div key={tag} className="flex items-center gap-3" data-testid={`row-skill-${tag}`}>
+                    <span className="text-sm text-white/80 w-32 shrink-0 truncate">{tag}</span>
+                    <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div className="h-full rounded-full bg-[#6D5EF5]" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs text-white/40 w-16 text-right shrink-0">{count} task{count === 1 ? "" : "s"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-white/60" />
