@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TagInput } from "@/components/tag-input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -43,6 +44,7 @@ interface Task {
   feedback: string | null;
   blockedReason: string | null;
   completedAt: string | null;
+  skillTags: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -224,6 +226,15 @@ function ManagerTasksView({ user }: TasksPageProps) {
       toast({ title: "Changes requested" });
     },
     onError: (err: any) => toast({ title: "Failed to request changes", description: err.message, variant: "destructive" }),
+  });
+
+  const updateTagsMutation = useMutation({
+    mutationFn: async ({ id, skillTags }: { id: string; skillTags: string[] }) => {
+      const res = await apiRequest("PUT", `/api/tasks/${id}`, { skillTags });
+      return res.json();
+    },
+    onSuccess: () => invalidateTasks(),
+    onError: (err: any) => toast({ title: "Failed to update skills", description: err.message, variant: "destructive" }),
   });
 
   // Bulk actions reuse the existing single-task PUT/DELETE endpoints — fired
@@ -473,9 +484,11 @@ function ManagerTasksView({ user }: TasksPageProps) {
           onApprove={(feedback) => approveMutation.mutate({ id: selectedTask.id, feedback })}
           onRequestChanges={(feedback) => requestChangesMutation.mutate({ id: selectedTask.id, feedback })}
           onDelete={() => deleteMutation.mutate(selectedTask.id)}
+          onUpdateTags={(skillTags) => updateTagsMutation.mutate({ id: selectedTask.id, skillTags })}
           isApproving={approveMutation.isPending}
           isRequestingChanges={requestChangesMutation.isPending}
           isDeleting={deleteMutation.isPending}
+          isUpdatingTags={updateTagsMutation.isPending}
         />
       )}
     </div>
@@ -586,9 +599,10 @@ function CreateTaskDialog({
   const [projectId, setProjectId] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
+  const [skillTags, setSkillTags] = useState<string[]>([]);
 
   const reset = () => {
-    setTitle(""); setDescription(""); setAssigneeId(""); setProjectId(""); setPriority("medium"); setDueDate("");
+    setTitle(""); setDescription(""); setAssigneeId(""); setProjectId(""); setPriority("medium"); setDueDate(""); setSkillTags([]);
   };
 
   const handleSubmit = () => {
@@ -600,6 +614,7 @@ function CreateTaskDialog({
       projectId: projectId || undefined,
       priority,
       dueDate: dueDate || undefined,
+      skillTags,
     });
     reset();
   };
@@ -657,6 +672,10 @@ function CreateTaskDialog({
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} data-testid="input-task-due-date" />
             </div>
           </div>
+          <div>
+            <Label className="mb-1.5 block">Skills (optional)</Label>
+            <TagInput value={skillTags} onChange={setSkillTags} />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -671,8 +690,8 @@ function CreateTaskDialog({
 }
 
 function TaskDetailDialog({
-  task, assigneeName, projectTitle, onClose, onApprove, onRequestChanges, onDelete,
-  isApproving, isRequestingChanges, isDeleting,
+  task, assigneeName, projectTitle, onClose, onApprove, onRequestChanges, onDelete, onUpdateTags,
+  isApproving, isRequestingChanges, isDeleting, isUpdatingTags,
 }: {
   task: Task;
   assigneeName: string;
@@ -681,12 +700,20 @@ function TaskDetailDialog({
   onApprove: (feedback?: string) => void;
   onRequestChanges: (feedback: string) => void;
   onDelete: () => void;
+  onUpdateTags: (skillTags: string[]) => void;
   isApproving: boolean;
   isRequestingChanges: boolean;
   isDeleting: boolean;
+  isUpdatingTags: boolean;
 }) {
   const [feedback, setFeedback] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [skillTags, setSkillTags] = useState<string[]>(task.skillTags || []);
+
+  const commitTags = (tags: string[]) => {
+    setSkillTags(tags);
+    onUpdateTags(tags);
+  };
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
@@ -706,6 +733,11 @@ function TaskDetailDialog({
           {task.description && (
             <p className="text-sm text-white/70 whitespace-pre-wrap">{task.description}</p>
           )}
+
+          <div>
+            <Label className="mb-1.5 block text-xs text-white/50">Skills</Label>
+            <TagInput value={skillTags} onChange={commitTags} disabled={isUpdatingTags} placeholder="Add a skill..." />
+          </div>
 
           {task.status === "blocked" && task.blockedReason && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex gap-2">
