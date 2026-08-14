@@ -19,6 +19,15 @@ function daysAgo(date: Date, now: number): number {
   return Math.floor((now - date.getTime()) / DAY_MS);
 }
 
+// Calendar-day difference (UTC), not raw elapsed hours — a task due at
+// midnight today shouldn't read as "overdue by 0 days" just because a few
+// hours of today have already passed.
+function calendarDaysOverdue(dueDate: Date, now: Date): number {
+  const dueDay = Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate());
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((today - dueDay) / DAY_MS);
+}
+
 // Counts business days (Mon-Fri) between two timestamps — used for the
 // "gone quiet" signal so a normal weekend doesn't itself trigger a flag.
 function businessDaysSince(date: Date, now: number): number {
@@ -62,8 +71,8 @@ export function computeRiskFlags(
 
       if (task.dueDate && task.status !== "completed") {
         const due = new Date(task.dueDate);
-        if (due.getTime() < now) {
-          const days = daysAgo(due, now);
+        const days = calendarDaysOverdue(due, new Date(now));
+        if (days > 0) {
           if (days > 3) {
             consider(`"${task.title}" overdue by ${days} days`, "high");
           } else {

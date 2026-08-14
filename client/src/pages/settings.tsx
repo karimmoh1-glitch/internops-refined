@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
-import { Laptop, Smartphone, Pencil, Check, X, ShieldAlert, History, User as UserIcon, Globe, Copy, Award } from "lucide-react";
+import { Laptop, Smartphone, Pencil, Check, X, ShieldAlert, History, User as UserIcon, Globe, Copy, Award, MessageCircle } from "lucide-react";
 
 interface SettingsProps {
   user: { id: string; name: string; email: string; role: string; companyId: string | null };
@@ -272,6 +272,49 @@ interface MeResponse {
   publicProfileEnabled: boolean;
   publicProfileSlug: string | null;
   completionBadgeAwardedAt: string | null;
+  morningDigestEnabled: boolean;
+}
+
+function MorningDigestCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: me } = useQuery<MeResponse>({ queryKey: ["/api/auth/me"] });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await apiRequest("PUT", "/api/settings/morning-digest", { enabled });
+      return res.json();
+    },
+    onSuccess: (data: { morningDigestEnabled: boolean }) => {
+      queryClient.setQueryData(["/api/auth/me"], (prev: MeResponse | undefined) =>
+        prev ? { ...prev, ...data } : prev
+      );
+      toast({ title: data.morningDigestEnabled ? "Morning digest enabled" : "Morning digest disabled" });
+    },
+    onError: (err: any) => toast({ title: "Failed to update", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <MessageCircle className="w-5 h-5 text-white/50 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-white">Morning Digest</p>
+            <p className="text-xs text-white/50 mt-0.5">
+              A weekday DM from Pulse Digest summarizing what's due and what's blocked.
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={!!me?.morningDigestEnabled}
+          onCheckedChange={(checked) => toggleMutation.mutate(checked)}
+          disabled={toggleMutation.isPending}
+          data-testid="switch-morning-digest"
+        />
+      </div>
+    </div>
+  );
 }
 
 function PublicProfileCard() {
@@ -379,6 +422,12 @@ export default function Settings({ user }: SettingsProps) {
             <div className="mt-4">
               <PublicProfileCard />
             </div>
+
+            {user.role === "intern" && (
+              <div className="mt-4">
+                <MorningDigestCard />
+              </div>
+            )}
 
             <div className="mt-4">
               <ChangePasswordCard />

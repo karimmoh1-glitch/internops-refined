@@ -4,7 +4,7 @@ import { lt } from "drizzle-orm";
 import crypto from "crypto";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
-  channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives,
+  channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -27,6 +27,7 @@ import {
   type AuditLog, type InsertAuditLog,
   type Task, type InsertTask,
   type PerformanceNarrative, type InsertPerformanceNarrative,
+  type DigestRun,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -34,6 +35,9 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByPublicSlug(slug: string): Promise<User | undefined>;
   createUser(data: InsertUser): Promise<User>;
+  getOrCreateSystemUser(companyId: string): Promise<User>;
+  recordDigestRun(userId: string, sentDate: string): Promise<boolean>;
+  setUserMorningDigestEnabled(id: string, enabled: boolean): Promise<User | undefined>;
   getUsersByCompany(companyId: string): Promise<User[]>;
   getInternsByCompany(companyId: string): Promise<User[]>;
   getAdminsByCompany(companyId: string): Promise<User[]>;
@@ -46,6 +50,7 @@ export interface IStorage {
   deleteUserPermanently(id: string): Promise<void>;
 
   createCompany(data: InsertCompany): Promise<Company>;
+  getAllCompanies(): Promise<Company[]>;
   getCompanyById(id: string): Promise<Company | undefined>;
   getCompanyBySlug(slug: string): Promise<Company | undefined>;
   updateCompanyAcceptingApplications(id: string, accepting: boolean): Promise<Company | undefined>;
@@ -199,6 +204,39 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  // Lazily creates one real, unusable "system" user per company as the
+  // sender for automated messages (morning digest). Deliberately reuses
+  // the existing channelMessages.userId FK/DM infra rather than adding a
+  // nullable/bot-sender column — see server/services/morningDigest.ts.
+  // The random passwordHash is not a valid bcrypt hash, so bcrypt.compare
+  // against it always returns false; this account can never log in.
+  async getOrCreateSystemUser(companyId: string): Promise<User> {
+    const email = `system+${companyId}@internal.internops.local`;
+    const [existing] = await db.select().from(users).where(eq(users.email, email));
+    if (existing) return existing;
+    const [created] = await db.insert(users).values({
+      name: "Pulse Digest",
+      email,
+      passwordHash: `unusable:${crypto.randomBytes(32).toString("hex")}`,
+      role: "system",
+      companyId,
+    } as InsertUser).returning();
+    return created;
+  }
+
+  async recordDigestRun(userId: string, sentDate: string): Promise<boolean> {
+    const inserted = await db.insert(digestRuns)
+      .values({ userId, sentDate })
+      .onConflictDoNothing()
+      .returning();
+    return inserted.length > 0;
+  }
+
+  async setUserMorningDigestEnabled(id: string, enabled: boolean): Promise<User | undefined> {
+    const [updated] = await db.update(users).set({ morningDigestEnabled: enabled }).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
   async getUsersByCompany(companyId: string): Promise<User[]> {
     return db.select().from(users).where(eq(users.companyId, companyId)).orderBy(desc(users.createdAt));
   }
@@ -280,6 +318,10 @@ export class DatabaseStorage implements IStorage {
   async createCompany(data: InsertCompany): Promise<Company> {
     const [created] = await db.insert(companies).values(data).returning();
     return created;
+  }
+
+  async getAllCompanies(): Promise<Company[]> {
+    return db.select().from(companies);
   }
 
   async getCompanyById(id: string): Promise<Company | undefined> {

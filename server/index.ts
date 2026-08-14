@@ -9,6 +9,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
+import { startScheduler } from "./services/scheduler";
 
 const app = express();
 const httpServer = createServer(app);
@@ -167,6 +168,8 @@ window.__vite_plugin_react_preamble_installed__ = true
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
+  startScheduler();
+
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(
     {
