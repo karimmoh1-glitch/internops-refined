@@ -314,7 +314,7 @@ function InternProjectDetail({ project }: { project: any }) {
               <span className="text-xs text-white/50">{subtaskCompletion.completed}/{subtaskCompletion.total} tasks ({subtaskCompletion.pct}%)</span>
             </div>
             <div className="w-full bg-white/15 rounded-full h-2">
-              <div className={`h-2 rounded-full transition-all ${subtaskCompletion.pct >= 100 ? "bg-emerald-500/100" : subtaskCompletion.pct > 50 ? "bg-blue-500/100" : subtaskCompletion.pct > 0 ? "bg-amber-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(subtaskCompletion.pct, 1)}%` }} data-testid={`progress-subtask-${project.id}`} />
+              <div className={`h-2 rounded-full transition-all ${subtaskCompletion.pct >= 100 ? "bg-emerald-500" : subtaskCompletion.pct > 50 ? "bg-blue-500" : subtaskCompletion.pct > 0 ? "bg-amber-500" : "bg-white/15"}`} style={{ width: `${Math.max(subtaskCompletion.pct, 1)}%` }} data-testid={`progress-subtask-${project.id}`} />
             </div>
           </div>
         )}
@@ -344,7 +344,7 @@ function InternProjectDetail({ project }: { project: any }) {
                   <div className="flex items-center gap-3 ml-2 shrink-0">
                     <div className="flex items-center gap-1.5">
                       <div className="w-16 bg-white/15 rounded-full h-1.5">
-                        <div className={`h-1.5 rounded-full transition-all ${weekPct >= 100 ? "bg-emerald-500/100" : weekPct > 0 ? "bg-blue-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(weekPct, 3)}%` }} />
+                        <div className={`h-1.5 rounded-full transition-all ${weekPct >= 100 ? "bg-emerald-500" : weekPct > 0 ? "bg-blue-500" : "bg-white/15"}`} style={{ width: `${Math.max(weekPct, 3)}%` }} />
                       </div>
                       <span className="text-[11px] text-white/40 w-8">{weekPct}%</span>
                     </div>
@@ -1483,7 +1483,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                                 {overallCompletion.total > 0 && (
                                   <div className="flex items-center gap-1.5">
                                     <div className="w-20 bg-white/15 rounded-full h-1.5">
-                                      <div className={`h-1.5 rounded-full transition-all ${overallCompletion.pct >= 100 ? "bg-emerald-500/100" : overallCompletion.pct > 50 ? "bg-blue-500/100" : overallCompletion.pct > 0 ? "bg-amber-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(overallCompletion.pct, 3)}%` }} />
+                                      <div className={`h-1.5 rounded-full transition-all ${overallCompletion.pct >= 100 ? "bg-emerald-500" : overallCompletion.pct > 50 ? "bg-blue-500" : overallCompletion.pct > 0 ? "bg-amber-500" : "bg-white/15"}`} style={{ width: `${Math.max(overallCompletion.pct, 3)}%` }} />
                                     </div>
                                     <span className="text-xs text-white/40">{overallCompletion.pct}%</span>
                                   </div>

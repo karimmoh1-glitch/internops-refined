@@ -95,13 +95,13 @@ function getInitials(name: string) {
 
 function getAvatarColor(name: string) {
   const colors = [
-    "bg-blue-500/100",
-    "bg-emerald-500/100",
-    "bg-purple-500/100",
-    "bg-amber-500/100",
+    "bg-blue-500",
+    "bg-emerald-500",
+    "bg-purple-500",
+    "bg-amber-500",
     "bg-rose-500",
     "bg-cyan-500",
-    "bg-indigo-500/100",
+    "bg-indigo-500",
     "bg-pink-500",
   ];
   let hash = 0;
@@ -284,7 +284,7 @@ function ChannelItem({
       {icon}
       <span className="truncate flex-1 text-left">{channel.name}</span>
       {channel.unreadCount > 0 && (
-        <span className="w-5 h-5 bg-red-500/100 text-white text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">
+        <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">
           {channel.unreadCount > 99 ? "99" : channel.unreadCount}
         </span>
       )}

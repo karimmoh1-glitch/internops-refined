@@ -643,7 +643,7 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
                   </div>
                   <div className="w-full bg-white/10 rounded-full h-1.5">
                     <div
-                      className={`h-1.5 rounded-full transition-all ${getCompletionRate(project) >= 100 ? "bg-emerald-500/100" : getCompletionRate(project) > 0 ? "bg-blue-500/100" : "bg-white/15"}`}
+                      className={`h-1.5 rounded-full transition-all ${getCompletionRate(project) >= 100 ? "bg-emerald-500" : getCompletionRate(project) > 0 ? "bg-blue-500" : "bg-white/15"}`}
                       style={{ width: `${Math.max(getCompletionRate(project), 2)}%` }}
                       data-testid={`progress-completion-${project.id}`}
                     />
@@ -897,7 +897,7 @@ function RightPanel({ project, projectDetail, status, planContent, currentVersio
         {planContent && project.minimumTotalHours && (
           <div className="w-full bg-white/15 rounded-full h-1.5">
             <div
-              className={`h-1.5 rounded-full transition-all ${planContent.totalPlannedHours >= project.minimumTotalHours ? "bg-emerald-500/100" : "bg-amber-500/100"}`}
+              className={`h-1.5 rounded-full transition-all ${planContent.totalPlannedHours >= project.minimumTotalHours ? "bg-emerald-500" : "bg-amber-500"}`}
               style={{ width: `${Math.min((planContent.totalPlannedHours / project.minimumTotalHours) * 100, 100)}%` }}
               data-testid="progress-hours"
             />
@@ -1166,7 +1166,7 @@ function WeekExecutionCard({ week, logs, comments, projectId, daysPerWeek }: {
           <div className="flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-1.5">
               <div className="w-16 bg-white/10 rounded-full h-1.5">
-                <div className={`h-1.5 rounded-full transition-all ${completionPct >= 100 ? "bg-emerald-500/100" : completionPct > 0 ? "bg-indigo-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(completionPct, 3)}%` }} />
+                <div className={`h-1.5 rounded-full transition-all ${completionPct >= 100 ? "bg-emerald-500" : completionPct > 0 ? "bg-indigo-500" : "bg-white/15"}`} style={{ width: `${Math.max(completionPct, 3)}%` }} />
               </div>
               <span className="text-xs text-white/40">{completionPct}%</span>
             </div>
@@ -1547,7 +1547,7 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
               msg.role === "user"
                 ? chatMode === "brainstorm"
-                  ? "bg-amber-500/100 text-white rounded-br-md"
+                  ? "bg-amber-500 text-white rounded-br-md"
                   : "bg-[#6D5EF5] text-white rounded-br-md"
                 : chatMode === "brainstorm"
                   ? "bg-orange-500/10 text-white/90 rounded-bl-md border border-orange-500/20"
@@ -1651,7 +1651,7 @@ function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours, onRefr
             onClick={() => sendMessage()}
             disabled={!input.trim() || sending}
             size="icon"
-            className={`shrink-0 ${chatMode === "brainstorm" ? "bg-amber-500/100 hover:bg-amber-600" : ""}`}
+            className={`shrink-0 ${chatMode === "brainstorm" ? "bg-amber-500 hover:bg-amber-600" : ""}`}
             data-testid="button-send-chat"
           >
             <Send className="w-4 h-4" />
