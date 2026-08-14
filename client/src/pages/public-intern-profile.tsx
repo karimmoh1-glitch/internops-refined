@@ -41,7 +41,7 @@ export default function PublicInternProfile({ slug }: PublicInternProfileProps) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0A09] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-white/40" />
       </div>
     );
@@ -49,7 +49,7 @@ export default function PublicInternProfile({ slug }: PublicInternProfileProps) 
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen bg-[#0B0A09] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center">
           <p className="text-white/50 font-medium">{error || "This profile isn't available"}</p>
           <Link href="/" className="text-sm text-[#6D5EF5] mt-3 inline-block">Go to InternOps</Link>
@@ -59,14 +59,14 @@ export default function PublicInternProfile({ slug }: PublicInternProfileProps) 
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-10">
         <Link href="/" className="flex items-center gap-2 mb-8 w-fit" data-testid="link-home">
           <LogoMark size={28} />
           <span className="font-heading font-semibold text-white">InternOps</span>
         </Link>
 
-        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
+        <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-[#6D5EF5]/15 rounded-full flex items-center justify-center text-[#6D5EF5] font-semibold text-2xl shrink-0">
               {profile.name[0]?.toUpperCase() || "?"}
@@ -89,7 +89,7 @@ export default function PublicInternProfile({ slug }: PublicInternProfileProps) 
         </div>
 
         {profile.skillTags.length > 0 && (
-          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
+          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-white/60" />
               Skills
@@ -104,7 +104,7 @@ export default function PublicInternProfile({ slug }: PublicInternProfileProps) 
           </div>
         )}
 
-        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6">
+        <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-white/60" />
             Completed Work

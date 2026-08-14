@@ -83,7 +83,7 @@ function ApplicationRow({ application }: { application: Application }) {
 
   return (
     <div className="border border-white/[0.08] rounded-lg" data-testid={`application-${application.id}`}>
-      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between p-4 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-lg">
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.04] transition-colors rounded-lg">
         <div className="flex items-center gap-3 min-w-0">
           {expanded ? <ChevronDown className="w-4 h-4 text-white/40 shrink-0" /> : <ChevronRight className="w-4 h-4 text-white/40 shrink-0" />}
           <div className="min-w-0">
@@ -206,10 +206,10 @@ export default function ApplicationsPanel({ companyId }: { companyId: string | n
   };
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid="applications-section">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm" data-testid="applications-section">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-5 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-xl"
+        className="w-full flex items-center justify-between p-5 text-left hover:bg-white/[0.04] transition-colors rounded-xl"
         data-testid="button-toggle-applications"
       >
         <div className="flex items-center gap-2">
@@ -224,7 +224,7 @@ export default function ApplicationsPanel({ companyId }: { companyId: string | n
 
       {expanded && (
         <div className="px-5 pb-5 space-y-4">
-          <div className="bg-[#0B0A09] border border-white/[0.06] rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="bg-background border border-white/[0.06] rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <Switch
                 checked={acceptingApplications}
@@ -238,7 +238,7 @@ export default function ApplicationsPanel({ companyId }: { companyId: string | n
               </div>
             </div>
             {acceptingApplications && applyLink && (
-              <div className="flex items-center gap-2 bg-[#141110] border border-white/[0.08] rounded-lg px-3 py-1.5">
+              <div className="flex items-center gap-2 bg-card border border-white/[0.08] rounded-lg px-3 py-1.5">
                 <code className="text-xs text-white/60 max-w-[220px] truncate" data-testid="text-apply-link">{applyLink}</code>
                 <button onClick={copyLink} className="text-white/40 hover:text-white/80" data-testid="button-copy-apply-link">
                   <Copy className="w-3.5 h-3.5" />

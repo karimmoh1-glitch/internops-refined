@@ -42,7 +42,7 @@ export default function Alumni() {
   }, [alumni, search]);
 
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between gap-4 mb-6">
           <div>
@@ -67,12 +67,12 @@ export default function Alumni() {
         {isLoading ? (
           <div className="text-center py-16 text-white/40">Loading...</div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl bg-[#141110]">
+          <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl bg-card">
             <GraduationCap className="w-8 h-8 text-white/30 mx-auto mb-2" />
             <p className="text-white/50 font-medium">{alumni.length === 0 ? "No alumni yet" : "No matches"}</p>
           </div>
         ) : (
-          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
+          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
             {filtered.map((a) => (
               <button
                 key={a.id}

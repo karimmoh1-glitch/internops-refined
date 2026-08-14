@@ -30,9 +30,9 @@ export default function Landing() {
   const ctaGlowRef = useParallax<HTMLDivElement>(0.2);
 
   return (
-    <div className="min-h-screen bg-[#0B0A09] flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Nav */}
-      <nav className="bg-[#0B0A09]/90 backdrop-blur-xl border-b border-white/[0.08] sticky top-0 z-50">
+      <nav className="bg-background/90 backdrop-blur-xl border-b border-white/[0.08] sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5 text-xl font-bold font-heading text-white" data-testid="link-logo">
             <LogoMark size={32} />
@@ -45,7 +45,7 @@ export default function Landing() {
               </Button>
             </Link>
             <Link href="/signup">
-              <Button size="sm" className="bg-white hover:bg-white/85 text-[#0B0A09]" data-testid="button-signup">
+              <Button size="sm" className="bg-white hover:bg-white/85 text-background" data-testid="button-signup">
                 Sign Up
               </Button>
             </Link>
@@ -146,7 +146,7 @@ export default function Landing() {
       </section>
 
       {/* Closing CTA */}
-      <section className="relative bg-[#0B0A09] border-t border-white/[0.08] overflow-hidden">
+      <section className="relative bg-background border-t border-white/[0.08] overflow-hidden">
         <div ref={ctaGlowRef} className="absolute inset-0">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_100%,rgba(109,94,245,0.14),transparent)] animate-aurora" />
         </div>
@@ -167,7 +167,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-[#0B0A09] border-t border-white/[0.08] py-8">
+      <footer className="bg-background border-t border-white/[0.08] py-8">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-base font-bold text-white font-heading">
             <LogoMark size={24} rounded="md" />

@@ -91,7 +91,7 @@ function DeviceRow({ device }: { device: Device }) {
             <button onClick={() => renameMutation.mutate()} disabled={!name.trim() || renameMutation.isPending} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded" data-testid={`button-save-rename-${device.id}`}>
               <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => { setEditing(false); setName(device.name || ""); }} className="p-1 text-white/40 hover:bg-[#141110]/10 rounded">
+            <button onClick={() => { setEditing(false); setName(device.name || ""); }} className="p-1 text-white/40 hover:bg-card/10 rounded">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -236,7 +236,7 @@ function ChangePasswordCard() {
   };
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-white">Change Password</h3>
         <p className="text-xs text-white/50 mt-0.5">Update the password you use to log in.</p>
@@ -295,7 +295,7 @@ function MorningDigestCard() {
   });
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <MessageCircle className="w-5 h-5 text-white/50 mt-0.5" />
@@ -339,7 +339,7 @@ function PublicProfileCard() {
   const shareUrl = me?.publicProfileSlug ? `${window.location.origin}/i/${me.publicProfileSlug}` : null;
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <Globe className="w-5 h-5 text-white/50 mt-0.5" />
@@ -366,7 +366,7 @@ function PublicProfileCard() {
       )}
 
       {shareUrl && me?.publicProfileEnabled && (
-        <div className="flex items-center gap-2 bg-[#0B0A09] border border-white/[0.08] rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 bg-background border border-white/[0.08] rounded-lg px-3 py-2">
           <span className="text-sm text-white/70 flex-1 truncate" data-testid="text-public-profile-url">{shareUrl}</span>
           <Button
             size="sm"
@@ -387,7 +387,7 @@ function PublicProfileCard() {
 
 export default function Settings({ user }: SettingsProps) {
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-white" data-testid="text-settings-title">Settings</h1>
@@ -404,7 +404,7 @@ export default function Settings({ user }: SettingsProps) {
           </TabsList>
 
           <TabsContent value="profile" className="mt-4">
-            <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
+            <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
               <div>
                 <label className="text-xs font-medium text-white/50 uppercase tracking-wide">Name</label>
                 <p className="text-sm text-white mt-1" data-testid="text-profile-name">{user.name}</p>
@@ -435,14 +435,14 @@ export default function Settings({ user }: SettingsProps) {
           </TabsContent>
 
           <TabsContent value="devices" className="mt-4">
-            <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6">
+            <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6">
               <DevicesTab />
             </div>
           </TabsContent>
 
           {user.role === "admin" && (
             <TabsContent value="activity" className="mt-4">
-              <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6">
+              <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6">
                 <AuditLogTab />
               </div>
             </TabsContent>

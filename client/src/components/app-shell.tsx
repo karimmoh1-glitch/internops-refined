@@ -89,7 +89,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
   );
 
   return (
-    <div className="flex bg-[#141110]">
+    <div className="flex bg-card">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 shrink-0 border-r border-white/[0.08] bg-popover h-screen sticky top-0" data-testid="sidebar">
         <Link href="/" className="flex items-center gap-2.5 px-5 h-16 border-b border-white/[0.08] no-underline shrink-0" data-testid="link-home">
@@ -103,7 +103,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
         <div className="px-3 pt-4">
           <button
             onClick={openCommandPalette}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.08] bg-[#141110] text-xs text-white/40 hover:text-white/70 hover:border-white/20 transition-all mb-4"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.08] bg-card text-xs text-white/40 hover:text-white/70 hover:border-white/20 transition-all mb-4"
             data-testid="button-command-palette"
           >
             <Command className="w-3.5 h-3.5" />
@@ -151,7 +151,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
                 <LogoMark size={26} rounded="md" />
                 <span className="font-heading font-semibold text-sm text-white">InternOps</span>
               </div>
-              <button onClick={() => setMobileNavOpen(false)} className="p-1 rounded-lg hover:bg-[#141110]/15">
+              <button onClick={() => setMobileNavOpen(false)} className="p-1 rounded-lg hover:bg-card/15">
                 <X className="w-4 h-4 text-white/50" />
               </button>
             </div>
@@ -177,7 +177,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
 
       {/* Main column */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="md:hidden sticky top-0 z-30 h-14 bg-[#141110] border-b border-white/[0.08] flex items-center justify-between px-4 shrink-0">
+        <div className="md:hidden sticky top-0 z-30 h-14 bg-card border-b border-white/[0.08] flex items-center justify-between px-4 shrink-0">
           <button onClick={() => setMobileNavOpen(true)} className="p-2 -ml-2 rounded-lg hover:bg-white/10" data-testid="button-open-mobile-nav">
             <LayoutGrid className="w-5 h-5 text-white/60" />
           </button>
@@ -213,7 +213,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
         {showNotifs && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNotifs(false)} />
-                <div className="fixed top-14 right-4 md:right-6 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-[#141110] rounded-xl border border-white/[0.08] shadow-xl z-50 overflow-hidden animate-scale-in" data-testid="panel-notifications">
+                <div className="fixed top-14 right-4 md:right-6 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-card rounded-xl border border-white/[0.08] shadow-xl z-50 overflow-hidden animate-scale-in" data-testid="panel-notifications">
                   <div className="p-3 border-b border-white/[0.06] flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-white">Notifications</h3>
                     <div className="flex items-center gap-1">
@@ -239,7 +239,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
                       notifsList.slice(0, 20).map((notif: any) => (
                         <div
                           key={notif.id}
-                          className={`p-3 border-b border-white/[0.05] hover:bg-[#141110]/[0.06] transition-colors cursor-pointer ${!notif.read ? "bg-red-500/10" : ""}`}
+                          className={`p-3 border-b border-white/[0.05] hover:bg-white/[0.04] transition-colors cursor-pointer ${!notif.read ? "bg-red-500/10" : ""}`}
                           onClick={() => {
                             if (!notif.read) markReadMutation.mutate(notif.id);
                             if (notif.link) {

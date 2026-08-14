@@ -195,7 +195,7 @@ function ChannelSidebar({
   };
 
   return (
-    <div className="w-full md:w-64 bg-[#0B0A09] text-white flex flex-col shrink-0 h-full">
+    <div className="w-full md:w-64 bg-background text-white flex flex-col shrink-0 h-full">
       <div className="px-4 py-3 border-b border-white/[0.08] flex items-center gap-2">
         <MessageSquare className="w-5 h-5 text-indigo-400" />
         <h2 className="font-semibold text-sm">Messages</h2>
@@ -379,7 +379,7 @@ function MessagePane({
 
   if (!channel) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#0B0A09]">
+      <div className="flex-1 flex items-center justify-center bg-background">
         <div className="text-center text-white/50">
           <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="font-medium">Select a channel</p>
@@ -393,7 +393,7 @@ function MessagePane({
   let lastDate = "";
 
   return (
-    <div className="flex-1 flex flex-col bg-[#141110] h-full">
+    <div className="flex-1 flex flex-col bg-card h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.08] flex items-center gap-3 shrink-0">
         {onBack && (
@@ -532,7 +532,7 @@ function MessagePane({
 
         {/* Members Panel */}
         {showMembers && (
-          <div className="w-60 border-l border-white/[0.08] bg-[#0B0A09] shrink-0 overflow-y-auto">
+          <div className="w-60 border-l border-white/[0.08] bg-background shrink-0 overflow-y-auto">
             <div className="p-3 border-b border-white/[0.08]">
               <h4 className="text-xs font-semibold text-white/45 uppercase tracking-wider">
                 Members — {members.length}

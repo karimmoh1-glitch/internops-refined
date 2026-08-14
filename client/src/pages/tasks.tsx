@@ -354,7 +354,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
               key={tab.key}
               onClick={() => setStatusFilter(tab.key)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === tab.key ? "bg-white/10 text-white" : "text-white/60 hover:bg-[#141110]/10"
+                statusFilter === tab.key ? "bg-white/10 text-white" : "text-white/60 hover:bg-card/10"
               }`}
               data-testid={`filter-status-${tab.key}`}
             >
@@ -766,7 +766,7 @@ function TaskDetailDialog({
           )}
 
           {task.submission && (
-            <div className="bg-[#0B0A09] border border-white/[0.08] rounded-lg p-3">
+            <div className="bg-background border border-white/[0.08] rounded-lg p-3">
               <p className="text-xs font-semibold text-white/50 mb-1">
                 Submission {task.submittedAt ? `· ${formatDate(task.submittedAt)}` : ""}
               </p>

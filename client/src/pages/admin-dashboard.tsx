@@ -98,7 +98,7 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
   });
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid={`plan-review-${project.id}`}>
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm" data-testid={`plan-review-${project.id}`}>
       <div className="p-5 border-b border-white/[0.06]">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold text-white" data-testid={`text-review-title-${project.id}`}>{project.title}</h3>
@@ -122,7 +122,7 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
           const isOpen = expandedWeeks[key];
           return (
             <div key={key} className="border border-white/[0.06] rounded-lg">
-              <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06] transition-colors" onClick={() => onToggleWeek(key)} data-testid={`button-toggle-week-${version.id}-${week.weekNumber}`}>
+              <button className="w-full flex items-center justify-between p-3 text-left hover:bg-white/[0.04] transition-colors" onClick={() => onToggleWeek(key)} data-testid={`button-toggle-week-${version.id}-${week.weekNumber}`}>
                 <span className="text-sm font-medium text-white/90">Week {week.weekNumber}: {week.milestone}</span>
                 {isOpen ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
               </button>
@@ -150,7 +150,7 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
           </h4>
           <div className="space-y-2">
             {comments.map((c: any) => (
-              <div key={c.id} className="bg-[#0B0A09] rounded p-2 text-sm" data-testid={`comment-${c.id}`}>
+              <div key={c.id} className="bg-background rounded p-2 text-sm" data-testid={`comment-${c.id}`}>
                 <p className="text-white/90">{c.content}</p>
                 <p className="text-white/40 text-xs mt-1">{formatLogDate(c.createdAt)}</p>
               </div>
@@ -170,7 +170,7 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
             {isRequestingRevision ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Request Revision
           </Button>
-          <Button onClick={onAddComment} variant="outline" className="border-white/[0.15] text-white/60 hover:bg-[#141110]/[0.06] ml-auto" data-testid={`button-add-comment-${project.id}`}>
+          <Button onClick={onAddComment} variant="outline" className="border-white/[0.15] text-white/60 hover:bg-white/[0.04] ml-auto" data-testid={`button-add-comment-${project.id}`}>
             <MessageSquare className="w-4 h-4 mr-2" />
             Add Comment
           </Button>
@@ -279,7 +279,7 @@ function InternProjectDetail({ project }: { project: any }) {
   const toggleWeek = (key: string) => setExpandedWeeks((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid={`project-detail-${project.id}`}>
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm" data-testid={`project-detail-${project.id}`}>
       <div className="p-5 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
@@ -306,7 +306,7 @@ function InternProjectDetail({ project }: { project: any }) {
         </div>
 
         {project.status === "active" && subtaskCompletion.total > 0 && (
-          <div className="mt-3 p-3 bg-[#0B0A09] rounded-lg">
+          <div className="mt-3 p-3 bg-background rounded-lg">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-medium text-white/60 flex items-center gap-1">
                 <BarChart3 className="w-3.5 h-3.5" /> Subtask Progress
@@ -336,7 +336,7 @@ function InternProjectDetail({ project }: { project: any }) {
 
             return (
               <div key={key} className={`border rounded-lg transition-all ${isOpen ? "border-indigo-500/20 bg-indigo-500/10" : "border-white/[0.06]"}`}>
-                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-lg" onClick={() => toggleWeek(key)} data-testid={`button-expand-week-${project.id}-${week.weekNumber}`}>
+                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-white/[0.04] transition-colors rounded-lg" onClick={() => toggleWeek(key)} data-testid={`button-expand-week-${project.id}-${week.weekNumber}`}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     {isOpen ? <ChevronDown className="w-4 h-4 text-indigo-500 shrink-0" /> : <ChevronRight className="w-4 h-4 text-white/40 shrink-0" />}
                     <span className="text-sm font-medium text-white/90">W{week.weekNumber}: {week.milestone}</span>
@@ -367,7 +367,7 @@ function InternProjectDetail({ project }: { project: any }) {
 
                         return (
                           <div key={dIdx} className={`border rounded-lg transition-all ${isSubtaskOpen ? "border-indigo-500/20" : "border-white/[0.06]"}`} data-testid={`subtask-${project.id}-${week.weekNumber}-${dIdx}`}>
-                            <button onClick={() => toggleWeek(subtaskKey)} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[#141110]/[0.06] rounded-lg">
+                            <button onClick={() => toggleWeek(subtaskKey)} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-white/[0.04] rounded-lg">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 {hasLogs ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> : <div className="w-4 h-4 rounded-full border-2 border-white/[0.15] shrink-0" />}
                                 <span className="text-sm text-white/70">{deliverable}</span>
@@ -381,7 +381,7 @@ function InternProjectDetail({ project }: { project: any }) {
                                   const commentValue = logCommentInputs[log.id] || "";
                                   return (
                                     <div key={log.id} className="space-y-1">
-                                      <div className="bg-[#0B0A09] rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
+                                      <div className="bg-background rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
                                         <p className="text-white/90 whitespace-pre-wrap" data-testid={`text-log-${log.id}`}>{log.logText}</p>
                                         <p className="text-white/40 text-xs mt-1" data-testid={`text-log-date-${log.id}`}>
                                           {log.dayNumber ? `Day ${log.dayNumber} · ` : ""}{formatLogDate(log.createdAt)}
@@ -431,7 +431,7 @@ function InternProjectDetail({ project }: { project: any }) {
                             const commentValue = logCommentInputs[log.id] || "";
                             return (
                               <div key={log.id} className="space-y-1 mb-1.5">
-                                <div className="bg-[#0B0A09] rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
+                                <div className="bg-background rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
                                   <p className="text-white/90 whitespace-pre-wrap">{log.logText}</p>
                                   <p className="text-white/40 text-xs mt-1">{formatLogDate(log.createdAt)}</p>
                                 </div>
@@ -467,7 +467,7 @@ function InternProjectDetail({ project }: { project: any }) {
             const isOpen = expandedWeeks[key];
             return (
               <div key={key} className="border border-white/[0.06] rounded-lg">
-                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06]" onClick={() => toggleWeek(key)} data-testid={`button-plan-week-${project.id}-${week.weekNumber}`}>
+                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-white/[0.04]" onClick={() => toggleWeek(key)} data-testid={`button-plan-week-${project.id}-${week.weekNumber}`}>
                   <span className="text-sm font-medium text-white/90">Week {week.weekNumber}: {week.milestone}</span>
                   {isOpen ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
                 </button>
@@ -613,7 +613,7 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
 
   if (tasks.length === 0) {
     return (
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 text-center" data-testid="section-task-overview-empty">
+      <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 text-center" data-testid="section-task-overview-empty">
         <ListTodo className="w-8 h-8 text-white/30 mx-auto mb-2" />
         <p className="text-white/50 font-medium">No tasks yet</p>
         <p className="text-sm text-white/40 mt-1">
@@ -625,14 +625,14 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="section-task-overview">
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+      <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5">
         <h3 className="font-semibold text-white flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-blue-400" />Due Today</h3>
         {dueToday.length === 0 ? (
           <p className="text-sm text-white/40">Nothing due today.</p>
         ) : (
           <div className="space-y-1.5">
             {dueToday.map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-due-today-${t.id}`}>
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-white/[0.04] no-underline" data-testid={`activity-due-today-${t.id}`}>
                 <span className="text-white/70">{t.title}</span>
                 <span className="text-white/40"> — {internName(t.assigneeId)}</span>
               </Link>
@@ -641,7 +641,7 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
         )}
       </div>
 
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+      <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5">
         <h3 className="font-semibold text-white flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-white/50" />Recent Activity</h3>
         {recentActivity.length === 0 ? (
           <p className="text-sm text-white/40">No activity yet.</p>
@@ -673,7 +673,7 @@ function TaskCompletionBadge({ internId }: { internId: string }) {
   return (
     <Badge
       variant="outline"
-      className={`text-xs font-medium ${blocked > 0 ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-[#0B0A09] text-white/60 border-white/[0.08]"}`}
+      className={`text-xs font-medium ${blocked > 0 ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-background text-white/60 border-white/[0.08]"}`}
       data-testid={`badge-task-completion-${internId}`}
     >
       {completed}/{mine.length} tasks{blocked > 0 ? ` · ${blocked} blocked` : ""}
@@ -708,7 +708,7 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
       <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
         <ShieldPlus className="w-5 h-5 text-white/60" />Admins
       </h2>
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
+      <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
         {managers.map((manager: any) => {
           const isSelf = manager.id === currentUserId;
           return (
@@ -830,7 +830,7 @@ function SignalsPanel() {
   const severityColor = (s: Signal["severity"]) => (s === "high" ? "text-red-400 bg-red-500/10" : "text-amber-400 bg-amber-500/10");
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="section-signals">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="section-signals">
       <div className="flex items-center gap-2.5 mb-3">
         <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
@@ -916,9 +916,9 @@ function OrgAssistantPanel() {
 
   return (
     <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-[#6D5EF5]/40 via-[#8B7FF7]/20 to-transparent" data-testid="section-org-assistant">
-      <div className="bg-[#141110] rounded-[11px] p-5">
+      <div className="bg-card rounded-[11px] p-5">
         <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-7 h-7 rounded-lg bg-[#12101C] flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-surface-accent flex items-center justify-center shrink-0">
             <Activity className="w-3.5 h-3.5 text-[#8B7FF7]" />
           </div>
           <div>
@@ -935,7 +935,7 @@ function OrgAssistantPanel() {
                 <button
                   key={p}
                   onClick={() => ask(p)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-white/[0.08] text-white/60 hover:bg-[#141110]/[0.06] transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-full border border-white/[0.08] text-white/60 hover:bg-white/[0.04] transition-colors"
                   data-testid={`button-suggested-prompt-${p.replace(/\s+/g, "-").toLowerCase()}`}
                 >
                   {p}
@@ -947,14 +947,14 @@ function OrgAssistantPanel() {
           <div className="space-y-3 mb-3 max-h-96 overflow-y-auto">
             {messages.map((m, i) => (
               <div key={i} className={`text-sm ${m.role === "user" ? "text-right" : ""}`} data-testid={`assistant-message-${i}`}>
-                <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-[#12101C] text-white" : "bg-[#0B0A09] text-white/90 border border-white/[0.06]"}`}>
+                <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-surface-accent text-white" : "bg-background text-white/90 border border-white/[0.06]"}`}>
                   {m.content}
                 </div>
               </div>
             ))}
             {askMutation.isPending && (
               <div className="text-sm">
-                <div className="inline-flex items-center gap-1.5 bg-[#0B0A09] border border-white/[0.06] rounded-lg px-3 py-2 text-white/40">
+                <div className="inline-flex items-center gap-1.5 bg-background border border-white/[0.06] rounded-lg px-3 py-2 text-white/40">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Pulse is thinking...
                 </div>
               </div>
@@ -1213,9 +1213,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6" data-testid="header-section">
+        <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6" data-testid="header-section">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-white" data-testid="text-company-name">{company?.name || "Company"}</h1>
@@ -1225,7 +1225,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               <Button onClick={() => setShowInviteModal(true)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-open-invite">
                 <UserPlus className="w-4 h-4 mr-2" />Add Intern
               </Button>
-              <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-white/[0.15] text-white/70 hover:bg-[#141110]/[0.06]" data-testid="button-open-assign">
+              <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-white/[0.15] text-white/70 hover:bg-white/[0.04]" data-testid="button-open-assign">
                 <Briefcase className="w-4 h-4 mr-2" />Assign Project
               </Button>
               <Button
@@ -1240,7 +1240,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                   toast({ title: "Report exported", description: "Your team report CSV has been downloaded." });
                 }}
                 variant="outline"
-                className="border-white/[0.15] text-white/70 hover:bg-[#141110]/[0.06]"
+                className="border-white/[0.15] text-white/70 hover:bg-white/[0.04]"
                 data-testid="button-export-report"
               >
                 <Download className="w-4 h-4 mr-2" />Export Report
@@ -1249,19 +1249,19 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <button onClick={() => { setFilter(filter === "interns" ? null : "interns"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "interns" ? "bg-blue-500/10 border-blue-300 ring-2 ring-blue-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-blue-500/20"}`} data-testid="stat-total-interns">
+            <button onClick={() => { setFilter(filter === "interns" ? null : "interns"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "interns" ? "bg-blue-500/10 border-blue-300 ring-2 ring-blue-200" : "bg-background border-white/[0.06] hover:border-blue-500/20"}`} data-testid="stat-total-interns">
               <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-blue-400" /><span className="text-label text-white/50">Interns</span></div>
               <p className="text-metric text-3xl text-white">{allDashboardInterns.length}</p>
             </button>
-            <button onClick={() => { setFilter(filter === "projects" ? null : "projects"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "projects" ? "bg-indigo-500/10 border-indigo-300 ring-2 ring-indigo-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-indigo-500/20"}`} data-testid="stat-total-projects">
+            <button onClick={() => { setFilter(filter === "projects" ? null : "projects"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "projects" ? "bg-indigo-500/10 border-indigo-300 ring-2 ring-indigo-200" : "bg-background border-white/[0.06] hover:border-indigo-500/20"}`} data-testid="stat-total-projects">
               <div className="flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-indigo-400" /><span className="text-label text-white/50">Projects</span></div>
               <p className="text-metric text-3xl text-white">{totalProjects}</p>
             </button>
-            <button onClick={() => { setFilter(filter === "active" ? null : "active"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "active" ? "bg-emerald-500/10 border-emerald-300 ring-2 ring-emerald-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-emerald-500/20"}`} data-testid="stat-active-projects">
+            <button onClick={() => { setFilter(filter === "active" ? null : "active"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "active" ? "bg-emerald-500/10 border-emerald-300 ring-2 ring-emerald-200" : "bg-background border-white/[0.06] hover:border-emerald-500/20"}`} data-testid="stat-active-projects">
               <div className="flex items-center gap-2 mb-1"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-label text-white/50">Active</span></div>
               <p className="text-metric text-3xl text-white">{activeProjects}</p>
             </button>
-            <button onClick={() => { const newFilter = filter === "review" ? null : "review"; setFilter(newFilter); if (newFilter === "review") setShowPlanReview(true); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "review" ? "bg-amber-500/10 border-amber-300 ring-2 ring-amber-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-amber-500/20"}`} data-testid="stat-pending-review">
+            <button onClick={() => { const newFilter = filter === "review" ? null : "review"; setFilter(newFilter); if (newFilter === "review") setShowPlanReview(true); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "review" ? "bg-amber-500/10 border-amber-300 ring-2 ring-amber-200" : "bg-background border-white/[0.06] hover:border-amber-500/20"}`} data-testid="stat-pending-review">
               <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-amber-400" /><span className="text-label text-white/50">Pending Review</span></div>
               <p className="text-metric text-3xl text-white">{pendingReview}</p>
             </button>
@@ -1322,7 +1322,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         )}
 
         {analytics && (
-          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="analytics-section">
+          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="analytics-section">
             <div className="flex items-center gap-2 mb-4">
               <BarChart3 className="w-5 h-5 text-indigo-400" />
               <h2 className="text-lg font-semibold text-white">Analytics</h2>
@@ -1375,7 +1375,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           )}
 
           {filteredInterns.length === 0 ? (
-            <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-12 text-center" data-testid="text-no-interns">
+            <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-12 text-center" data-testid="text-no-interns">
               <Users className="w-12 h-12 text-white/30 mx-auto mb-3" />
               {searchQuery || filter ? (
                 <>
@@ -1407,7 +1407,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
                 return (
                   <div key={intern.id} data-testid={`card-intern-${intern.id}`}>
-                    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" onClick={() => setExpandedIntern(isExpanded ? null : intern.id)}>
+                    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" onClick={() => setExpandedIntern(isExpanded ? null : intern.id)}>
                       <div className="p-4 sm:p-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -1490,7 +1490,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs text-white/60 border-white/[0.15] hover:bg-[#141110]/[0.06]"
+                              className="text-xs text-white/60 border-white/[0.15] hover:bg-white/[0.04]"
                               onClick={(e) => { e.stopPropagation(); setConfirmState({ title: `Deactivate ${intern.name}?`, description: "They won't be able to log in, but their tasks and history stay intact. You can reactivate them anytime.", confirmLabel: "Deactivate", onConfirm: () => deactivateInternMutation.mutate({ internId: intern.id, deactivate: true }) }); }}
                               disabled={deactivateInternMutation.isPending}
                               data-testid={`button-deactivate-intern-${intern.id}`}
@@ -1527,7 +1527,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                           </div>
                         )}
                         {projects.length === 0 ? (
-                          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-8 text-center">
+                          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-8 text-center">
                             <Briefcase className="w-8 h-8 text-white/30 mx-auto mb-2" />
                             <p className="text-white/40 text-sm">No projects assigned yet</p>
                           </div>
@@ -1587,11 +1587,11 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4" data-testid="invite-link-display">
                 <p className="text-emerald-400 text-sm font-medium mb-3">Account created — {createdIntern.name} can log in right now.</p>
                 <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between gap-2 bg-[#0B0A09] border border-emerald-500/20 rounded px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 bg-background border border-emerald-500/20 rounded px-3 py-2">
                     <span className="text-white/50">Email</span>
                     <span className="text-white font-medium" data-testid="text-created-intern-email">{createdIntern.email}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-2 bg-[#0B0A09] border border-emerald-500/20 rounded px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 bg-background border border-emerald-500/20 rounded px-3 py-2">
                     <span className="text-white/50">Password</span>
                     <span className="text-white font-medium" data-testid="text-created-intern-password">{createdIntern.password}</span>
                   </div>

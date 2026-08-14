@@ -39,10 +39,10 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
   if (!hasRepo && !isAdmin) return null;
 
   return (
-    <div className="bg-[#141110] border border-white/[0.08] rounded-xl shadow-sm" data-testid="github-panel">
+    <div className="bg-card border border-white/[0.08] rounded-xl shadow-sm" data-testid="github-panel">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-xl"
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.04] transition-colors rounded-xl"
         data-testid="button-toggle-github"
       >
         <div className="flex items-center gap-2">
@@ -97,7 +97,7 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
                       {commits.map((commit: any) => (
                         <div
                           key={commit.fullSha}
-                          className={`px-4 py-2.5 hover:bg-[#141110]/[0.06] transition-colors ${onCommitSelect ? "cursor-pointer" : ""}`}
+                          className={`px-4 py-2.5 hover:bg-white/[0.04] transition-colors ${onCommitSelect ? "cursor-pointer" : ""}`}
                           onClick={() => onCommitSelect?.(commit.sha)}
                           data-testid={`commit-${commit.sha}`}
                         >
@@ -140,7 +140,7 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
                           href={pr.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block px-4 py-2.5 hover:bg-[#141110]/[0.06] transition-colors"
+                          className="block px-4 py-2.5 hover:bg-white/[0.04] transition-colors"
                           data-testid={`pr-${pr.number}`}
                         >
                           <div className="flex items-start gap-2">
