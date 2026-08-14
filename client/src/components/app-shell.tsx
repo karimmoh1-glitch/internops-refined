@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  LogOut, Bell, CheckCheck, X, Command, MessageSquare, ListTodo, LayoutGrid,
+  LogOut, Bell, CheckCheck, X, Command, MessageSquare, ListTodo, LayoutGrid, GraduationCap,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import LogoMark from "@/components/logo-mark";
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutGrid, testid: "link-dashboard" },
   { href: "/tasks", label: "Tasks", icon: ListTodo, testid: "link-tasks" },
   { href: "/chat", label: "Messages", icon: MessageSquare, testid: "link-chat" },
+  { href: "/alumni", label: "Alumni", icon: GraduationCap, testid: "link-alumni", adminOnly: true },
 ];
 
 export default function AppShell({ user, onSignOut, children }: AppShellProps) {
@@ -62,7 +63,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
 
   const NavLinks = () => (
     <nav className="px-3 space-y-0.5" data-testid="sidebar-nav">
-      {NAV_ITEMS.map((item) => {
+      {NAV_ITEMS.filter((item) => !item.adminOnly || user.role === "admin").map((item) => {
         const active = location === item.href;
         return (
           <Link
