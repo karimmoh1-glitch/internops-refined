@@ -66,7 +66,15 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false,
+      // Interval polling (set per-query where used) only runs while the tab
+      // is visible — correct, since there's no point polling a background
+      // tab. But that means the moment a user switches away, data can only
+      // go stale, with nothing to catch it back up. Refetching on window
+      // focus/tab-visible closes that gap: switching back to this tab (or
+      // returning from another app) immediately pulls anything missed,
+      // gated by staleTime below so it doesn't double-fetch on a focus
+      // blip seconds after the last successful fetch.
+      refetchOnWindowFocus: true,
       staleTime: 30000,
       retry: false,
     },
