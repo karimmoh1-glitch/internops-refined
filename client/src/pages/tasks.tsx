@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSearch } from "wouter";
+import { useSearch, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { parseErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Loader2, Clock, AlertTriangle, CheckCircle2, Circle, PlayCircle,
-  Eye, Ban, Pencil, Trash2, ListTodo, Calendar, User, X, UserCog, Flag,
+  Eye, Ban, Pencil, Trash2, ListTodo, Calendar, User, X, UserCog, Flag, Filter,
 } from "lucide-react";
 
 interface TaskUser {
@@ -125,6 +125,8 @@ function ManagerTasksView({ user }: TasksPageProps) {
     const params = new URLSearchParams(search);
     const assigneeId = params.get("assigneeId");
     if (assigneeId) setAssigneeFilter(assigneeId);
+    const status = params.get("status");
+    if (status) setStatusFilter(status);
   }, [search]);
 
   // Switching filters can hide selected rows, which would let a bulk action
@@ -844,14 +846,21 @@ const INTERN_GROUPS = [
 function InternTasksView({ user }: TasksPageProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+  const search = useSearch();
   const [submitTask, setSubmitTask] = useState<Task | null>(null);
   const [blockTask, setBlockTask] = useState<Task | null>(null);
   const [feedbackTask, setFeedbackTask] = useState<Task | null>(null);
 
-  const { data: taskList = [], isLoading, isError } = useQuery<Task[]>({
+  const statusFilter = new URLSearchParams(search).get("status");
+
+  const { data: allTasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: ["/api/tasks/mine"],
     refetchInterval: 15000,
   });
+  const taskList = statusFilter
+    ? allTasks.filter((t) => (statusFilter === "overdue" ? isOverdue(t) : t.status === statusFilter))
+    : allTasks;
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/tasks/mine"] });
 
@@ -912,11 +921,23 @@ function InternTasksView({ user }: TasksPageProps) {
         <p className="text-sm text-white/50 mt-0.5">Everything assigned to you, grouped by status</p>
       </div>
 
+      {statusFilter && (
+        <div className="mb-4 flex items-center gap-2">
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 px-3 py-1 text-sm flex items-center gap-1.5" data-testid="badge-active-filter">
+            <Filter className="w-3 h-3" />
+            Filtering: {statusFilter === "in_review" ? "In Review" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+          </Badge>
+          <button onClick={() => setLocation("/tasks")} className="text-xs text-white/50 hover:text-red-400 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors" data-testid="button-clear-filter">
+            <X className="w-3 h-3" /> Clear filter
+          </button>
+        </div>
+      )}
+
       {taskList.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl">
           <ListTodo className="w-8 h-8 text-white/30 mx-auto mb-2" />
-          <p className="text-white/50 font-medium">No tasks assigned yet</p>
-          <p className="text-sm text-white/40 mt-1">Your manager hasn't assigned you anything yet.</p>
+          <p className="text-white/50 font-medium">{statusFilter ? "No tasks match this filter" : "No tasks assigned yet"}</p>
+          <p className="text-sm text-white/40 mt-1">{statusFilter ? "Nice — nothing here right now." : "Your manager hasn't assigned you anything yet."}</p>
         </div>
       ) : (
         <div className="space-y-6">

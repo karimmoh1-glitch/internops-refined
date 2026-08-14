@@ -759,10 +759,44 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
   );
 }
 
+interface RelatedTasks {
+  blockedTaskIds?: string[];
+  overdueTaskIds?: string[];
+  inReviewTaskIds?: string[];
+}
+
 interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
   aiGenerated?: boolean;
+  related?: RelatedTasks;
+}
+
+// Small clickable chips ("3 overdue", "2 blocked") beneath an AI response,
+// routing to the matching pre-filtered Tasks view — turns the answer into
+// something actionable instead of a plain text bubble.
+function RelatedTaskChips({ related, onNavigate }: { related?: RelatedTasks; onNavigate: (status: string) => void }) {
+  if (!related) return null;
+  const chips: { label: string; status: string; count: number }[] = [
+    { label: "overdue", status: "overdue", count: related.overdueTaskIds?.length || 0 },
+    { label: "blocked", status: "blocked", count: related.blockedTaskIds?.length || 0 },
+    { label: "in review", status: "in_review", count: related.inReviewTaskIds?.length || 0 },
+  ].filter((c) => c.count > 0);
+  if (chips.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {chips.map((c) => (
+        <button
+          key={c.status}
+          onClick={() => onNavigate(c.status)}
+          className="text-xs px-2.5 py-1 rounded-full border border-white/[0.1] text-white/60 hover:bg-white/[0.06] hover:text-white/80 transition-colors"
+          data-testid={`chip-related-${c.status}`}
+        >
+          {c.count} {c.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 const SUGGESTED_PROMPTS = [
@@ -888,6 +922,7 @@ function SignalsPanel() {
 
 function OrgAssistantPanel() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [input, setInput] = useState("");
 
@@ -901,7 +936,7 @@ function OrgAssistantPanel() {
       return res.json();
     },
     onSuccess: (data) => {
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply, aiGenerated: data.aiGenerated }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply, aiGenerated: data.aiGenerated, related: data.related }]);
     },
     onError: (err: any) => {
       toast({ title: "Pulse is unavailable", description: err.message, variant: "destructive" });
@@ -950,6 +985,9 @@ function OrgAssistantPanel() {
                 <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-surface-accent text-white" : "bg-background text-white/90 border border-white/[0.06]"}`}>
                   {m.content}
                 </div>
+                {m.role === "assistant" && (
+                  <RelatedTaskChips related={m.related} onNavigate={(status) => setLocation(`/tasks?status=${status}`)} />
+                )}
               </div>
             ))}
             {askMutation.isPending && (
