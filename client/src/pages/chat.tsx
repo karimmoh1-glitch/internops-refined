@@ -431,9 +431,13 @@ function MessagePane({
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Hash className="w-10 h-10 text-white/85 mb-3" />
+                  {channel.type === "dm" ? (
+                    <AtSign className="w-10 h-10 text-white/85 mb-3" />
+                  ) : (
+                    <Hash className="w-10 h-10 text-white/85 mb-3" />
+                  )}
                   <p className="text-white/45 font-medium">
-                    Welcome to #{channel.name}
+                    {channel.type === "dm" ? `Welcome to ${channel.name}` : `Welcome to #${channel.name}`}
                   </p>
                   <p className="text-white/50 text-sm mt-1">
                     This is the start of the conversation.
@@ -508,7 +512,7 @@ function MessagePane({
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={`Message #${channel.name}`}
+                placeholder={channel.type === "dm" ? `Message ${channel.name}` : `Message #${channel.name}`}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
