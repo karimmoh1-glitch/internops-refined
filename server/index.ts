@@ -65,7 +65,16 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+
+    // No route or middleware in this app throws an error with a deliberately
+    // safe, user-facing message — every error that reaches this handler is a
+    // raw library/driver exception (e.g. body-parser's JSON SyntaxError), so
+    // err.message is never forwarded to the client. Known, safe cases get a
+    // hardcoded message; everything else falls back to a generic one.
+    const message =
+      err.type === "entity.parse.failed"
+        ? "Invalid JSON in request body"
+        : "Internal Server Error";
 
     console.error("Internal Server Error:", err);
 
