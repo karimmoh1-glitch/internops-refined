@@ -9,13 +9,20 @@ interface PulseScoreProps {
   pendingReview: number;
 }
 
+interface ScoreBreakdown {
+  score: number;
+  avgCompletion: number | null;
+  taskRate: number | null;
+  activeRate: number | null;
+}
+
 function computeScore({
   completionRates,
   taskCompletionByIntern,
   activeProjects,
   totalProjects,
   pendingReview,
-}: PulseScoreProps): number | null {
+}: PulseScoreProps): ScoreBreakdown | null {
   if (totalProjects === 0 && taskCompletionByIntern.length === 0) return null;
 
   const avgCompletion = completionRates.length
@@ -38,7 +45,8 @@ function computeScore({
   if (signals.length === 0) return null;
 
   const base = signals.reduce((a, b) => a + b, 0) / signals.length;
-  return Math.max(0, Math.min(100, Math.round(base - backlogPenalty)));
+  const score = Math.max(0, Math.min(100, Math.round(base - backlogPenalty)));
+  return { score, avgCompletion, taskRate, activeRate };
 }
 
 function scoreCopy(score: number): { label: string; tone: string; ring: string; icon: typeof TrendingUp } {
@@ -69,15 +77,29 @@ function useCountUp(target: number, durationMs = 900) {
   return value;
 }
 
+function BreakdownBar({ label, value, color }: { label: string; value: number | null; color: string }) {
+  return (
+    <div className="min-w-[112px]">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-label text-zinc-500">{label}</span>
+        <span className="text-xs font-semibold text-white/70 tabular-nums">{value === null ? "—" : `${Math.round(value)}%`}</span>
+      </div>
+      <div className="w-full bg-white/[0.08] rounded-full h-1.5">
+        <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.max(value ?? 0, value === null ? 0 : 3)}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
 export default function PulseScoreCard(props: PulseScoreProps) {
-  const score = computeScore(props);
+  const breakdown = computeScore(props);
   // Hooks must run unconditionally, so useCountUp always runs with a
   // fallback of 0 — the null-score branch below never reads its output.
-  const animated = useCountUp(score ?? 0);
+  const animated = useCountUp(breakdown?.score ?? 0);
 
-  if (score === null) {
+  if (breakdown === null) {
     return (
-      <div className="relative overflow-hidden rounded-2xl bg-[#12101C] p-6" data-testid="card-pulse-score">
+      <div className="relative overflow-hidden rounded-2xl bg-surface-accent p-6" data-testid="card-pulse-score">
         <div className="relative flex items-center gap-3">
           <Activity className="w-5 h-5 text-[#8B7FF7]" />
           <p className="text-sm text-zinc-400">Pulse Score appears once your team has active projects.</p>
@@ -86,6 +108,7 @@ export default function PulseScoreCard(props: PulseScoreProps) {
     );
   }
 
+  const { score, avgCompletion, taskRate, activeRate } = breakdown;
   const { label, tone, ring, icon: TrendIcon } = scoreCopy(score);
 
   const radius = 42;
@@ -94,7 +117,7 @@ export default function PulseScoreCard(props: PulseScoreProps) {
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl bg-[#12101C] p-6 shadow-lg"
+      className="relative overflow-hidden rounded-2xl bg-surface-accent p-6 shadow-lg"
       data-testid="card-pulse-score"
     >
       <div
@@ -120,7 +143,7 @@ export default function PulseScoreCard(props: PulseScoreProps) {
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-2xl font-bold font-heading text-white tabular-nums" data-testid="text-pulse-score-value">
+              <span className="text-metric text-2xl text-white" data-testid="text-pulse-score-value">
                 {animated}
               </span>
             </div>
@@ -128,7 +151,7 @@ export default function PulseScoreCard(props: PulseScoreProps) {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Activity className="w-4 h-4 text-[#8B7FF7]" />
-              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Pulse Score</span>
+              <span className="text-label text-zinc-400">Pulse Score</span>
             </div>
             <p className="text-lg font-heading font-semibold text-white" data-testid="text-pulse-score-label">
               {label}
@@ -138,6 +161,11 @@ export default function PulseScoreCard(props: PulseScoreProps) {
               Based on completion rate, task velocity, and review backlog
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-5 flex-wrap" data-testid="pulse-score-breakdown">
+          <BreakdownBar label="Completion" value={avgCompletion} color="#10B981" />
+          <BreakdownBar label="Task velocity" value={taskRate} color="#6D5EF5" />
+          <BreakdownBar label="Active rate" value={activeRate} color="#F59E0B" />
         </div>
       </div>
     </div>
