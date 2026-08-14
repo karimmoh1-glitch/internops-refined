@@ -152,9 +152,17 @@ function ChannelSidebar({
 
     return (
       <div key={key} className="mb-1">
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => toggleGroup(key)}
-          className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-white/50 uppercase tracking-wider hover:text-white/70 transition-colors"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              toggleGroup(key);
+            }
+          }}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-white/50 uppercase tracking-wider hover:text-white/70 transition-colors cursor-pointer"
         >
           <span className="flex items-center gap-1">
             {isCollapsed ? (
@@ -165,7 +173,7 @@ function ChannelSidebar({
             {label}
           </span>
           {action}
-        </button>
+        </div>
         {!isCollapsed && (
           <div className="space-y-0.5">
             {items.map((ch) => (
