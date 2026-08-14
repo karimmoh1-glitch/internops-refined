@@ -3,11 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Loader2, CheckCircle2, Circle, PlayCircle, Eye, Ban,
   FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2, Award, GraduationCap,
+  ListChecks, Plus, X,
 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
 
@@ -55,6 +57,111 @@ interface TimelineEvent {
   kind: "task" | "log" | "plan";
   title: string;
   detail?: string;
+}
+
+interface CompletionCriterion {
+  id: string;
+  text: string;
+  optional: boolean;
+  completed: boolean;
+}
+
+// Project "Definition of Done" — a lightweight, explicit checklist of what
+// finished means, independent of task completion. Manager-owned: an admin
+// defines and checks off criteria here; a project isn't "done" just
+// because its progress bar says 100%.
+function ProjectDefinitionOfDone({ projectId, projectTitle }: { projectId: string; projectTitle: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [expanded, setExpanded] = useState(false);
+  const [newCriterion, setNewCriterion] = useState("");
+
+  const { data: project } = useQuery<{ completionCriteria: CompletionCriterion[] }>({
+    queryKey: ["/api/projects", projectId],
+    enabled: expanded,
+  });
+  const criteria = project?.completionCriteria || [];
+  const doneCount = criteria.filter((c) => c.completed).length;
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+
+  const addMutation = useMutation({
+    mutationFn: async (text: string) => apiRequest("POST", `/api/projects/${projectId}/criteria`, { text }),
+    onSuccess: () => { setNewCriterion(""); invalidate(); },
+    onError: (err: any) => toast({ title: "Couldn't add criterion", description: err.message, variant: "destructive" }),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) =>
+      apiRequest("POST", `/api/criteria/${id}/toggle`, { completed }),
+    onSuccess: invalidate,
+    onError: (err: any) => toast({ title: "Couldn't update criterion", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("DELETE", `/api/criteria/${id}`),
+    onSuccess: invalidate,
+    onError: (err: any) => toast({ title: "Couldn't remove criterion", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="mt-3 border border-white/[0.06] rounded-lg overflow-hidden" data-testid={`section-dod-${projectId}`}>
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-white/[0.03] transition-colors"
+        data-testid={`button-toggle-dod-${projectId}`}
+      >
+        <span className="flex items-center gap-2 text-sm text-white/80">
+          <ListChecks className="w-3.5 h-3.5 text-white/40" />
+          Definition of Done — {projectTitle}
+          {criteria.length > 0 && <span className="text-white/40">({doneCount}/{criteria.length})</span>}
+        </span>
+        <span className="text-xs text-white/40">{expanded ? "Hide" : "Show"}</span>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 space-y-1.5">
+          {criteria.length === 0 && <p className="text-xs text-white/40 py-1">No criteria defined yet — add what "finished" means for this project.</p>}
+          {criteria.map((c) => (
+            <div key={c.id} className="flex items-center gap-2 group" data-testid={`row-criterion-${c.id}`}>
+              <button onClick={() => toggleMutation.mutate({ id: c.id, completed: !c.completed })} data-testid={`button-toggle-criterion-${c.id}`}>
+                {c.completed ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Circle className="w-4 h-4 text-white/30" />}
+              </button>
+              <span className={`text-sm flex-1 ${c.completed ? "text-white/40 line-through" : "text-white/80"}`}>
+                {c.text}{c.optional && <span className="text-white/30 text-xs ml-1.5">(optional)</span>}
+              </span>
+              <button
+                onClick={() => deleteMutation.mutate(c.id)}
+                className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 transition-opacity"
+                data-testid={`button-delete-criterion-${c.id}`}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2 pt-1.5">
+            <Input
+              value={newCriterion}
+              onChange={(e) => setNewCriterion(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && newCriterion.trim() && addMutation.mutate(newCriterion.trim())}
+              placeholder="Add a criterion..."
+              className="h-8 text-sm"
+              data-testid={`input-new-criterion-${projectId}`}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 px-2"
+              disabled={!newCriterion.trim() || addMutation.isPending}
+              onClick={() => addMutation.mutate(newCriterion.trim())}
+              data-testid={`button-add-criterion-${projectId}`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function InternProfile({ internId }: InternProfileProps) {
@@ -266,6 +373,10 @@ export default function InternProfile({ internId }: InternProfileProps) {
               ))}
             </div>
           )}
+
+          {intern.projects?.map((p: any) => (
+            <ProjectDefinitionOfDone key={p.id} projectId={p.id} projectTitle={p.title} />
+          ))}
 
           <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">

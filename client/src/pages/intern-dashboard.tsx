@@ -199,6 +199,160 @@ export default function InternDashboard({ user }: InternDashboardProps) {
 // intern's real assigned tasks. Quick actions here cover the common case
 // (start a task); submitting or blocking opens the full Tasks page, which
 // already has the dialogs for those.
+const INTERN_ASK_PROMPTS = ["What's due soon?", "What should I focus on?", "Am I blocked on anything?"];
+
+interface AskMessage {
+  role: "user" | "assistant";
+  content: string;
+  aiGenerated?: boolean;
+}
+
+// "Ask InternOps" — the intern-scoped counterpart to the admin org
+// assistant. Backend structurally limits context to this intern's own
+// tasks/projects (see server/routes.ts's /api/ai/intern-assistant), so
+// this is never a generic chatbot that happens to know org-wide info.
+function AskInternOpsCard() {
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<AskMessage[]>([]);
+  const [input, setInput] = useState("");
+
+  const askMutation = useMutation({
+    mutationFn: async (question: string) => {
+      const nextMessages = [...messages, { role: "user" as const, content: question }];
+      setMessages(nextMessages);
+      const res = await apiRequest("POST", "/api/ai/intern-assistant", {
+        messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply, aiGenerated: data.aiGenerated }]);
+    },
+    onError: (err: any) => toast({ title: "Ask InternOps is unavailable", description: err.message, variant: "destructive" }),
+  });
+
+  const ask = (question: string) => {
+    if (!question.trim() || askMutation.isPending) return;
+    setInput("");
+    askMutation.mutate(question.trim());
+  };
+
+  return (
+    <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-[#6D5EF5]/40 via-[#8B7FF7]/20 to-transparent mb-4" data-testid="section-ask-internops">
+      <div className="bg-[#141110] rounded-[11px] p-5">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="w-7 h-7 rounded-lg bg-[#12101C] flex items-center justify-center shrink-0">
+            <Sparkles className="w-3.5 h-3.5 text-[#8B7FF7]" />
+          </div>
+          <div>
+            <h3 className="font-heading font-semibold text-white leading-tight">Ask InternOps</h3>
+            <p className="text-[11px] text-white/40 leading-tight">Answers from your own tasks — nothing else</p>
+          </div>
+        </div>
+
+        {messages.length === 0 ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {INTERN_ASK_PROMPTS.map((p) => (
+              <button
+                key={p}
+                onClick={() => ask(p)}
+                className="text-xs px-3 py-1.5 rounded-full border border-white/[0.08] text-white/60 hover:bg-white/[0.06] transition-colors"
+                data-testid={`button-intern-ask-prompt-${p.replace(/\s+/g, "-").toLowerCase()}`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3 mb-3 max-h-72 overflow-y-auto">
+            {messages.map((m, i) => (
+              <div key={i} className={`text-sm ${m.role === "user" ? "text-right" : ""}`} data-testid={`intern-assistant-message-${i}`}>
+                <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-[#12101C] text-white" : "bg-[#0B0A09] text-white/90 border border-white/[0.06]"}`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {askMutation.isPending && (
+              <div className="text-sm">
+                <div className="inline-flex items-center gap-1.5 bg-[#0B0A09] border border-white/[0.06] rounded-lg px-3 py-2 text-white/40">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking...
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && ask(input)}
+            placeholder="Ask about your tasks..."
+            className="flex-1 focus-visible:ring-[#6D5EF5]/50"
+            data-testid="input-intern-assistant"
+          />
+          <Button size="sm" onClick={() => ask(input)} disabled={!input.trim() || askMutation.isPending} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-ask-intern-assistant">
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// "What should I work on?" — a recommendation, never a command. Scored
+// server-side from real deadline/priority/dependency data (see
+// server/services/nextBestAction.ts); the intern can always ignore it and
+// pick something else from the full task list below.
+function NextBestActionCard() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery<{ recommended: { task: any; reason: string; blockingCount: number } | null; alternateCount: number }>({
+    queryKey: ["/api/tasks/next-best"],
+  });
+
+  const startMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/tasks/${id}/start`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/mine"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/next-best"] });
+      toast({ title: "Task started" });
+    },
+    onError: (err: any) => toast({ title: "Couldn't start task", description: err.message, variant: "destructive" }),
+  });
+
+  if (isLoading || !data?.recommended) return null;
+  const { task, reason } = data.recommended;
+
+  return (
+    <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-[#6D5EF5]/40 via-[#8B7FF7]/20 to-transparent mb-4" data-testid="section-next-best-action">
+      <div className="bg-[#141110] rounded-[11px] p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <Zap className="w-4 h-4 text-[#8B7FF7]" />
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-[#8B7FF7]">Your Next Best Action</span>
+        </div>
+        <h3 className="text-lg font-heading font-semibold text-white mb-1">{task.title}</h3>
+        <p className="text-sm text-white/50 mb-4">{reason}</p>
+        <div className="flex items-center gap-2">
+          {task.status === "todo" ? (
+            <Button size="sm" onClick={() => startMutation.mutate(task.id)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-start-next-best">
+              Start Task
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => setLocation("/tasks")} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-continue-next-best">
+              Continue Task
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => setLocation("/tasks")} data-testid="button-view-all-from-next-best">
+            View All Tasks
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InternTaskOverview() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -350,6 +504,7 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
     return (
       <div className="min-h-screen bg-[#0B0A09]" data-testid="no-project-state">
         <div className="max-w-4xl mx-auto px-4 py-8">
+          <NextBestActionCard />
           <InternTaskOverview />
           <div className="flex items-center justify-center py-12">
             <div className="text-center p-8 max-w-md">
@@ -385,6 +540,8 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
           </Button>
         </div>
 
+        <NextBestActionCard />
+        <AskInternOpsCard />
         <InternTaskOverview />
 
         {internAnalytics && (internAnalytics.progressByWeek?.length > 0 || internAnalytics.activityByWeek?.length > 0) && (
