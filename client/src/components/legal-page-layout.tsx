@@ -5,8 +5,8 @@ import LogoMark from "@/components/logo-mark";
 
 export default function LegalPageLayout({ title, updated, children }: { title: string; updated: string; children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#09090b]">
-      <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+    <div className="min-h-screen bg-background">
+      <nav className="bg-background/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline" data-testid="link-home">
             <LogoMark size={32} />

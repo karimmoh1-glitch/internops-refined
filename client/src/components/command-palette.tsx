@@ -35,7 +35,7 @@ export default function CommandPalette({ open, onOpenChange, items }: CommandPal
   return (
     <>
       <div
-        className="fixed inset-0 bg-[#09090b]/60 backdrop-blur-sm z-[100] animate-fade-in"
+        className="fixed inset-0 bg-background/60 backdrop-blur-sm z-[100] animate-fade-in"
         onClick={() => onOpenChange(false)}
       />
       <div className="fixed inset-0 z-[101] flex items-start justify-center pt-[18vh] px-4">

@@ -91,12 +91,12 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
   return (
     <div className="flex bg-[#141110]">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col w-64 shrink-0 border-r border-white/[0.08] bg-[#0F0D0C] h-screen sticky top-0" data-testid="sidebar">
+      <aside className="hidden md:flex md:flex-col w-64 shrink-0 border-r border-white/[0.08] bg-popover h-screen sticky top-0" data-testid="sidebar">
         <Link href="/" className="flex items-center gap-2.5 px-5 h-16 border-b border-white/[0.08] no-underline shrink-0" data-testid="link-home">
           <LogoMark size={30} rounded="md" />
           <div className="min-w-0">
             <p className="font-heading font-semibold text-[15px] text-white leading-tight">InternOps</p>
-            <p className="text-[11px] text-white/40 leading-tight truncate">EDAI Workspace</p>
+            <p className="text-[11px] text-white/40 leading-tight truncate">Workspace</p>
           </div>
         </Link>
 
@@ -145,7 +145,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
       {mobileNavOpen && (
         <>
           <div className="md:hidden fixed inset-0 bg-black/40 z-40" onClick={() => setMobileNavOpen(false)} />
-          <aside className="md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-[#0F0D0C] border-r border-white/[0.08] flex flex-col animate-fade-in">
+          <aside className="md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-popover border-r border-white/[0.08] flex flex-col animate-fade-in">
             <div className="flex items-center justify-between px-4 h-14 border-b border-white/[0.08]">
               <div className="flex items-center gap-2">
                 <LogoMark size={26} rounded="md" />

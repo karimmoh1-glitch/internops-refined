@@ -70,8 +70,8 @@ export default function ResetPassword({ token }: ResetPasswordProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col">
-      <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+    <div className="min-h-screen bg-background flex flex-col">
+      <nav className="bg-background/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline">
             <LogoMark size={32} />

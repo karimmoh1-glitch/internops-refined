@@ -146,9 +146,9 @@ export default function GitHubPanel({ projectId, githubRepoUrl, isAdmin, company
                           <div className="flex items-start gap-2">
                             <Badge
                               className={`text-[10px] shrink-0 ${
-                                pr.merged ? "bg-purple-100 text-purple-400 border-purple-500/20" :
+                                pr.merged ? "bg-violet-500/10 text-violet-400 border-violet-500/20" :
                                 pr.state === "open" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                "bg-red-100 text-red-400 border-red-500/20"
+                                "bg-red-500/10 text-red-400 border-red-500/20"
                               }`}
                             >
                               #{pr.number}

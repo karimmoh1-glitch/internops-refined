@@ -34,6 +34,7 @@ const STATUS_COLORS: Record<string, string> = {
   submitted: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   approved: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   active: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  completed: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   draft: "bg-white/10 text-white/60 border-white/[0.08]",
 };
 
@@ -565,7 +566,7 @@ function InternProjectDetail({ project }: { project: any }) {
           <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-sm mx-4">
             <div className="p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center"><Trash2 className="w-5 h-5 text-red-400" /></div>
+                <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center"><Trash2 className="w-5 h-5 text-red-400" /></div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">Delete Project</h3>
                   <p className="text-sm text-white/50">This action cannot be undone</p>
