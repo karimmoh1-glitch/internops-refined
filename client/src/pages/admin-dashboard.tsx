@@ -591,7 +591,7 @@ function InternProjectDetail({ project }: { project: any }) {
 // exist on each task (createdAt/submittedAt/completedAt/updatedAt) — nothing
 // here is synthesized or fabricated.
 function TaskOverviewSection({ interns }: { interns: any[] }) {
-  const { data: tasks = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const { data: tasks = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"], refetchInterval: 15000 });
 
   if (isLoading) return null;
 
@@ -706,7 +706,7 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
 // Reads the same cached /api/tasks query TaskOverviewSection already
 // fetches (react-query dedupes by key), so this costs no extra request.
 function TaskCompletionBadge({ internId }: { internId: string }) {
-  const { data: tasks = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const { data: tasks = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"], refetchInterval: 15000 });
   const mine = tasks.filter((t: any) => t.assigneeId === internId);
   if (mine.length === 0) return null;
   const completed = mine.filter((t: any) => t.status === "completed").length;
@@ -822,7 +822,7 @@ function SignalsPanel() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: signals = [], isLoading } = useQuery<Signal[]>({ queryKey: ["/api/signals"] });
+  const { data: signals = [], isLoading } = useQuery<Signal[]>({ queryKey: ["/api/signals"], refetchInterval: 20000 });
 
   const dismissMutation = useMutation({
     mutationFn: async (key: string) => {
@@ -1027,10 +1027,10 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
   const internOverviewRef = useRef<HTMLDivElement>(null);
 
-  const { data: dashboard, isLoading } = useQuery<any>({ queryKey: ["/api/dashboard"] });
+  const { data: dashboard, isLoading } = useQuery<any>({ queryKey: ["/api/dashboard"], refetchInterval: 20000 });
   const { data: interns = [] } = useQuery<any[]>({ queryKey: ["/api/interns"] });
   const { data: analytics } = useQuery<any>({ queryKey: ["/api/analytics/admin"] });
-  const { data: taskListForSearch = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const { data: taskListForSearch = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"], refetchInterval: 15000 });
   const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {

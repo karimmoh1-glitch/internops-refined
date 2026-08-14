@@ -136,6 +136,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
 
   const { data: taskList = [], isLoading: tasksLoading, isError: tasksError } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
+    refetchInterval: 15000,
   });
   const { data: interns = [] } = useQuery<TaskUser[]>({ queryKey: ["/api/interns"] });
   const { data: projects = [] } = useQuery<Project[]>({ queryKey: ["/api/projects"] });
@@ -849,6 +850,7 @@ function InternTasksView({ user }: TasksPageProps) {
 
   const { data: taskList = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: ["/api/tasks/mine"],
+    refetchInterval: 15000,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/tasks/mine"] });

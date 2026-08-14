@@ -170,8 +170,8 @@ export default function InternProfile({ internId }: InternProfileProps) {
   const queryClient = useQueryClient();
   const [confirmAlumni, setConfirmAlumni] = useState(false);
 
-  const { data: dashboard, isLoading: dashboardLoading } = useQuery<any>({ queryKey: ["/api/dashboard"] });
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const { data: dashboard, isLoading: dashboardLoading } = useQuery<any>({ queryKey: ["/api/dashboard"], refetchInterval: 20000 });
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"], refetchInterval: 15000 });
   const { data: narrative } = useQuery<PerformanceNarrative | null>({
     queryKey: [`/api/interns/${internId}/performance-narrative`],
   });

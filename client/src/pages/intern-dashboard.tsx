@@ -141,6 +141,7 @@ export default function InternDashboard({ user }: InternDashboardProps) {
 
   const { data: projects = [], isLoading: loadingProjects } = useQuery<any[]>({
     queryKey: ["/api/projects"],
+    refetchInterval: 20000,
   });
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -310,6 +311,7 @@ function NextBestActionCard() {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<{ recommended: { task: any; reason: string; blockingCount: number } | null; alternateCount: number }>({
     queryKey: ["/api/tasks/next-best"],
+    refetchInterval: 15000,
   });
 
   const startMutation = useMutation({
@@ -357,7 +359,7 @@ function InternTaskOverview() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: tasks = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/tasks/mine"] });
+  const { data: tasks = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/tasks/mine"], refetchInterval: 15000 });
 
   const startMutation = useMutation({
     mutationFn: async (id: string) => apiRequest("POST", `/api/tasks/${id}/start`),
