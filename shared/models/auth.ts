@@ -260,11 +260,16 @@ export const tasks = pgTable("tasks", {
   // per company is small, so a skills/task_skills join table would add
   // real schema complexity for no v1 benefit.
   skillTags: jsonb("skill_tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  // A single upstream dependency, not a full DAG — deliberately simple.
+  // Signals/next-best-action reason about "downstream" work by querying
+  // WHERE dependsOnTaskId = X, so one task can still block many others.
+  dependsOnTaskId: varchar("depends_on_task_id").references((): AnyPgColumn => tasks.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_tasks_company_status").on(table.companyId, table.status),
   index("idx_tasks_assignee_status").on(table.assigneeId, table.status),
+  index("idx_tasks_depends_on").on(table.dependsOnTaskId),
 ]);
 
 export const auditLogs = pgTable("audit_logs", {
@@ -334,6 +339,45 @@ export const alumniRecords = pgTable("alumni_records", {
   index("idx_alumni_records_company_ended").on(table.companyId, table.internshipEndedAt),
 ]);
 
+// Lightweight, checklist-style "what does finished mean" for a project —
+// deliberately not a full task-management subsystem. Criteria are
+// independent of tasks (a criterion can optionally reference one), and a
+// project isn't considered fully done just because all tasks are; the
+// manager marks criteria complete explicitly.
+export const projectCompletionCriteria = pgTable("project_completion_criteria", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  text: text("text").notNull(),
+  optional: boolean("optional").notNull().default(false),
+  completed: boolean("completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  completedByUserId: varchar("completed_by_user_id").references(() => users.id),
+  taskId: varchar("task_id").references(() => tasks.id),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_project_criteria_project").on(table.projectId, table.sortOrder),
+]);
+
+// Signals (Manager Signals / workflow-stall detector) are computed live
+// from real task data every request, never stored — a stored "signal" row
+// would drift from reality the moment its underlying task changes. What
+// DOES need persistence is the manager's dismiss/snooze choice, keyed by a
+// deterministic signalKey (e.g. "overdue:<taskId>") so it's stable across
+// recomputation and re-applies automatically if the same condition recurs
+// after a snooze expires, without ever needing a cleanup job — an expired
+// snoozedUntil just stops matching in the WHERE clause.
+export const signalDismissals = pgTable("signal_dismissals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  signalKey: varchar("signal_key").notNull(),
+  dismissedByUserId: varchar("dismissed_by_user_id").notNull().references(() => users.id),
+  snoozedUntil: timestamp("snoozed_until"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_signal_dismissals_company_key").on(table.companyId, table.signalKey),
+]);
+
 export const insertApplicationSchema = createInsertSchema(applications).omit({ id: true, createdAt: true, reviewedAt: true });
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -357,6 +401,8 @@ export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z
 export const insertPerformanceNarrativeSchema = createInsertSchema(performanceNarratives).omit({ id: true, createdAt: true });
 export const insertDigestRunSchema = createInsertSchema(digestRuns).omit({ id: true, createdAt: true });
 export const insertAlumniRecordSchema = createInsertSchema(alumniRecords).omit({ id: true, createdAt: true });
+export const insertProjectCompletionCriterionSchema = createInsertSchema(projectCompletionCriteria).omit({ id: true, createdAt: true, completedAt: true, completedByUserId: true });
+export const insertSignalDismissalSchema = createInsertSchema(signalDismissals).omit({ id: true, createdAt: true });
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
@@ -404,6 +450,10 @@ export type DigestRun = typeof digestRuns.$inferSelect;
 export type InsertDigestRun = z.infer<typeof insertDigestRunSchema>;
 export type AlumniRecord = typeof alumniRecords.$inferSelect;
 export type InsertAlumniRecord = z.infer<typeof insertAlumniRecordSchema>;
+export type ProjectCompletionCriterion = typeof projectCompletionCriteria.$inferSelect;
+export type InsertProjectCompletionCriterion = z.infer<typeof insertProjectCompletionCriterionSchema>;
+export type SignalDismissal = typeof signalDismissals.$inferSelect;
+export type InsertSignalDismissal = z.infer<typeof insertSignalDismissalSchema>;
 
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "completed", "blocked"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];

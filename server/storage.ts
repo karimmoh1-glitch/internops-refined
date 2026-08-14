@@ -6,6 +6,7 @@ import { aggregateSkillTags } from "@shared/skills";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
   channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns, alumniRecords,
+  projectCompletionCriteria, signalDismissals,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -30,6 +31,8 @@ import {
   type PerformanceNarrative, type InsertPerformanceNarrative,
   type DigestRun,
   type AlumniRecord,
+  type ProjectCompletionCriterion,
+  type SignalDismissal,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -183,9 +186,22 @@ export interface IStorage {
   getTasksByCompany(companyId: string): Promise<Task[]>;
   getTasksByAssignee(assigneeId: string): Promise<Task[]>;
   getTasksByProjectIds(projectIds: string[]): Promise<Task[]>;
-  updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null; skillTags?: string[] }): Promise<Task | undefined>;
+  updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null; skillTags?: string[]; dependsOnTaskId?: string | null }): Promise<Task | undefined>;
   updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null }): Promise<Task | undefined>;
   deleteTask(id: string): Promise<void>;
+  getTasksDependingOn(taskId: string): Promise<Task[]>;
+
+  // Project completion criteria ("Definition of Done")
+  createCompletionCriterion(data: { projectId: string; text: string; optional?: boolean; taskId?: string | null; sortOrder?: number }): Promise<ProjectCompletionCriterion>;
+  getCompletionCriteriaByProject(projectId: string): Promise<ProjectCompletionCriterion[]>;
+  getCompletionCriterionById(id: string): Promise<ProjectCompletionCriterion | undefined>;
+  updateCompletionCriterion(id: string, data: { text?: string; optional?: boolean; sortOrder?: number }): Promise<ProjectCompletionCriterion | undefined>;
+  setCompletionCriterionDone(id: string, completed: boolean, completedByUserId: string | null): Promise<ProjectCompletionCriterion | undefined>;
+  deleteCompletionCriterion(id: string): Promise<void>;
+
+  // Signal dismiss/snooze
+  getSignalDismissalsByCompany(companyId: string): Promise<SignalDismissal[]>;
+  upsertSignalDismissal(companyId: string, signalKey: string, userId: string, snoozedUntil: Date | null): Promise<SignalDismissal>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1125,7 +1141,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(tasks).where(inArray(tasks.projectId, projectIds)).orderBy(desc(tasks.createdAt));
   }
 
-  async updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null; skillTags?: string[] }): Promise<Task | undefined> {
+  async updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null; skillTags?: string[]; dependsOnTaskId?: string | null }): Promise<Task | undefined> {
     const updateData: any = { updatedAt: new Date() };
     if (data.title !== undefined) updateData.title = data.title;
     if (data.description !== undefined) updateData.description = data.description;
@@ -1134,8 +1150,13 @@ export class DatabaseStorage implements IStorage {
     if (data.priority !== undefined) updateData.priority = data.priority;
     if (data.dueDate !== undefined) updateData.dueDate = data.dueDate;
     if (data.skillTags !== undefined) updateData.skillTags = data.skillTags;
+    if (data.dependsOnTaskId !== undefined) updateData.dependsOnTaskId = data.dependsOnTaskId;
     const [updated] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
     return updated;
+  }
+
+  async getTasksDependingOn(taskId: string): Promise<Task[]> {
+    return db.select().from(tasks).where(eq(tasks.dependsOnTaskId, taskId));
   }
 
   async updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null }): Promise<Task | undefined> {
@@ -1151,6 +1172,63 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTask(id: string): Promise<void> {
     await db.delete(tasks).where(eq(tasks.id, id));
+  }
+
+  async createCompletionCriterion(data: { projectId: string; text: string; optional?: boolean; taskId?: string | null; sortOrder?: number }): Promise<ProjectCompletionCriterion> {
+    const [created] = await db.insert(projectCompletionCriteria).values({
+      projectId: data.projectId,
+      text: data.text,
+      optional: data.optional ?? false,
+      taskId: data.taskId ?? null,
+      sortOrder: data.sortOrder ?? 0,
+    }).returning();
+    return created;
+  }
+
+  async getCompletionCriteriaByProject(projectId: string): Promise<ProjectCompletionCriterion[]> {
+    return db.select().from(projectCompletionCriteria).where(eq(projectCompletionCriteria.projectId, projectId)).orderBy(projectCompletionCriteria.sortOrder, projectCompletionCriteria.createdAt);
+  }
+
+  async updateCompletionCriterion(id: string, data: { text?: string; optional?: boolean; sortOrder?: number }): Promise<ProjectCompletionCriterion | undefined> {
+    const updateData: any = {};
+    if (data.text !== undefined) updateData.text = data.text;
+    if (data.optional !== undefined) updateData.optional = data.optional;
+    if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
+    if (Object.keys(updateData).length === 0) return this.getCompletionCriterionById(id);
+    const [updated] = await db.update(projectCompletionCriteria).set(updateData).where(eq(projectCompletionCriteria.id, id)).returning();
+    return updated;
+  }
+
+  async getCompletionCriterionById(id: string): Promise<ProjectCompletionCriterion | undefined> {
+    const [found] = await db.select().from(projectCompletionCriteria).where(eq(projectCompletionCriteria.id, id));
+    return found;
+  }
+
+  async setCompletionCriterionDone(id: string, completed: boolean, completedByUserId: string | null): Promise<ProjectCompletionCriterion | undefined> {
+    const [updated] = await db.update(projectCompletionCriteria)
+      .set({ completed, completedAt: completed ? new Date() : null, completedByUserId: completed ? completedByUserId : null })
+      .where(eq(projectCompletionCriteria.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCompletionCriterion(id: string): Promise<void> {
+    await db.delete(projectCompletionCriteria).where(eq(projectCompletionCriteria.id, id));
+  }
+
+  async getSignalDismissalsByCompany(companyId: string): Promise<SignalDismissal[]> {
+    return db.select().from(signalDismissals).where(eq(signalDismissals.companyId, companyId));
+  }
+
+  async upsertSignalDismissal(companyId: string, signalKey: string, userId: string, snoozedUntil: Date | null): Promise<SignalDismissal> {
+    const [row] = await db.insert(signalDismissals)
+      .values({ companyId, signalKey, dismissedByUserId: userId, snoozedUntil })
+      .onConflictDoUpdate({
+        target: [signalDismissals.companyId, signalDismissals.signalKey],
+        set: { dismissedByUserId: userId, snoozedUntil, createdAt: new Date() },
+      })
+      .returning();
+    return row;
   }
 }
 

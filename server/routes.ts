@@ -1,9 +1,11 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, generatePerformanceNarrative, type OrgDigest, type PerformanceDigest } from "./services/aiService";
+import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, internAssistantChat, generatePerformanceNarrative, type OrgDigest, type PerformanceDigest, type InternDigest } from "./services/aiService";
 import { normalizeSkillTag, aggregateSkillTags } from "@shared/skills";
 import { computeRiskFlags } from "./services/riskRadar";
+import { computeSignals } from "./services/signals";
+import { computeNextBestAction } from "./services/nextBestAction";
 import { runMorningDigestForCompany } from "./services/morningDigest";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
@@ -1543,16 +1545,103 @@ export async function registerRoutes(
       const versions = await storage.getPlanVersionsByProject(project.id);
       const intern = await storage.getUser(project.internId);
       const weeklyLogs = await storage.getWeeklyLogsByProject(project.id);
+      const completionCriteria = await storage.getCompletionCriteriaByProject(project.id);
 
       res.json({
         ...project,
         versions,
         weeklyLogs,
         internName: intern?.name || "Unknown",
+        completionCriteria,
       });
     } catch (error: any) {
       console.error("Failed to get project:", error);
       res.status(500).json({ message: "Failed to get project" });
+    }
+  });
+
+  // Project "Definition of Done" — a lightweight, explicit checklist of
+  // what "finished" means for this project, independent of task
+  // completion. Manager-owned: only an admin defines/edits/marks criteria,
+  // mirroring the spec's ownership model exactly.
+  async function loadCriterionForAdmin(req: Request, res: Response): Promise<{ id: string; projectId: string } | null> {
+    const criterion = await storage.getCompletionCriterionById(req.params.id as string);
+    if (!criterion) {
+      res.status(404).json({ message: "Criterion not found" });
+      return null;
+    }
+    const project = await storage.getProjectById(criterion.projectId);
+    if (!project || project.companyId !== (req as any).companyId) {
+      res.status(404).json({ message: "Criterion not found" });
+      return null;
+    }
+    return criterion;
+  }
+
+  app.post("/api/projects/:id/criteria", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const project = await storage.getProjectById(req.params.id as string);
+      if (!project || project.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      const { text, optional, taskId } = req.body;
+      if (!text || typeof text !== "string" || !text.trim()) {
+        return res.status(400).json({ message: "text is required" });
+      }
+      const existing = await storage.getCompletionCriteriaByProject(project.id);
+      const criterion = await storage.createCompletionCriterion({
+        projectId: project.id,
+        text: text.trim().slice(0, 300),
+        optional: !!optional,
+        taskId: taskId || null,
+        sortOrder: existing.length,
+      });
+      res.status(201).json(criterion);
+    } catch (error: any) {
+      console.error("Failed to create completion criterion:", error);
+      res.status(500).json({ message: "Failed to create completion criterion" });
+    }
+  });
+
+  app.put("/api/criteria/:id", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const criterion = await loadCriterionForAdmin(req, res);
+      if (!criterion) return;
+      const { text, optional, sortOrder } = req.body;
+      const updated = await storage.updateCompletionCriterion(criterion.id, {
+        text: typeof text === "string" ? text.trim().slice(0, 300) : undefined,
+        optional: typeof optional === "boolean" ? optional : undefined,
+        sortOrder: typeof sortOrder === "number" ? sortOrder : undefined,
+      });
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Failed to update completion criterion:", error);
+      res.status(500).json({ message: "Failed to update completion criterion" });
+    }
+  });
+
+  app.post("/api/criteria/:id/toggle", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const criterion = await loadCriterionForAdmin(req, res);
+      if (!criterion) return;
+      const { completed } = req.body;
+      const updated = await storage.setCompletionCriterionDone(criterion.id, !!completed, (req as any).userId);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Failed to toggle completion criterion:", error);
+      res.status(500).json({ message: "Failed to toggle completion criterion" });
+    }
+  });
+
+  app.delete("/api/criteria/:id", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const criterion = await loadCriterionForAdmin(req, res);
+      if (!criterion) return;
+      await storage.deleteCompletionCriterion(criterion.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Failed to delete completion criterion:", error);
+      res.status(500).json({ message: "Failed to delete completion criterion" });
     }
   });
 
@@ -2195,7 +2284,7 @@ export async function registerRoutes(
       const companyId = (req as any).companyId;
       if (!companyId) return res.status(400).json({ message: "Admin must belong to a company" });
 
-      const { title, description, assigneeId, projectId, priority, dueDate, skillTags } = req.body;
+      const { title, description, assigneeId, projectId, priority, dueDate, skillTags, dependsOnTaskId } = req.body;
       if (!title?.trim() || !assigneeId) {
         return res.status(400).json({ message: "Title and assignee are required" });
       }
@@ -2216,6 +2305,15 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid priority" });
       }
 
+      let validatedDependsOn: string | null = null;
+      if (dependsOnTaskId) {
+        const upstream = await storage.getTaskById(dependsOnTaskId);
+        if (!upstream || upstream.companyId !== companyId) {
+          return res.status(400).json({ message: "Invalid dependency task" });
+        }
+        validatedDependsOn = upstream.id;
+      }
+
       const task = await storage.createTask({
         companyId,
         title: title.trim(),
@@ -2229,6 +2327,7 @@ export async function registerRoutes(
         skillTags: Array.isArray(skillTags)
           ? skillTags.map(normalizeSkillTag).filter(Boolean).slice(0, 10)
           : [],
+        dependsOnTaskId: validatedDependsOn,
       } as any);
 
       await storage.createNotification({
@@ -2283,6 +2382,26 @@ export async function registerRoutes(
     }
   });
 
+  // Registered before /api/tasks/:id so "next-best" isn't swallowed as an id param.
+  app.get("/api/tasks/next-best", requireAuth, async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const userId = (req as any).userId;
+      const [myTasks, companyTasks] = await Promise.all([
+        storage.getTasksByAssignee(userId),
+        companyId ? storage.getTasksByCompany(companyId) : Promise.resolve([]),
+      ]);
+      const { recommended, alternates } = computeNextBestAction(myTasks, companyTasks);
+      res.json({
+        recommended: recommended ? { task: recommended.task, reason: recommended.reason, blockingCount: recommended.blockingCount } : null,
+        alternateCount: alternates.length,
+      });
+    } catch (error: any) {
+      console.error("Failed to compute next best action:", error);
+      res.status(500).json({ message: "Failed to compute next best action" });
+    }
+  });
+
   app.get("/api/tasks/:id", requireAuth, async (req, res) => {
     try {
       const task = await storage.getTaskById(req.params.id as string);
@@ -2307,7 +2426,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Task not found" });
       }
 
-      const { title, description, assigneeId, projectId, priority, dueDate, skillTags } = req.body;
+      const { title, description, assigneeId, projectId, priority, dueDate, skillTags, dependsOnTaskId } = req.body;
 
       if (assigneeId) {
         const assignee = await storage.getUser(assigneeId);
@@ -2325,6 +2444,24 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid priority" });
       }
 
+      let dependsOnUpdate: { dependsOnTaskId?: string | null } = {};
+      if (dependsOnTaskId !== undefined) {
+        if (dependsOnTaskId === null || dependsOnTaskId === "") {
+          dependsOnUpdate = { dependsOnTaskId: null };
+        } else if (dependsOnTaskId === task.id) {
+          return res.status(400).json({ message: "A task cannot depend on itself" });
+        } else {
+          const upstream = await storage.getTaskById(dependsOnTaskId);
+          if (!upstream || upstream.companyId !== task.companyId) {
+            return res.status(400).json({ message: "Invalid dependency task" });
+          }
+          if (upstream.dependsOnTaskId === task.id) {
+            return res.status(400).json({ message: "That would create a circular dependency" });
+          }
+          dependsOnUpdate = { dependsOnTaskId: upstream.id };
+        }
+      }
+
       const updated = await storage.updateTaskDetails(task.id, {
         ...(title !== undefined ? { title: title.trim() } : {}),
         ...(description !== undefined ? { description: description?.trim() || null } : {}),
@@ -2333,6 +2470,7 @@ export async function registerRoutes(
         ...(priority !== undefined ? { priority } : {}),
         ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
         ...(Array.isArray(skillTags) ? { skillTags: skillTags.map(normalizeSkillTag).filter(Boolean).slice(0, 10) } : {}),
+        ...dependsOnUpdate,
       });
 
       if (assigneeId && assigneeId !== task.assigneeId) {
@@ -2525,6 +2663,66 @@ export async function registerRoutes(
     }
   });
 
+  // Manager Signals: computed live from real task/project data every
+  // request (see server/services/signals.ts for why nothing is stored).
+  // Dismiss/snooze use the same mechanism with different cooldown lengths
+  // — a "dismiss" is just a 3-day snooze, so a genuinely unresolved
+  // problem naturally resurfaces instead of being silenced forever.
+  app.get("/api/signals", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.json([]);
+      const [interns, tasks, projects, dismissals] = await Promise.all([
+        storage.getInternsByCompany(companyId),
+        storage.getTasksByCompany(companyId),
+        storage.getProjectsByCompany(companyId),
+        storage.getSignalDismissalsByCompany(companyId),
+      ]);
+      const now = Date.now();
+      const suppressed = new Set(
+        dismissals
+          .filter((d) => !d.snoozedUntil || new Date(d.snoozedUntil).getTime() > now)
+          .map((d) => d.signalKey)
+      );
+      const signals = computeSignals(interns, tasks, projects).filter((s) => !suppressed.has(s.key));
+      res.json(signals);
+    } catch (error: any) {
+      console.error("Failed to compute signals:", error);
+      res.status(500).json({ message: "Failed to compute signals" });
+    }
+  });
+
+  app.post("/api/signals/dismiss", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const userId = (req as any).userId;
+      const { key } = req.body;
+      if (!key || typeof key !== "string") return res.status(400).json({ message: "key is required" });
+      const snoozedUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      await storage.upsertSignalDismissal(companyId, key, userId, snoozedUntil);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Failed to dismiss signal:", error);
+      res.status(500).json({ message: "Failed to dismiss signal" });
+    }
+  });
+
+  app.post("/api/signals/snooze", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const userId = (req as any).userId;
+      const { key, days } = req.body;
+      if (!key || typeof key !== "string") return res.status(400).json({ message: "key is required" });
+      const numDays = Number.isFinite(days) && days > 0 && days <= 30 ? days : 7;
+      const snoozedUntil = new Date(Date.now() + numDays * 24 * 60 * 60 * 1000);
+      await storage.upsertSignalDismissal(companyId, key, userId, snoozedUntil);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Failed to snooze signal:", error);
+      res.status(500).json({ message: "Failed to snooze signal" });
+    }
+  });
+
   app.post("/api/ai/org-assistant", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const companyId = (req as any).companyId;
@@ -2570,9 +2768,58 @@ export async function registerRoutes(
       };
 
       const { reply, aiGenerated } = await orgAssistantChat(digest, messages);
-      res.json({ reply, aiGenerated });
+      const related = {
+        blockedTaskIds: allTasks.filter((t) => t.status === "blocked").map((t) => t.id),
+        overdueTaskIds: allTasks.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now).map((t) => t.id),
+        inReviewTaskIds: allTasks.filter((t) => t.status === "in_review").map((t) => t.id),
+      };
+      res.json({ reply, aiGenerated, related });
     } catch (error: any) {
       console.error("Assistant request failed:", error);
+      res.status(500).json({ message: "Assistant request failed" });
+    }
+  });
+
+  // Intern-scoped "Ask InternOps". Authorization is enforced structurally,
+  // not just by requireRole: the digest below is built exclusively from
+  // this caller's own tasks/projects, so there is never any other
+  // intern's or manager-only data in the AI's context to begin with.
+  app.post("/api/ai/intern-assistant", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const { messages } = req.body;
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ message: "messages is required" });
+      }
+
+      const user = await storage.getUser(userId);
+      const myTasks = await storage.getTasksByAssignee(userId);
+      const myProjects = await storage.getProjectsByIntern(userId);
+
+      const digest: InternDigest = {
+        internName: user?.name || "there",
+        tasks: myTasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString() : null,
+          blockedReason: t.blockedReason,
+        })),
+        projectTitles: myProjects.map((p) => p.title),
+      };
+
+      const { reply, aiGenerated } = await internAssistantChat(digest, messages);
+      res.json({
+        reply,
+        aiGenerated,
+        related: {
+          blockedTaskIds: myTasks.filter((t) => t.status === "blocked").map((t) => t.id),
+          overdueTaskIds: myTasks.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < Date.now()).map((t) => t.id),
+        },
+      });
+    } catch (error: any) {
+      console.error("Intern assistant request failed:", error);
       res.status(500).json({ message: "Assistant request failed" });
     }
   });
