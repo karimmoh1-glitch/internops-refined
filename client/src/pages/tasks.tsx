@@ -136,6 +136,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
 
   const { data: taskList = [], isLoading: tasksLoading, isError: tasksError } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
+    refetchInterval: 15000,
   });
   const { data: interns = [] } = useQuery<TaskUser[]>({ queryKey: ["/api/interns"] });
   const { data: projects = [] } = useQuery<Project[]>({ queryKey: ["/api/projects"] });
@@ -471,6 +472,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
         onOpenChange={setCreateOpen}
         interns={interns}
         projects={projects}
+        existingTasks={taskList}
         onCreate={(data) => createMutation.mutate(data)}
         isPending={createMutation.isPending}
       />
@@ -584,12 +586,13 @@ function BulkActionBar({
 }
 
 function CreateTaskDialog({
-  open, onOpenChange, interns, projects, onCreate, isPending,
+  open, onOpenChange, interns, projects, existingTasks, onCreate, isPending,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   interns: TaskUser[];
   projects: Project[];
+  existingTasks: Task[];
   onCreate: (data: any) => void;
   isPending: boolean;
 }) {
@@ -600,9 +603,10 @@ function CreateTaskDialog({
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
   const [skillTags, setSkillTags] = useState<string[]>([]);
+  const [dependsOnTaskId, setDependsOnTaskId] = useState("");
 
   const reset = () => {
-    setTitle(""); setDescription(""); setAssigneeId(""); setProjectId(""); setPriority("medium"); setDueDate(""); setSkillTags([]);
+    setTitle(""); setDescription(""); setAssigneeId(""); setProjectId(""); setPriority("medium"); setDueDate(""); setSkillTags([]); setDependsOnTaskId("");
   };
 
   const handleSubmit = () => {
@@ -615,6 +619,7 @@ function CreateTaskDialog({
       priority,
       dueDate: dueDate || undefined,
       skillTags,
+      dependsOnTaskId: dependsOnTaskId || undefined,
     });
     reset();
   };
@@ -675,6 +680,17 @@ function CreateTaskDialog({
           <div>
             <Label className="mb-1.5 block">Skills (optional)</Label>
             <TagInput value={skillTags} onChange={setSkillTags} />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Depends on (optional)</Label>
+            <Select value={dependsOnTaskId || "none"} onValueChange={(v) => setDependsOnTaskId(v === "none" ? "" : v)}>
+              <SelectTrigger data-testid="select-task-depends-on"><SelectValue placeholder="No dependency" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No dependency</SelectItem>
+                {existingTasks.filter((t) => t.status !== "completed").map((t) => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-white/40 mt-1">This task will be flagged as blocked if the dependency isn't finished when it's due.</p>
           </div>
         </div>
         <DialogFooter>
@@ -834,6 +850,7 @@ function InternTasksView({ user }: TasksPageProps) {
 
   const { data: taskList = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: ["/api/tasks/mine"],
+    refetchInterval: 15000,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/tasks/mine"] });

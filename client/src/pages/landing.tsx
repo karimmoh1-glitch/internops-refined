@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import LogoMark from "@/components/logo-mark";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
+import { useParallax } from "@/hooks/use-parallax";
 
 const STEPS = [
   {
@@ -24,6 +25,9 @@ const STEPS = [
 
 export default function Landing() {
   useScrollReveal();
+  const heroGlowRef = useParallax<HTMLDivElement>(0.25);
+  const heroGridRef = useParallax<HTMLDivElement>(0.1);
+  const ctaGlowRef = useParallax<HTMLDivElement>(0.2);
 
   return (
     <div className="min-h-screen bg-[#0B0A09] flex flex-col">
@@ -51,8 +55,11 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(109,94,245,0.16),transparent)]" />
+        <div ref={heroGlowRef} className="absolute inset-0">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(109,94,245,0.16),transparent)] animate-aurora" />
+        </div>
         <div
+          ref={heroGridRef}
           className="absolute inset-0 opacity-[0.5]"
           style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)", backgroundSize: "22px 22px" }}
         />
@@ -65,7 +72,7 @@ export default function Landing() {
               <h1
                 className="font-serif font-medium text-white text-5xl md:text-6xl leading-[1.08] mb-6"
                 data-testid="text-hero-title"
-                data-reveal
+                data-reveal-lg
                 style={{ transitionDelay: "60ms" }}
               >
                 Give your interns
@@ -95,16 +102,16 @@ export default function Landing() {
               </div>
             </div>
 
-            <div className="relative" data-reveal style={{ transitionDelay: "100ms" }}>
-              <div className="relative rounded-[28px] overflow-hidden shadow-2xl shadow-black/40 ring-1 ring-white/10 aspect-[4/5]">
+            <div className="relative group" data-reveal-lg style={{ transitionDelay: "100ms" }}>
+              <div className="relative rounded-[28px] overflow-hidden shadow-2xl shadow-black/40 ring-1 ring-white/10 aspect-[4/5] transition-transform duration-500 ease-out group-hover:-translate-y-1.5 group-hover:scale-[1.015]">
                 <img
                   src="https://images.unsplash.com/photo-1757744705465-ea08b0ddc38a?auto=format&fit=crop&w=1600&q=90"
                   alt="Soliman K., a software intern, smiling"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   data-testid="img-hero-intern"
                 />
               </div>
-              <div className="absolute -bottom-5 -left-5 bg-[#171412] rounded-2xl border border-white/10 shadow-xl px-4 py-3 flex items-center gap-3">
+              <div className="absolute -bottom-5 -left-5 bg-[#171412] rounded-2xl border border-white/10 shadow-xl px-4 py-3 flex items-center gap-3 transition-transform duration-500 ease-out group-hover:-translate-y-1.5">
                 <div className="w-9 h-9 rounded-full bg-[#6D5EF5]/20 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-4 h-4 text-[#8B7FF7]" />
                 </div>
@@ -140,8 +147,10 @@ export default function Landing() {
 
       {/* Closing CTA */}
       <section className="relative bg-[#0B0A09] border-t border-white/[0.08] overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_100%,rgba(109,94,245,0.14),transparent)]" />
-        <div className="relative max-w-4xl mx-auto px-6 py-24 text-center" data-reveal>
+        <div ref={ctaGlowRef} className="absolute inset-0">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_100%,rgba(109,94,245,0.14),transparent)] animate-aurora" />
+        </div>
+        <div className="relative max-w-4xl mx-auto px-6 py-24 text-center" data-reveal-lg>
           <h2 className="font-serif font-medium text-4xl md:text-5xl text-white mb-6 leading-tight">
             Your next great hire might already be your intern.
           </h2>

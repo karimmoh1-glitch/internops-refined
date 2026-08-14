@@ -591,7 +591,7 @@ function InternProjectDetail({ project }: { project: any }) {
 // exist on each task (createdAt/submittedAt/completedAt/updatedAt) — nothing
 // here is synthesized or fabricated.
 function TaskOverviewSection({ interns }: { interns: any[] }) {
-  const { data: tasks = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const { data: tasks = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"], refetchInterval: 15000 });
 
   if (isLoading) return null;
 
@@ -706,7 +706,7 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
 // Reads the same cached /api/tasks query TaskOverviewSection already
 // fetches (react-query dedupes by key), so this costs no extra request.
 function TaskCompletionBadge({ internId }: { internId: string }) {
-  const { data: tasks = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const { data: tasks = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"], refetchInterval: 15000 });
   const mine = tasks.filter((t: any) => t.assigneeId === internId);
   if (mine.length === 0) return null;
   const completed = mine.filter((t: any) => t.status === "completed").length;
@@ -793,43 +793,115 @@ const SUGGESTED_PROMPTS = [
   "Who's falling behind?",
 ];
 
-interface RiskFlag {
-  internId: string;
-  internName: string;
-  reason: string;
-  severity: "high" | "medium";
+interface SignalAction {
+  label: string;
+  kind: "view_task" | "view_project" | "message" | "review";
+  taskId?: string;
+  projectId?: string;
+  userId?: string;
 }
 
-function RiskRadarPanel() {
-  const [, setLocation] = useLocation();
-  const { data: flags = [], isLoading } = useQuery<RiskFlag[]>({ queryKey: ["/api/risk-radar"] });
+interface Signal {
+  key: string;
+  type: "deadline_risk" | "possible_blocker" | "pending_review" | "workflow_stalled" | "project_at_risk";
+  severity: "high" | "medium";
+  headline: string;
+  description: string;
+  internId?: string;
+  taskId?: string;
+  projectId?: string;
+  actions: SignalAction[];
+}
 
-  if (isLoading || flags.length === 0) return null;
+// Manager Signals: "what actually needs my attention right now?" — every
+// row is a real, explainable workflow condition (see server/services/
+// signals.ts), never a productivity score. Dismiss/snooze use the same
+// backend mechanism with different cooldowns, so an unresolved problem
+// naturally resurfaces instead of being silenced forever.
+function SignalsPanel() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: signals = [], isLoading } = useQuery<Signal[]>({ queryKey: ["/api/signals"], refetchInterval: 20000 });
+
+  const dismissMutation = useMutation({
+    mutationFn: async (key: string) => {
+      await apiRequest("POST", "/api/signals/dismiss", { key });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/signals"] }),
+    onError: (err: any) => toast({ title: "Couldn't dismiss signal", description: err.message, variant: "destructive" }),
+  });
+
+  const snoozeMutation = useMutation({
+    mutationFn: async (key: string) => {
+      await apiRequest("POST", "/api/signals/snooze", { key, days: 7 });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/signals"] }),
+    onError: (err: any) => toast({ title: "Couldn't snooze signal", description: err.message, variant: "destructive" }),
+  });
+
+  const runAction = (action: SignalAction) => {
+    if (action.kind === "view_task" && action.taskId) setLocation(`/?view=tasks&taskId=${action.taskId}`);
+    else if (action.kind === "review" && action.taskId) setLocation(`/?view=tasks&taskId=${action.taskId}`);
+    else if (action.kind === "view_project" && action.projectId) setLocation(`/?projectId=${action.projectId}`);
+    else if (action.kind === "message" && action.userId) setLocation(`/chat?userId=${action.userId}`);
+  };
+
+  if (isLoading || signals.length === 0) return null;
+
+  const severityColor = (s: Signal["severity"]) => (s === "high" ? "text-red-400 bg-red-500/10" : "text-amber-400 bg-amber-500/10");
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="section-risk-radar">
+    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="section-signals">
       <div className="flex items-center gap-2.5 mb-3">
         <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
         </div>
         <div>
-          <h3 className="font-heading font-semibold text-white leading-tight">Risk Radar</h3>
-          <p className="text-[11px] text-white/40 leading-tight">Interns who may need a check-in</p>
+          <h3 className="font-heading font-semibold text-white leading-tight">Manager Signals</h3>
+          <p className="text-[11px] text-white/40 leading-tight">What actually needs your attention right now</p>
         </div>
       </div>
-      <div className="space-y-1.5">
-        {flags.map((flag) => (
-          <button
-            key={flag.internId}
-            onClick={() => setLocation(`/interns/${flag.internId}`)}
-            className="w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors"
-            data-testid={`row-risk-flag-${flag.internId}`}
-          >
-            <span className="text-sm text-white font-medium shrink-0">{flag.internName}</span>
-            <span className={`text-xs text-right truncate ${flag.severity === "high" ? "text-red-400" : "text-amber-400"}`}>
-              {flag.reason}
-            </span>
-          </button>
+      <div className="space-y-2">
+        {signals.map((signal) => (
+          <div key={signal.key} className="px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06]" data-testid={`row-signal-${signal.key}`}>
+            <div className="flex items-start justify-between gap-2">
+              <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${severityColor(signal.severity)}`}>
+                {signal.headline}
+              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => snoozeMutation.mutate(signal.key)}
+                  className="text-[10px] text-white/40 hover:text-white/70 px-1.5 py-0.5 transition-colors"
+                  data-testid={`button-snooze-${signal.key}`}
+                >
+                  Snooze
+                </button>
+                <button
+                  onClick={() => dismissMutation.mutate(signal.key)}
+                  className="text-[10px] text-white/40 hover:text-white/70 px-1.5 py-0.5 transition-colors"
+                  data-testid={`button-dismiss-${signal.key}`}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-white/80 mt-1.5">{signal.description}</p>
+            {signal.actions.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {signal.actions.map((action, i) => (
+                  <button
+                    key={i}
+                    onClick={() => runAction(action)}
+                    className="text-xs px-2.5 py-1 rounded-full border border-white/[0.1] text-white/60 hover:bg-white/[0.06] transition-colors"
+                    data-testid={`button-signal-action-${signal.key}-${i}`}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>
@@ -955,10 +1027,10 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
   const internOverviewRef = useRef<HTMLDivElement>(null);
 
-  const { data: dashboard, isLoading } = useQuery<any>({ queryKey: ["/api/dashboard"] });
+  const { data: dashboard, isLoading } = useQuery<any>({ queryKey: ["/api/dashboard"], refetchInterval: 20000 });
   const { data: interns = [] } = useQuery<any[]>({ queryKey: ["/api/interns"] });
   const { data: analytics } = useQuery<any>({ queryKey: ["/api/analytics/admin"] });
-  const { data: taskListForSearch = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
+  const { data: taskListForSearch = [] } = useQuery<any[]>({ queryKey: ["/api/tasks"], refetchInterval: 15000 });
   const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
@@ -1236,7 +1308,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
         <TaskOverviewSection interns={allDashboardInterns} />
 
-        <RiskRadarPanel />
+        <SignalsPanel />
 
         <OrgAssistantPanel />
 

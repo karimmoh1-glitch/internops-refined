@@ -591,3 +591,96 @@ Keep your response concise and actionable. Use bullet points.`;
     return "Unable to generate guidance right now. Please review the manager's comments and make the requested changes to your plan.";
   }
 }
+
+// "Ask InternOps" — intern-scoped assistant. This is deliberately a
+// separate digest type from OrgDigest, not a filtered view of it: the
+// route that calls this only ever fetches this one intern's own tasks and
+// projects from storage in the first place, so there is no org-wide data
+// in scope to leak even if the model were adversarially prompted. The
+// system prompt below is a second layer, not the only one.
+export interface InternDigestTask {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+  blockedReason: string | null;
+}
+
+export interface InternDigest {
+  internName: string;
+  tasks: InternDigestTask[];
+  projectTitles: string[];
+}
+
+function buildInternDigestBlock(digest: InternDigest): string {
+  const lines: string[] = [];
+  lines.push(`Intern: ${digest.internName}`);
+  if (digest.projectTitles.length > 0) {
+    lines.push(`Projects: ${digest.projectTitles.join(", ")}`);
+  }
+  lines.push("");
+  lines.push("Your tasks:");
+  if (digest.tasks.length === 0) {
+    lines.push("  (no tasks assigned yet)");
+  } else {
+    digest.tasks.forEach((t) => {
+      const parts = [t.status, `priority: ${t.priority}`];
+      if (t.dueDate) parts.push(`due ${t.dueDate}`);
+      if (t.blockedReason) parts.push(`blocked: ${t.blockedReason}`);
+      lines.push(`  - "${t.title}" (${parts.join(", ")})`);
+    });
+  }
+  return lines.join("\n");
+}
+
+function fallbackInternSummary(digest: InternDigest): string {
+  if (digest.tasks.length === 0) {
+    return `You don't have any tasks assigned yet, ${digest.internName}. Once you do, I can help you keep track of deadlines and what's next.`;
+  }
+  const overdue = digest.tasks.filter((t) => t.status !== "completed" && t.dueDate && new Date(t.dueDate).getTime() < Date.now());
+  const blocked = digest.tasks.filter((t) => t.status === "blocked");
+  const inReview = digest.tasks.filter((t) => t.status === "in_review");
+  const open = digest.tasks.filter((t) => t.status === "todo" || t.status === "in_progress");
+  const parts: string[] = [`You have ${digest.tasks.length} task${digest.tasks.length === 1 ? "" : "s"}, ${open.length} still open.`];
+  if (overdue.length > 0) parts.push(`**Overdue (${overdue.length}):** ` + overdue.map((t) => `"${t.title}"`).join(", "));
+  if (blocked.length > 0) parts.push(`**Blocked (${blocked.length}):** ` + blocked.map((t) => `"${t.title}"`).join(", "));
+  if (inReview.length > 0) parts.push(`**Awaiting review (${inReview.length}):** ` + inReview.map((t) => `"${t.title}"`).join(", "));
+  parts.push(`_This is a data summary, not an AI-generated answer — set OPENAI_API_KEY to enable conversational Q&A._`);
+  return parts.join("\n\n");
+}
+
+export async function internAssistantChat(
+  digest: InternDigest,
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<{ reply: string; aiGenerated: boolean }> {
+  if (!hasOpenAiKey()) {
+    return { reply: fallbackInternSummary(digest), aiGenerated: false };
+  }
+
+  const contextBlock = buildInternDigestBlock(digest);
+  const systemMessage = `You are "Ask InternOps", an AI assistant for an intern on InternOps. You help them understand their own work — what's due, what's blocked, what to focus on.
+
+Real, current data for ${digest.internName} (this intern only — you have no visibility into any other intern, manager-only data, or organization-wide information):
+${contextBlock}
+
+RULES:
+- Only reference the data provided above. Never invent tasks, deadlines, or numbers not in the data.
+- You have no information about other interns, managers, or the organization as a whole — if asked, say you don't have access to that, don't guess.
+- If asked something not covered by the data, say: "I don't have enough information to answer that."
+- Be concise and direct.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "system", content: systemMessage }, ...messages],
+      max_completion_tokens: 1024,
+    });
+    const reply = response.choices[0]?.message?.content;
+    if (!reply) throw new Error("No response from AI");
+    return { reply, aiGenerated: true };
+  } catch (error: any) {
+    console.error("Intern assistant AI call failed:", error.message);
+    return { reply: fallbackInternSummary(digest), aiGenerated: false };
+  }
+}
