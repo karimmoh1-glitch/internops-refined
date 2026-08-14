@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
-import { Laptop, Smartphone, Pencil, Check, X, ShieldAlert, History, User as UserIcon, Globe, Copy, Award, MessageCircle } from "lucide-react";
+import {
+  Laptop, Smartphone, Pencil, Check, X, ShieldAlert, History, User as UserIcon, Globe, Copy, Award, MessageCircle,
+  UserPlus, UserMinus, UserCheck, ShieldPlus, KeyRound, FileText, CheckCircle2, XCircle, HelpCircle, ListTodo, GraduationCap,
+} from "lucide-react";
 
 interface SettingsProps {
   user: { id: string; name: string; email: string; role: string; companyId: string | null };
@@ -91,7 +94,7 @@ function DeviceRow({ device }: { device: Device }) {
             <button onClick={() => renameMutation.mutate()} disabled={!name.trim() || renameMutation.isPending} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded" data-testid={`button-save-rename-${device.id}`}>
               <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => { setEditing(false); setName(device.name || ""); }} className="p-1 text-white/40 hover:bg-[#141110]/10 rounded">
+            <button onClick={() => { setEditing(false); setName(device.name || ""); }} className="p-1 text-white/40 hover:bg-card/10 rounded">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -171,6 +174,31 @@ function DevicesTab() {
   );
 }
 
+const AUDIT_ACTION_META: Record<string, { label: string; icon: typeof History; color: string }> = {
+  "admin.bootstrapped": { label: "Became the first admin", icon: ShieldPlus, color: "text-[#6D5EF5]" },
+  "admin.demoted_to_intern": { label: "Demoted to intern", icon: UserMinus, color: "text-amber-400" },
+  "application.approved": { label: "Approved an application", icon: CheckCircle2, color: "text-emerald-400" },
+  "application.info_requested": { label: "Requested more info on an application", icon: HelpCircle, color: "text-blue-400" },
+  "application.rejected": { label: "Rejected an application", icon: XCircle, color: "text-red-400" },
+  "created_new_version": { label: "Created a new plan version", icon: FileText, color: "text-indigo-400" },
+  "device.revoked": { label: "Revoked a device", icon: ShieldAlert, color: "text-red-400" },
+  "intern.alumni_reactivated": { label: "Reactivated an alumni account", icon: UserCheck, color: "text-emerald-400" },
+  "intern.alumni_transition": { label: "Moved an intern to alumni", icon: GraduationCap, color: "text-white/60" },
+  "intern.completion_badge_awarded": { label: "Awarded a completion badge", icon: Award, color: "text-emerald-400" },
+  "intern.completion_badge_revoked": { label: "Revoked a completion badge", icon: XCircle, color: "text-amber-400" },
+  "intern.created": { label: "Added an intern", icon: UserPlus, color: "text-emerald-400" },
+  "intern.deactivated": { label: "Deactivated an intern", icon: UserMinus, color: "text-amber-400" },
+  "intern.deleted_permanently": { label: "Permanently deleted an intern", icon: UserMinus, color: "text-red-400" },
+  "intern.promoted_to_admin": { label: "Promoted an intern to admin", icon: ShieldPlus, color: "text-[#6D5EF5]" },
+  "intern.reactivated": { label: "Reactivated an intern", icon: UserCheck, color: "text-emerald-400" },
+  "performance_narrative.generated": { label: "Generated a performance narrative", icon: FileText, color: "text-indigo-400" },
+  "plan_deleted": { label: "Deleted a plan", icon: XCircle, color: "text-red-400" },
+  "plan_generated": { label: "Generated a plan", icon: FileText, color: "text-indigo-400" },
+  "task.created": { label: "Created a task", icon: ListTodo, color: "text-blue-400" },
+  "updated_draft": { label: "Updated a draft", icon: Pencil, color: "text-white/60" },
+  "user.changed_password": { label: "Changed password", icon: KeyRound, color: "text-white/60" },
+};
+
 function AuditLogTab() {
   const { data: logs = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/audit-logs"] });
 
@@ -188,13 +216,18 @@ function AuditLogTab() {
   }
 
   return (
-    <div className="space-y-2">
-      {logs.map((log: any) => (
-        <div key={log.id} className="flex items-center justify-between p-3 border border-white/[0.06] rounded-lg text-sm" data-testid={`audit-log-${log.id}`}>
-          <span className="text-white/90 font-mono text-xs">{log.action}</span>
-          <span className="text-white/40 text-xs">{formatDate(log.createdAt)}</span>
-        </div>
-      ))}
+    <div className="bg-card rounded-xl border border-white/[0.08] divide-y divide-white/[0.06]">
+      {logs.map((log: any) => {
+        const meta = AUDIT_ACTION_META[log.action] || { label: log.action, icon: History, color: "text-white/60" };
+        const Icon = meta.icon;
+        return (
+          <div key={log.id} className="p-4 flex items-center gap-3" data-testid={`audit-log-${log.id}`}>
+            <Icon className={`w-4 h-4 shrink-0 ${meta.color}`} />
+            <span className="text-sm text-white/90 flex-1 min-w-0">{meta.label}</span>
+            <span className="text-xs text-white/40 shrink-0">{formatDate(log.createdAt)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -236,7 +269,7 @@ function ChangePasswordCard() {
   };
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-white">Change Password</h3>
         <p className="text-xs text-white/50 mt-0.5">Update the password you use to log in.</p>
@@ -295,7 +328,7 @@ function MorningDigestCard() {
   });
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <MessageCircle className="w-5 h-5 text-white/50 mt-0.5" />
@@ -339,7 +372,7 @@ function PublicProfileCard() {
   const shareUrl = me?.publicProfileSlug ? `${window.location.origin}/i/${me.publicProfileSlug}` : null;
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <Globe className="w-5 h-5 text-white/50 mt-0.5" />
@@ -366,7 +399,7 @@ function PublicProfileCard() {
       )}
 
       {shareUrl && me?.publicProfileEnabled && (
-        <div className="flex items-center gap-2 bg-[#0B0A09] border border-white/[0.08] rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 bg-background border border-white/[0.08] rounded-lg px-3 py-2">
           <span className="text-sm text-white/70 flex-1 truncate" data-testid="text-public-profile-url">{shareUrl}</span>
           <Button
             size="sm"
@@ -387,7 +420,7 @@ function PublicProfileCard() {
 
 export default function Settings({ user }: SettingsProps) {
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-white" data-testid="text-settings-title">Settings</h1>
@@ -404,7 +437,7 @@ export default function Settings({ user }: SettingsProps) {
           </TabsList>
 
           <TabsContent value="profile" className="mt-4">
-            <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
+            <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 space-y-4">
               <div>
                 <label className="text-xs font-medium text-white/50 uppercase tracking-wide">Name</label>
                 <p className="text-sm text-white mt-1" data-testid="text-profile-name">{user.name}</p>
@@ -435,14 +468,14 @@ export default function Settings({ user }: SettingsProps) {
           </TabsContent>
 
           <TabsContent value="devices" className="mt-4">
-            <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6">
+            <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6">
               <DevicesTab />
             </div>
           </TabsContent>
 
           {user.role === "admin" && (
             <TabsContent value="activity" className="mt-4">
-              <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6">
+              <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6">
                 <AuditLogTab />
               </div>
             </TabsContent>

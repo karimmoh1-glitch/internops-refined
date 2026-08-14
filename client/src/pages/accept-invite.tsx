@@ -88,7 +88,7 @@ export default function AcceptInvite({ token, onAccept }: AcceptInviteProps) {
 
   if (validating) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#6D5EF5]" />
       </div>
     );
@@ -96,7 +96,7 @@ export default function AcceptInvite({ token, onAccept }: AcceptInviteProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
           <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2" data-testid="text-invite-error">Invalid Invitation</h1>
@@ -117,8 +117,8 @@ export default function AcceptInvite({ token, onAccept }: AcceptInviteProps) {
   const inputClass = "bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500/50 focus-visible:border-emerald-500/50";
 
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col">
-      <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+    <div className="min-h-screen bg-background flex flex-col">
+      <nav className="bg-background/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline" data-testid="link-home">
             <LogoMark size={32} />

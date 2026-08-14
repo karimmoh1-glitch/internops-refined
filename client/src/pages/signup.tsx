@@ -32,7 +32,7 @@ export default function Signup({ onSignup }: SignupProps) {
     try {
       const result = await onSignup(name.trim(), email.trim(), password);
       if (result?.bootstrapped) {
-        toast({ title: "Welcome to EDAI", description: "You're the first account, so you're set up as the admin." });
+        toast({ title: "Welcome to InternOps", description: "You're the first account, so you're set up as the admin." });
         setLocation("/");
       } else {
         setSubmitted(true);
@@ -48,8 +48,8 @@ export default function Signup({ onSignup }: SignupProps) {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex flex-col">
-        <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+      <div className="min-h-screen bg-background flex flex-col">
+        <nav className="bg-background/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-6 h-16 flex items-center">
             <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline">
               <LogoMark size={32} />
@@ -69,7 +69,7 @@ export default function Signup({ onSignup }: SignupProps) {
             <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] p-6 text-left space-y-3">
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-zinc-300 text-sm">Request sent to an EDAI admin for review</p>
+                <p className="text-zinc-300 text-sm">Request sent to an InternOps admin for review</p>
               </div>
               <div className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-[#6D5EF5] shrink-0 mt-0.5" />
@@ -88,8 +88,8 @@ export default function Signup({ onSignup }: SignupProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col">
-      <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+    <div className="min-h-screen bg-background flex flex-col">
+      <nav className="bg-background/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline" data-testid="link-home">
             <LogoMark size={32} />
@@ -127,7 +127,7 @@ export default function Signup({ onSignup }: SignupProps) {
               <label className="text-sm font-medium text-zinc-400 mb-1.5 block">Work Email</label>
               <Input
                 type="email"
-                placeholder="you@edai.com"
+                placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}

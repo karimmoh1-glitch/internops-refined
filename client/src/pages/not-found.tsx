@@ -4,7 +4,7 @@ import { ArrowLeft, Compass } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center px-6 text-center">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
       <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-6">
         <Compass className="w-6 h-6 text-[#6D5EF5]" />
       </div>

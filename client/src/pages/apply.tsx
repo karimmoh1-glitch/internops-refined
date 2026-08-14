@@ -102,7 +102,7 @@ export default function Apply({ slug }: ApplyProps) {
 
   if (validating) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#6D5EF5]" />
       </div>
     );
@@ -110,7 +110,7 @@ export default function Apply({ slug }: ApplyProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
           <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2" data-testid="text-apply-error">Applications Closed</h1>
@@ -128,7 +128,7 @@ export default function Apply({ slug }: ApplyProps) {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
           <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
           <h1 className="text-3xl font-bold font-heading text-white mb-3" data-testid="text-application-received">Application Received</h1>
@@ -143,8 +143,8 @@ export default function Apply({ slug }: ApplyProps) {
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col">
-      <nav className="bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+    <div className="min-h-screen bg-background flex flex-col">
+      <nav className="bg-background/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading text-white no-underline" data-testid="link-home">
             <LogoMark size={32} />

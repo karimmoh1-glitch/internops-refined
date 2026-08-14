@@ -5,13 +5,25 @@
 
 @theme inline {
   /* Single global dark theme — this app doesn't ship a light/dark toggle,
-     it just runs dark everywhere, so these tokens are the only palette. */
+     it just runs dark everywhere, so these tokens are the only palette.
+     Four deliberate surface tiers, each with one job — not six near-black
+     hexes that drifted apart because nothing consolidated them:
+       background       page canvas
+       card              standard content surface (cards, panels, dialogs)
+       popover           raised chrome (sidebar, dropdowns, command palette,
+                          tooltips) — one shade lighter than card so floating
+                          UI reads as "above" the page, not just "a card"
+       surface-accent    accent-tinted feature surface, reserved for the
+                          handful of "signature" widgets (Pulse Score, the AI
+                          assistant panels) that should read as a distinct
+                          category of content, not another generic card */
   --color-background: #0B0A09;
   --color-foreground: #FFFFFF;
   --color-card: #141110;
   --color-card-foreground: #FFFFFF;
   --color-popover: #171412;
   --color-popover-foreground: #FFFFFF;
+  --color-surface-accent: #12101C;
   --color-primary: #6D5EF5;
   --color-primary-foreground: #FFFFFF;
   --color-secondary: #1C1917;
@@ -33,52 +45,6 @@
   --font-serif: "Fraunces", ui-serif, Georgia, serif;
 
   --radius: 12px;
-}
-
-:root {
-  --background: 0 0% 100%;
-  --foreground: 260 30% 9%;
-  --card: 0 0% 100%;
-  --card-foreground: 260 30% 9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 260 30% 9%;
-  --primary: 248 89% 68%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 260 24% 9%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 250 30% 97%;
-  --muted-foreground: 250 8% 45%;
-  --accent: 248 89% 68%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 358 74% 61%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 250 30% 92%;
-  --input: 250 30% 92%;
-  --ring: 248 89% 68%;
-  --radius: 12px;
-}
-
-.dark {
-  /* Dark mode mappings for future proofing, though landing might stay light */
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
 }
 
 @layer base {
@@ -103,6 +69,28 @@
    tiles, counters — so digits don't jitter in width as they update. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Authoritative large-metric treatment — the headline number on a stat
+   tile or dashboard card. Heavier and tighter than a generic
+   text-2xl/text-3xl font-bold, so numbers read as the point of the card
+   rather than a bootstrap KPI grid. */
+.text-metric {
+  font-family: var(--font-heading);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* Small caps-tracked label — pairs with .text-metric, or stands alone as
+   a section eyebrow / field label. */
+.text-label {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 @keyframes fade-in-up {
@@ -229,13 +217,13 @@
   width: 4px;
 }
 .slim-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
   border-radius: 4px;
 }
 .slim-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #2A2624;
   border-radius: 4px;
 }
 .slim-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #3d3733;
 }

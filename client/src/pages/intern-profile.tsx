@@ -299,7 +299,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-white/50" onClick={() => setLocation("/")} data-testid="button-back-to-dashboard">
           <ArrowLeft className="w-4 h-4 mr-1" />
@@ -332,7 +332,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
           </div>
         )}
 
-        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
+        <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-[#6D5EF5]/15 rounded-full flex items-center justify-center text-[#6D5EF5] font-semibold text-xl shrink-0">
               {intern.name[0]?.toUpperCase() || "?"}
@@ -344,20 +344,20 @@ export default function InternProfile({ internId }: InternProfileProps) {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-            <div className="bg-[#0B0A09] rounded-lg p-3 border border-white/[0.06]">
+            <div className="bg-background rounded-lg p-3 border border-white/[0.06]">
               <p className="text-xs text-white/50 uppercase tracking-wide">Tasks</p>
               <p className="text-xl font-bold text-white">{stats.completed}/{stats.total}</p>
               <p className="text-xs text-white/40">{stats.completionPct}% complete</p>
             </div>
-            <div className="bg-[#0B0A09] rounded-lg p-3 border border-white/[0.06]">
+            <div className="bg-background rounded-lg p-3 border border-white/[0.06]">
               <p className="text-xs text-white/50 uppercase tracking-wide">In Progress</p>
               <p className="text-xl font-bold text-white">{stats.inProgress}</p>
             </div>
-            <div className={`rounded-lg p-3 border ${stats.blocked > 0 ? "bg-red-500/10 border-red-500/15" : "bg-[#0B0A09] border-white/[0.06]"}`}>
+            <div className={`rounded-lg p-3 border ${stats.blocked > 0 ? "bg-red-500/10 border-red-500/15" : "bg-background border-white/[0.06]"}`}>
               <p className="text-xs text-white/50 uppercase tracking-wide">Blocked</p>
               <p className={`text-xl font-bold ${stats.blocked > 0 ? "text-red-400" : "text-white"}`}>{stats.blocked}</p>
             </div>
-            <div className={`rounded-lg p-3 border ${stats.overdue > 0 ? "bg-amber-500/10 border-amber-500/15" : "bg-[#0B0A09] border-white/[0.06]"}`}>
+            <div className={`rounded-lg p-3 border ${stats.overdue > 0 ? "bg-amber-500/10 border-amber-500/15" : "bg-background border-white/[0.06]"}`}>
               <p className="text-xs text-white/50 uppercase tracking-wide">Overdue</p>
               <p className={`text-xl font-bold ${stats.overdue > 0 ? "text-amber-400" : "text-white"}`}>{stats.overdue}</p>
             </div>
@@ -434,7 +434,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
           )}
         </div>
 
-        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
+        <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
               <Wand2 className="w-5 h-5 text-white/60" />
@@ -459,7 +459,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
         </div>
 
         {skills.length > 0 && (
-          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
+          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-white/60" />
               Skills
@@ -487,12 +487,12 @@ export default function InternProfile({ internId }: InternProfileProps) {
         </h2>
 
         {timeline.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl bg-[#141110]">
+          <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl bg-card">
             <FileText className="w-8 h-8 text-white/30 mx-auto mb-2" />
             <p className="text-white/50 font-medium">No activity yet</p>
           </div>
         ) : (
-          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
+          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
             {timeline.map((event, i) => (
               <div key={i} className="p-4 flex gap-3" data-testid={`timeline-event-${i}`}>
                 <div className="mt-0.5 shrink-0">

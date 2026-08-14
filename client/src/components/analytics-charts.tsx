@@ -31,7 +31,7 @@ interface ChartCardProps {
 
 function ChartCard({ title, description, children }: ChartCardProps) {
   return (
-    <div className="bg-[#141110] border border-white/[0.08] rounded-xl shadow-sm p-4">
+    <div className="bg-card border border-white/[0.08] rounded-xl shadow-sm p-4">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         {description && <p className="text-xs text-white/40 mt-0.5">{description}</p>}

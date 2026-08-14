@@ -63,7 +63,7 @@ export default function SearchFilterBar({
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150 border ${
                 activeFilter === opt.value
                   ? opt.color || "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                  : "bg-[#141110] text-white/50 border-white/[0.08] hover:border-white/20 hover:bg-[#141110]/[0.06]"
+                  : "bg-card text-white/50 border-white/[0.08] hover:border-white/20 hover:bg-white/[0.04]"
               }`}
               data-testid={`filter-${opt.value}`}
             >

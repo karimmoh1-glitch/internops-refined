@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users, UserPlus, Briefcase, AlertCircle, ChevronDown, ChevronRight,
@@ -34,6 +39,7 @@ const STATUS_COLORS: Record<string, string> = {
   submitted: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   approved: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   active: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  completed: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   draft: "bg-white/10 text-white/60 border-white/[0.08]",
 };
 
@@ -92,7 +98,7 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
   });
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid={`plan-review-${project.id}`}>
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm" data-testid={`plan-review-${project.id}`}>
       <div className="p-5 border-b border-white/[0.06]">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold text-white" data-testid={`text-review-title-${project.id}`}>{project.title}</h3>
@@ -116,7 +122,7 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
           const isOpen = expandedWeeks[key];
           return (
             <div key={key} className="border border-white/[0.06] rounded-lg">
-              <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06] transition-colors" onClick={() => onToggleWeek(key)} data-testid={`button-toggle-week-${version.id}-${week.weekNumber}`}>
+              <button className="w-full flex items-center justify-between p-3 text-left hover:bg-white/[0.04] transition-colors" onClick={() => onToggleWeek(key)} data-testid={`button-toggle-week-${version.id}-${week.weekNumber}`}>
                 <span className="text-sm font-medium text-white/90">Week {week.weekNumber}: {week.milestone}</span>
                 {isOpen ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
               </button>
@@ -144,7 +150,7 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
           </h4>
           <div className="space-y-2">
             {comments.map((c: any) => (
-              <div key={c.id} className="bg-[#0B0A09] rounded p-2 text-sm" data-testid={`comment-${c.id}`}>
+              <div key={c.id} className="bg-background rounded p-2 text-sm" data-testid={`comment-${c.id}`}>
                 <p className="text-white/90">{c.content}</p>
                 <p className="text-white/40 text-xs mt-1">{formatLogDate(c.createdAt)}</p>
               </div>
@@ -164,7 +170,7 @@ function PlanReviewCard({ project, version, content, weeks, comment, onCommentCh
             {isRequestingRevision ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Request Revision
           </Button>
-          <Button onClick={onAddComment} variant="outline" className="border-white/[0.15] text-white/60 hover:bg-[#141110]/[0.06] ml-auto" data-testid={`button-add-comment-${project.id}`}>
+          <Button onClick={onAddComment} variant="outline" className="border-white/[0.15] text-white/60 hover:bg-white/[0.04] ml-auto" data-testid={`button-add-comment-${project.id}`}>
             <MessageSquare className="w-4 h-4 mr-2" />
             Add Comment
           </Button>
@@ -273,7 +279,7 @@ function InternProjectDetail({ project }: { project: any }) {
   const toggleWeek = (key: string) => setExpandedWeeks((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid={`project-detail-${project.id}`}>
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm" data-testid={`project-detail-${project.id}`}>
       <div className="p-5 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
@@ -300,7 +306,7 @@ function InternProjectDetail({ project }: { project: any }) {
         </div>
 
         {project.status === "active" && subtaskCompletion.total > 0 && (
-          <div className="mt-3 p-3 bg-[#0B0A09] rounded-lg">
+          <div className="mt-3 p-3 bg-background rounded-lg">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-medium text-white/60 flex items-center gap-1">
                 <BarChart3 className="w-3.5 h-3.5" /> Subtask Progress
@@ -308,7 +314,7 @@ function InternProjectDetail({ project }: { project: any }) {
               <span className="text-xs text-white/50">{subtaskCompletion.completed}/{subtaskCompletion.total} tasks ({subtaskCompletion.pct}%)</span>
             </div>
             <div className="w-full bg-white/15 rounded-full h-2">
-              <div className={`h-2 rounded-full transition-all ${subtaskCompletion.pct >= 100 ? "bg-emerald-500/100" : subtaskCompletion.pct > 50 ? "bg-blue-500/100" : subtaskCompletion.pct > 0 ? "bg-amber-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(subtaskCompletion.pct, 1)}%` }} data-testid={`progress-subtask-${project.id}`} />
+              <div className={`h-2 rounded-full transition-all ${subtaskCompletion.pct >= 100 ? "bg-emerald-500" : subtaskCompletion.pct > 50 ? "bg-blue-500" : subtaskCompletion.pct > 0 ? "bg-amber-500" : "bg-white/15"}`} style={{ width: `${Math.max(subtaskCompletion.pct, 1)}%` }} data-testid={`progress-subtask-${project.id}`} />
             </div>
           </div>
         )}
@@ -330,7 +336,7 @@ function InternProjectDetail({ project }: { project: any }) {
 
             return (
               <div key={key} className={`border rounded-lg transition-all ${isOpen ? "border-indigo-500/20 bg-indigo-500/10" : "border-white/[0.06]"}`}>
-                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-lg" onClick={() => toggleWeek(key)} data-testid={`button-expand-week-${project.id}-${week.weekNumber}`}>
+                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-white/[0.04] transition-colors rounded-lg" onClick={() => toggleWeek(key)} data-testid={`button-expand-week-${project.id}-${week.weekNumber}`}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     {isOpen ? <ChevronDown className="w-4 h-4 text-indigo-500 shrink-0" /> : <ChevronRight className="w-4 h-4 text-white/40 shrink-0" />}
                     <span className="text-sm font-medium text-white/90">W{week.weekNumber}: {week.milestone}</span>
@@ -338,7 +344,7 @@ function InternProjectDetail({ project }: { project: any }) {
                   <div className="flex items-center gap-3 ml-2 shrink-0">
                     <div className="flex items-center gap-1.5">
                       <div className="w-16 bg-white/15 rounded-full h-1.5">
-                        <div className={`h-1.5 rounded-full transition-all ${weekPct >= 100 ? "bg-emerald-500/100" : weekPct > 0 ? "bg-blue-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(weekPct, 3)}%` }} />
+                        <div className={`h-1.5 rounded-full transition-all ${weekPct >= 100 ? "bg-emerald-500" : weekPct > 0 ? "bg-blue-500" : "bg-white/15"}`} style={{ width: `${Math.max(weekPct, 3)}%` }} />
                       </div>
                       <span className="text-[11px] text-white/40 w-8">{weekPct}%</span>
                     </div>
@@ -361,7 +367,7 @@ function InternProjectDetail({ project }: { project: any }) {
 
                         return (
                           <div key={dIdx} className={`border rounded-lg transition-all ${isSubtaskOpen ? "border-indigo-500/20" : "border-white/[0.06]"}`} data-testid={`subtask-${project.id}-${week.weekNumber}-${dIdx}`}>
-                            <button onClick={() => toggleWeek(subtaskKey)} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[#141110]/[0.06] rounded-lg">
+                            <button onClick={() => toggleWeek(subtaskKey)} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-white/[0.04] rounded-lg">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 {hasLogs ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> : <div className="w-4 h-4 rounded-full border-2 border-white/[0.15] shrink-0" />}
                                 <span className="text-sm text-white/70">{deliverable}</span>
@@ -375,7 +381,7 @@ function InternProjectDetail({ project }: { project: any }) {
                                   const commentValue = logCommentInputs[log.id] || "";
                                   return (
                                     <div key={log.id} className="space-y-1">
-                                      <div className="bg-[#0B0A09] rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
+                                      <div className="bg-background rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
                                         <p className="text-white/90 whitespace-pre-wrap" data-testid={`text-log-${log.id}`}>{log.logText}</p>
                                         <p className="text-white/40 text-xs mt-1" data-testid={`text-log-date-${log.id}`}>
                                           {log.dayNumber ? `Day ${log.dayNumber} · ` : ""}{formatLogDate(log.createdAt)}
@@ -425,7 +431,7 @@ function InternProjectDetail({ project }: { project: any }) {
                             const commentValue = logCommentInputs[log.id] || "";
                             return (
                               <div key={log.id} className="space-y-1 mb-1.5">
-                                <div className="bg-[#0B0A09] rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
+                                <div className="bg-background rounded-lg p-3 text-sm" data-testid={`log-entry-${log.id}`}>
                                   <p className="text-white/90 whitespace-pre-wrap">{log.logText}</p>
                                   <p className="text-white/40 text-xs mt-1">{formatLogDate(log.createdAt)}</p>
                                 </div>
@@ -461,7 +467,7 @@ function InternProjectDetail({ project }: { project: any }) {
             const isOpen = expandedWeeks[key];
             return (
               <div key={key} className="border border-white/[0.06] rounded-lg">
-                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-[#141110]/[0.06]" onClick={() => toggleWeek(key)} data-testid={`button-plan-week-${project.id}-${week.weekNumber}`}>
+                <button className="w-full flex items-center justify-between p-3 text-left hover:bg-white/[0.04]" onClick={() => toggleWeek(key)} data-testid={`button-plan-week-${project.id}-${week.weekNumber}`}>
                   <span className="text-sm font-medium text-white/90">Week {week.weekNumber}: {week.milestone}</span>
                   {isOpen ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
                 </button>
@@ -528,60 +534,51 @@ function InternProjectDetail({ project }: { project: any }) {
         companyId={project.companyId}
       />
 
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowEditModal(false); }} data-testid={`modal-edit-project-${project.id}`}>
-          <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-5 border-b border-white/[0.08]">
-              <h3 className="text-lg font-semibold text-white">Edit Project</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-white/40 hover:text-white/70"><X className="w-5 h-5" /></button>
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-md" data-testid={`modal-edit-project-${project.id}`}>
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">Title</label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} data-testid={`input-edit-title-${project.id}`} />
             </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">Title</label>
-                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="border-white/[0.15]" data-testid={`input-edit-title-${project.id}`} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">Idea</label>
-                <Textarea value={editIdea} onChange={(e) => setEditIdea(e.target.value)} className="border-white/[0.15]" rows={3} data-testid={`input-edit-idea-${project.id}`} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">Minimum Total Hours</label>
-                <Input type="number" min="1" value={editMinHours} onChange={(e) => setEditMinHours(e.target.value)} className="border-white/[0.15]" data-testid={`input-edit-hours-${project.id}`} />
-              </div>
-              <GitHubRepoInput value={editGithubUrl} onChange={setEditGithubUrl} />
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1" data-testid={`button-cancel-edit-${project.id}`}>Cancel</Button>
-                <Button onClick={() => editProjectMutation.mutate()} disabled={!editTitle.trim() || !editIdea.trim() || !editMinHours || editProjectMutation.isPending} className="flex-1 bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid={`button-save-edit-${project.id}`}>
-                  {editProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
-                </Button>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">Idea</label>
+              <Textarea value={editIdea} onChange={(e) => setEditIdea(e.target.value)} rows={3} data-testid={`input-edit-idea-${project.id}`} />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">Minimum Total Hours</label>
+              <Input type="number" min="1" value={editMinHours} onChange={(e) => setEditMinHours(e.target.value)} data-testid={`input-edit-hours-${project.id}`} />
+            </div>
+            <GitHubRepoInput value={editGithubUrl} onChange={setEditGithubUrl} />
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1" data-testid={`button-cancel-edit-${project.id}`}>Cancel</Button>
+            <Button onClick={() => editProjectMutation.mutate()} disabled={!editTitle.trim() || !editIdea.trim() || !editMinHours || editProjectMutation.isPending} className="flex-1 bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid={`button-save-edit-${project.id}`}>
+              {editProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteConfirm(false); }} data-testid={`modal-delete-project-${project.id}`}>
-          <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-sm mx-4">
-            <div className="p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center"><Trash2 className="w-5 h-5 text-red-400" /></div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Delete Project</h3>
-                  <p className="text-sm text-white/50">This action cannot be undone</p>
-                </div>
-              </div>
-              <p className="text-sm text-white/60 mb-4">Are you sure you want to delete <span className="font-semibold">"{project.title}"</span>? All plans, logs, and comments will be permanently removed.</p>
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="flex-1" data-testid={`button-cancel-delete-${project.id}`}>Cancel</Button>
-                <Button onClick={() => deleteProjectMutation.mutate()} disabled={deleteProjectMutation.isPending} className="flex-1 bg-red-600 hover:bg-red-700 text-white" data-testid={`button-confirm-delete-${project.id}`}>
-                  {deleteProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent data-testid={`modal-delete-project-${project.id}`}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-semibold text-white/80">"{project.title}"</span>? All plans, logs, and comments will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid={`button-cancel-delete-${project.id}`}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteProjectMutation.mutate()} disabled={deleteProjectMutation.isPending} className="bg-red-600 hover:bg-red-600/90 text-white" data-testid={`button-confirm-delete-${project.id}`}>
+              {deleteProjectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -601,11 +598,7 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
 
-  const blocked = tasks.filter((t: any) => t.status === "blocked");
-  const inReview = tasks.filter((t: any) => t.status === "in_review");
-  const overdue = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now);
   const dueToday = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && new Date(t.dueDate) >= startOfToday && new Date(t.dueDate) <= endOfToday);
-  const attentionCount = blocked.length + inReview.length + overdue.length;
 
   type ActivityItem = { taskId: string; title: string; intern: string; event: string; ts: string };
   const activity: ActivityItem[] = [];
@@ -620,7 +613,7 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
 
   if (tasks.length === 0) {
     return (
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 text-center" data-testid="section-task-overview-empty">
+      <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 text-center" data-testid="section-task-overview-empty">
         <ListTodo className="w-8 h-8 text-white/30 mx-auto mb-2" />
         <p className="text-white/50 font-medium">No tasks yet</p>
         <p className="text-sm text-white/40 mt-1">
@@ -631,49 +624,15 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="section-task-overview">
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-white flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-400" />Attention Required</h3>
-          {attentionCount > 0 && <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20">{attentionCount}</Badge>}
-        </div>
-        {attentionCount === 0 ? (
-          <p className="text-sm text-white/40">Nothing needs your attention right now.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {inReview.slice(0, 4).map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-review-${t.id}`}>
-                <span className="text-amber-400 font-medium">Review: </span>
-                <span className="text-white/70">{t.title}</span>
-                <span className="text-white/40"> — {internName(t.assigneeId)}</span>
-              </Link>
-            ))}
-            {blocked.slice(0, 4).map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-blocked-${t.id}`}>
-                <span className="text-red-400 font-medium">Blocked: </span>
-                <span className="text-white/70">{t.title}</span>
-                <span className="text-white/40"> — {internName(t.assigneeId)}</span>
-              </Link>
-            ))}
-            {overdue.slice(0, 4).map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-overdue-${t.id}`}>
-                <span className="text-white font-medium">Overdue: </span>
-                <span className="text-white/70">{t.title}</span>
-                <span className="text-white/40"> — {internName(t.assigneeId)}</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="section-task-overview">
+      <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5">
         <h3 className="font-semibold text-white flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-blue-400" />Due Today</h3>
         {dueToday.length === 0 ? (
           <p className="text-sm text-white/40">Nothing due today.</p>
         ) : (
           <div className="space-y-1.5">
             {dueToday.map((t: any) => (
-              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-[#141110]/[0.06] no-underline" data-testid={`activity-due-today-${t.id}`}>
+              <Link key={t.id} href="/tasks" className="block text-sm p-2 rounded-lg hover:bg-white/[0.04] no-underline" data-testid={`activity-due-today-${t.id}`}>
                 <span className="text-white/70">{t.title}</span>
                 <span className="text-white/40"> — {internName(t.assigneeId)}</span>
               </Link>
@@ -682,7 +641,7 @@ function TaskOverviewSection({ interns }: { interns: any[] }) {
         )}
       </div>
 
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5">
+      <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5">
         <h3 className="font-semibold text-white flex items-center gap-1.5 mb-3"><Clock className="w-4 h-4 text-white/50" />Recent Activity</h3>
         {recentActivity.length === 0 ? (
           <p className="text-sm text-white/40">No activity yet.</p>
@@ -714,7 +673,7 @@ function TaskCompletionBadge({ internId }: { internId: string }) {
   return (
     <Badge
       variant="outline"
-      className={`text-xs font-medium ${blocked > 0 ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-[#0B0A09] text-white/60 border-white/[0.08]"}`}
+      className={`text-xs font-medium ${blocked > 0 ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-background text-white/60 border-white/[0.08]"}`}
       data-testid={`badge-task-completion-${internId}`}
     >
       {completed}/{mine.length} tasks{blocked > 0 ? ` · ${blocked} blocked` : ""}
@@ -726,6 +685,7 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: managers = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/managers"] });
+  const [confirmDemote, setConfirmDemote] = useState<{ id: string; name: string } | null>(null);
 
   const demoteMutation = useMutation({
     mutationFn: async (managerId: string) => {
@@ -748,7 +708,7 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
       <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
         <ShieldPlus className="w-5 h-5 text-white/60" />Admins
       </h2>
-      <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
+      <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
         {managers.map((manager: any) => {
           const isSelf = manager.id === currentUserId;
           return (
@@ -765,7 +725,7 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
                   size="sm"
                   variant="outline"
                   className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/10 shrink-0"
-                  onClick={() => { if (confirm(`Demote ${manager.name} to intern? They'll lose admin access immediately and go back to the intern dashboard.`)) { demoteMutation.mutate(manager.id); } }}
+                  onClick={() => setConfirmDemote({ id: manager.id, name: manager.name })}
                   disabled={demoteMutation.isPending}
                   data-testid={`button-demote-manager-${manager.id}`}
                 >
@@ -777,14 +737,66 @@ function ManagersSection({ currentUserId }: { currentUserId: string }) {
           );
         })}
       </div>
+
+      <AlertDialog open={!!confirmDemote} onOpenChange={(open) => { if (!open) setConfirmDemote(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Demote {confirmDemote?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>They'll lose admin access immediately and go back to the intern dashboard.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-600/90 text-white"
+              onClick={() => { if (confirmDemote) demoteMutation.mutate(confirmDemote.id); setConfirmDemote(null); }}
+            >
+              Demote to Intern
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+interface RelatedTasks {
+  blockedTaskIds?: string[];
+  overdueTaskIds?: string[];
+  inReviewTaskIds?: string[];
 }
 
 interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
   aiGenerated?: boolean;
+  related?: RelatedTasks;
+}
+
+// Small clickable chips ("3 overdue", "2 blocked") beneath an AI response,
+// routing to the matching pre-filtered Tasks view — turns the answer into
+// something actionable instead of a plain text bubble.
+function RelatedTaskChips({ related, onNavigate }: { related?: RelatedTasks; onNavigate: (status: string) => void }) {
+  if (!related) return null;
+  const chips: { label: string; status: string; count: number }[] = [
+    { label: "overdue", status: "overdue", count: related.overdueTaskIds?.length || 0 },
+    { label: "blocked", status: "blocked", count: related.blockedTaskIds?.length || 0 },
+    { label: "in review", status: "in_review", count: related.inReviewTaskIds?.length || 0 },
+  ].filter((c) => c.count > 0);
+  if (chips.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {chips.map((c) => (
+        <button
+          key={c.status}
+          onClick={() => onNavigate(c.status)}
+          className="text-xs px-2.5 py-1 rounded-full border border-white/[0.1] text-white/60 hover:bg-white/[0.06] hover:text-white/80 transition-colors"
+          data-testid={`chip-related-${c.status}`}
+        >
+          {c.count} {c.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 const SUGGESTED_PROMPTS = [
@@ -852,7 +864,7 @@ function SignalsPanel() {
   const severityColor = (s: Signal["severity"]) => (s === "high" ? "text-red-400 bg-red-500/10" : "text-amber-400 bg-amber-500/10");
 
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="section-signals">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="section-signals">
       <div className="flex items-center gap-2.5 mb-3">
         <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
@@ -910,6 +922,7 @@ function SignalsPanel() {
 
 function OrgAssistantPanel() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [input, setInput] = useState("");
 
@@ -923,7 +936,7 @@ function OrgAssistantPanel() {
       return res.json();
     },
     onSuccess: (data) => {
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply, aiGenerated: data.aiGenerated }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply, aiGenerated: data.aiGenerated, related: data.related }]);
     },
     onError: (err: any) => {
       toast({ title: "Pulse is unavailable", description: err.message, variant: "destructive" });
@@ -938,9 +951,9 @@ function OrgAssistantPanel() {
 
   return (
     <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-[#6D5EF5]/40 via-[#8B7FF7]/20 to-transparent" data-testid="section-org-assistant">
-      <div className="bg-[#141110] rounded-[11px] p-5">
+      <div className="bg-card rounded-[11px] p-5">
         <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-7 h-7 rounded-lg bg-[#12101C] flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-surface-accent flex items-center justify-center shrink-0">
             <Activity className="w-3.5 h-3.5 text-[#8B7FF7]" />
           </div>
           <div>
@@ -957,7 +970,7 @@ function OrgAssistantPanel() {
                 <button
                   key={p}
                   onClick={() => ask(p)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-white/[0.08] text-white/60 hover:bg-[#141110]/[0.06] transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-full border border-white/[0.08] text-white/60 hover:bg-white/[0.04] transition-colors"
                   data-testid={`button-suggested-prompt-${p.replace(/\s+/g, "-").toLowerCase()}`}
                 >
                   {p}
@@ -969,14 +982,17 @@ function OrgAssistantPanel() {
           <div className="space-y-3 mb-3 max-h-96 overflow-y-auto">
             {messages.map((m, i) => (
               <div key={i} className={`text-sm ${m.role === "user" ? "text-right" : ""}`} data-testid={`assistant-message-${i}`}>
-                <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-[#12101C] text-white" : "bg-[#0B0A09] text-white/90 border border-white/[0.06]"}`}>
+                <div className={`inline-block max-w-[90%] rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${m.role === "user" ? "bg-surface-accent text-white" : "bg-background text-white/90 border border-white/[0.06]"}`}>
                   {m.content}
                 </div>
+                {m.role === "assistant" && (
+                  <RelatedTaskChips related={m.related} onNavigate={(status) => setLocation(`/tasks?status=${status}`)} />
+                )}
               </div>
             ))}
             {askMutation.isPending && (
               <div className="text-sm">
-                <div className="inline-flex items-center gap-1.5 bg-[#0B0A09] border border-white/[0.06] rounded-lg px-3 py-2 text-white/40">
+                <div className="inline-flex items-center gap-1.5 bg-background border border-white/[0.06] rounded-lg px-3 py-2 text-white/40">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Pulse is thinking...
                 </div>
               </div>
@@ -1010,6 +1026,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showPlanReview, setShowPlanReview] = useState(false);
+  const [confirmState, setConfirmState] = useState<{ title: string; description: string; confirmLabel: string; onConfirm: () => void } | null>(null);
+  const [deleteInternTarget, setDeleteInternTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteInternTyped, setDeleteInternTyped] = useState("");
   const [expandedIntern, setExpandedIntern] = useState<string | null>(null);
   const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
   const [inviteName, setInviteName] = useState("");
@@ -1232,9 +1251,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6" data-testid="header-section">
+        <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6" data-testid="header-section">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-white" data-testid="text-company-name">{company?.name || "Company"}</h1>
@@ -1244,7 +1263,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               <Button onClick={() => setShowInviteModal(true)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-open-invite">
                 <UserPlus className="w-4 h-4 mr-2" />Add Intern
               </Button>
-              <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-white/[0.15] text-white/70 hover:bg-[#141110]/[0.06]" data-testid="button-open-assign">
+              <Button onClick={() => setShowAssignModal(true)} variant="outline" className="border-white/[0.15] text-white/70 hover:bg-white/[0.04]" data-testid="button-open-assign">
                 <Briefcase className="w-4 h-4 mr-2" />Assign Project
               </Button>
               <Button
@@ -1259,7 +1278,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                   toast({ title: "Report exported", description: "Your team report CSV has been downloaded." });
                 }}
                 variant="outline"
-                className="border-white/[0.15] text-white/70 hover:bg-[#141110]/[0.06]"
+                className="border-white/[0.15] text-white/70 hover:bg-white/[0.04]"
                 data-testid="button-export-report"
               >
                 <Download className="w-4 h-4 mr-2" />Export Report
@@ -1268,21 +1287,21 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <button onClick={() => { setFilter(filter === "interns" ? null : "interns"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "interns" ? "bg-blue-500/10 border-blue-300 ring-2 ring-blue-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-blue-500/20"}`} data-testid="stat-total-interns">
-              <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-blue-400" /><span className="text-xs font-medium text-white/50 uppercase tracking-wide">Interns</span></div>
-              <p className="text-2xl font-bold text-white tabular-nums">{allDashboardInterns.length}</p>
+            <button onClick={() => { setFilter(filter === "interns" ? null : "interns"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "interns" ? "bg-blue-500/10 border-blue-300 ring-2 ring-blue-200" : "bg-background border-white/[0.06] hover:border-blue-500/20"}`} data-testid="stat-total-interns">
+              <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-blue-400" /><span className="text-label text-white/50">Interns</span></div>
+              <p className="text-metric text-3xl text-white">{allDashboardInterns.length}</p>
             </button>
-            <button onClick={() => { setFilter(filter === "projects" ? null : "projects"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "projects" ? "bg-indigo-500/10 border-indigo-300 ring-2 ring-indigo-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-indigo-500/20"}`} data-testid="stat-total-projects">
-              <div className="flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-indigo-400" /><span className="text-xs font-medium text-white/50 uppercase tracking-wide">Projects</span></div>
-              <p className="text-2xl font-bold text-white tabular-nums">{totalProjects}</p>
+            <button onClick={() => { setFilter(filter === "projects" ? null : "projects"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "projects" ? "bg-indigo-500/10 border-indigo-300 ring-2 ring-indigo-200" : "bg-background border-white/[0.06] hover:border-indigo-500/20"}`} data-testid="stat-total-projects">
+              <div className="flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-indigo-400" /><span className="text-label text-white/50">Projects</span></div>
+              <p className="text-metric text-3xl text-white">{totalProjects}</p>
             </button>
-            <button onClick={() => { setFilter(filter === "active" ? null : "active"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "active" ? "bg-emerald-500/10 border-emerald-300 ring-2 ring-emerald-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-emerald-500/20"}`} data-testid="stat-active-projects">
-              <div className="flex items-center gap-2 mb-1"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-xs font-medium text-white/50 uppercase tracking-wide">Active</span></div>
-              <p className="text-2xl font-bold text-white tabular-nums">{activeProjects}</p>
+            <button onClick={() => { setFilter(filter === "active" ? null : "active"); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "active" ? "bg-emerald-500/10 border-emerald-300 ring-2 ring-emerald-200" : "bg-background border-white/[0.06] hover:border-emerald-500/20"}`} data-testid="stat-active-projects">
+              <div className="flex items-center gap-2 mb-1"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-label text-white/50">Active</span></div>
+              <p className="text-metric text-3xl text-white">{activeProjects}</p>
             </button>
-            <button onClick={() => { const newFilter = filter === "review" ? null : "review"; setFilter(newFilter); if (newFilter === "review") setShowPlanReview(true); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "review" ? "bg-amber-500/10 border-amber-300 ring-2 ring-amber-200" : "bg-[#0B0A09] border-white/[0.06] hover:border-amber-500/20"}`} data-testid="stat-pending-review">
-              <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-amber-400" /><span className="text-xs font-medium text-white/50 uppercase tracking-wide">Pending Review</span></div>
-              <p className="text-2xl font-bold text-white tabular-nums">{pendingReview}</p>
+            <button onClick={() => { const newFilter = filter === "review" ? null : "review"; setFilter(newFilter); if (newFilter === "review") setShowPlanReview(true); }} className={`text-left rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.02] ${filter === "review" ? "bg-amber-500/10 border-amber-300 ring-2 ring-amber-200" : "bg-background border-white/[0.06] hover:border-amber-500/20"}`} data-testid="stat-pending-review">
+              <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-amber-400" /><span className="text-label text-white/50">Pending Review</span></div>
+              <p className="text-metric text-3xl text-white">{pendingReview}</p>
             </button>
           </div>
           {filter && (
@@ -1312,27 +1331,12 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
         <OrgAssistantPanel />
 
-        {pendingReview > 0 && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4" data-testid="alert-pending-review">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-400" />
-              <span className="text-amber-300 font-medium">{pendingReview} plan{pendingReview > 1 ? "s" : ""} awaiting your review</span>
-            </div>
-          </div>
-        )}
-
         {submittedProjects.length > 0 && (
           <div className="space-y-4" data-testid="plan-review-panel">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2" data-testid="text-review-header">
-                  <AlertCircle className="w-5 h-5 text-amber-400" /> Review Now
-                </h2>
-                <p className="text-sm text-white/50 mt-1" data-testid="text-review-count">
-                  {submittedProjects.length} plan{submittedProjects.length !== 1 ? "s" : ""} need{submittedProjects.length === 1 ? "s" : ""} your review
-                </p>
-              </div>
-            </div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2" data-testid="text-review-header">
+              <AlertCircle className="w-5 h-5 text-amber-400" /> Review Now
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs font-medium ml-1">{submittedProjects.length}</Badge>
+            </h2>
             {submittedProjects.map((project: any) => {
               const versions = project.versions || [];
               const submittedVersion = versions.find((v: any) => v.status === "submitted");
@@ -1356,25 +1360,28 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         )}
 
         {analytics && (
-          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm" data-testid="analytics-section">
+          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5" data-testid="analytics-section">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-indigo-400" />
+              <h2 className="text-lg font-semibold text-white">Analytics</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="analytics-charts-primary">
+              <WeeklyActivityLineChart data={analytics.logActivity || []} />
+              <TaskCompletionByInternChart data={analytics.taskCompletionByIntern || []} />
+              <ProjectStatusPieChart data={analytics.statusCounts || []} />
+            </div>
             <button
               onClick={() => setShowAnalytics(!showAnalytics)}
-              className="w-full flex items-center justify-between p-5 text-left hover:bg-[#141110]/[0.06] transition-colors rounded-xl"
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-white/40 hover:text-white/70 mt-4 pt-3 border-t border-white/[0.06] transition-colors"
               data-testid="button-toggle-analytics"
             >
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-indigo-400" />
-                <h2 className="text-lg font-semibold text-white">Analytics</h2>
-              </div>
-              {showAnalytics ? <ChevronDown className="w-5 h-5 text-white/40" /> : <ChevronRight className="w-5 h-5 text-white/40" />}
+              {showAnalytics ? "Show fewer charts" : "See more charts"}
+              {showAnalytics ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </button>
             {showAnalytics && (
-              <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="analytics-charts">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4" data-testid="analytics-charts-secondary">
                 <TaskStatusPieChart data={analytics.taskStatusCounts || []} />
-                <TaskCompletionByInternChart data={analytics.taskCompletionByIntern || []} />
-                <ProjectStatusPieChart data={analytics.statusCounts || []} />
                 <CompletionRateBarChart data={analytics.completionRates || []} />
-                <WeeklyActivityLineChart data={analytics.logActivity || []} />
                 <HoursComparisonChart data={analytics.hoursComparison || []} />
               </div>
             )}
@@ -1406,7 +1413,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           )}
 
           {filteredInterns.length === 0 ? (
-            <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-12 text-center" data-testid="text-no-interns">
+            <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-12 text-center" data-testid="text-no-interns">
               <Users className="w-12 h-12 text-white/30 mx-auto mb-3" />
               {searchQuery || filter ? (
                 <>
@@ -1438,7 +1445,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
                 return (
                   <div key={intern.id} data-testid={`card-intern-${intern.id}`}>
-                    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" onClick={() => setExpandedIntern(isExpanded ? null : intern.id)}>
+                    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" onClick={() => setExpandedIntern(isExpanded ? null : intern.id)}>
                       <div className="p-4 sm:p-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -1476,7 +1483,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                                 {overallCompletion.total > 0 && (
                                   <div className="flex items-center gap-1.5">
                                     <div className="w-20 bg-white/15 rounded-full h-1.5">
-                                      <div className={`h-1.5 rounded-full transition-all ${overallCompletion.pct >= 100 ? "bg-emerald-500/100" : overallCompletion.pct > 50 ? "bg-blue-500/100" : overallCompletion.pct > 0 ? "bg-amber-500/100" : "bg-white/15"}`} style={{ width: `${Math.max(overallCompletion.pct, 3)}%` }} />
+                                      <div className={`h-1.5 rounded-full transition-all ${overallCompletion.pct >= 100 ? "bg-emerald-500" : overallCompletion.pct > 50 ? "bg-blue-500" : overallCompletion.pct > 0 ? "bg-amber-500" : "bg-white/15"}`} style={{ width: `${Math.max(overallCompletion.pct, 3)}%` }} />
                                     </div>
                                     <span className="text-xs text-white/40">{overallCompletion.pct}%</span>
                                   </div>
@@ -1497,7 +1504,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                               size="sm"
                               variant="outline"
                               className="text-xs text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/10"
-                              onClick={(e) => { e.stopPropagation(); if (confirm(`Promote ${intern.name} to admin? They'll get full admin access — all interns, tasks, and settings. This can't be undone from here.`)) { promoteInternMutation.mutate(intern.id); } }}
+                              onClick={(e) => { e.stopPropagation(); setConfirmState({ title: `Promote ${intern.name} to admin?`, description: "They'll get full admin access — all interns, tasks, and settings. This can't be undone from here.", confirmLabel: "Promote to Admin", onConfirm: () => promoteInternMutation.mutate(intern.id) }); }}
                               disabled={promoteInternMutation.isPending}
                               data-testid={`button-promote-intern-${intern.id}`}
                             >
@@ -1521,8 +1528,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs text-white/60 border-white/[0.15] hover:bg-[#141110]/[0.06]"
-                              onClick={(e) => { e.stopPropagation(); if (confirm(`Deactivate ${intern.name}? They won't be able to log in, but their tasks and history stay intact. You can reactivate them anytime.`)) { deactivateInternMutation.mutate({ internId: intern.id, deactivate: true }); } }}
+                              className="text-xs text-white/60 border-white/[0.15] hover:bg-white/[0.04]"
+                              onClick={(e) => { e.stopPropagation(); setConfirmState({ title: `Deactivate ${intern.name}?`, description: "They won't be able to log in, but their tasks and history stay intact. You can reactivate them anytime.", confirmLabel: "Deactivate", onConfirm: () => deactivateInternMutation.mutate({ internId: intern.id, deactivate: true }) }); }}
                               disabled={deactivateInternMutation.isPending}
                               data-testid={`button-deactivate-intern-${intern.id}`}
                             >
@@ -1534,15 +1541,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                             size="sm"
                             variant="outline"
                             className="text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const typed = window.prompt(`This permanently deletes ${intern.name}'s account and every task, log, and message tied to it. This cannot be undone.\n\nType their name to confirm: ${intern.name}`);
-                              if (typed === intern.name) {
-                                deleteInternMutation.mutate(intern.id);
-                              } else if (typed !== null) {
-                                toast({ title: "Name didn't match", description: "Deletion cancelled.", variant: "destructive" });
-                              }
-                            }}
+                            onClick={(e) => { e.stopPropagation(); setDeleteInternTarget({ id: intern.id, name: intern.name }); setDeleteInternTyped(""); }}
                             disabled={deleteInternMutation.isPending}
                             data-testid={`button-delete-intern-${intern.id}`}
                           >
@@ -1556,7 +1555,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                               size="sm"
                               variant="outline"
                               className="text-xs text-red-400 border-red-500/20 hover:bg-red-500/10"
-                              onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ALL ${projects.length} projects for ${intern.name}? This cannot be undone.`)) { deleteAllProjectsMutation.mutate(intern.id); } }}
+                              onClick={(e) => { e.stopPropagation(); setConfirmState({ title: `Delete all ${projects.length} projects for ${intern.name}?`, description: "This cannot be undone.", confirmLabel: "Delete All Projects", onConfirm: () => deleteAllProjectsMutation.mutate(intern.id) }); }}
                               disabled={deleteAllProjectsMutation.isPending}
                               data-testid={`button-delete-all-projects-${intern.id}`}
                             >
@@ -1566,7 +1565,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                           </div>
                         )}
                         {projects.length === 0 ? (
-                          <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-8 text-center">
+                          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-8 text-center">
                             <Briefcase className="w-8 h-8 text-white/30 mx-auto mb-2" />
                             <p className="text-white/40 text-sm">No projects assigned yet</p>
                           </div>
@@ -1616,103 +1615,143 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         items={commandItems}
       />
 
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="modal-invite">
-          <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-5 border-b border-white/[0.08]">
-              <h3 className="text-lg font-semibold text-white">Add Intern</h3>
-              <button onClick={() => { setShowInviteModal(false); setCreatedIntern(null); }} className="text-white/40 hover:text-white/70" data-testid="button-close-invite"><X className="w-5 h-5" /></button>
-            </div>
-            {createdIntern ? (
-              <div className="p-5 space-y-4">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4" data-testid="invite-link-display">
-                  <p className="text-emerald-400 text-sm font-medium mb-3">Account created — {createdIntern.name} can log in right now.</p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-2 bg-[#0B0A09] border border-emerald-500/20 rounded px-3 py-2">
-                      <span className="text-white/50">Email</span>
-                      <span className="text-white font-medium" data-testid="text-created-intern-email">{createdIntern.email}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 bg-[#0B0A09] border border-emerald-500/20 rounded px-3 py-2">
-                      <span className="text-white/50">Password</span>
-                      <span className="text-white font-medium" data-testid="text-created-intern-password">{createdIntern.password}</span>
-                    </div>
+      <Dialog open={showInviteModal} onOpenChange={(open) => { setShowInviteModal(open); if (!open) setCreatedIntern(null); }}>
+        <DialogContent className="max-w-md" data-testid="modal-invite">
+          <DialogHeader>
+            <DialogTitle>Add Intern</DialogTitle>
+          </DialogHeader>
+          {createdIntern ? (
+            <div className="space-y-4">
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4" data-testid="invite-link-display">
+                <p className="text-emerald-400 text-sm font-medium mb-3">Account created — {createdIntern.name} can log in right now.</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-2 bg-background border border-emerald-500/20 rounded px-3 py-2">
+                    <span className="text-white/50">Email</span>
+                    <span className="text-white font-medium" data-testid="text-created-intern-email">{createdIntern.email}</span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full mt-3 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                    onClick={() => copyLink(`Email: ${createdIntern.email}\nPassword: ${createdIntern.password}`)}
-                    data-testid="button-copy-link"
-                  >
-                    <Copy className="w-3 h-3 mr-1.5" /> Copy credentials
-                  </Button>
+                  <div className="flex items-center justify-between gap-2 bg-background border border-emerald-500/20 rounded px-3 py-2">
+                    <span className="text-white/50">Password</span>
+                    <span className="text-white font-medium" data-testid="text-created-intern-password">{createdIntern.password}</span>
+                  </div>
                 </div>
                 <Button
+                  size="sm"
                   variant="outline"
-                  className="w-full"
-                  onClick={() => setCreatedIntern(null)}
-                  data-testid="button-add-another-intern"
+                  className="w-full mt-3 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                  onClick={() => copyLink(`Email: ${createdIntern.email}\nPassword: ${createdIntern.password}`)}
+                  data-testid="button-copy-link"
                 >
-                  Add Another Intern
+                  <Copy className="w-3 h-3 mr-1.5" /> Copy credentials
                 </Button>
               </div>
-            ) : (
-              <div className="p-5 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-1">Name</label>
-                  <Input placeholder="Intern's full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} className="border-white/[0.15]" data-testid="input-invite-name" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-1">Email</label>
-                  <Input type="email" placeholder="intern@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="border-white/[0.15]" data-testid="input-invite-email" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-1">Password</label>
-                  <Input type="password" placeholder="At least 6 characters" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} className="border-white/[0.15]" data-testid="input-invite-password" />
-                </div>
-                <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || invitePassword.length < 6 || inviteMutation.isPending} className="w-full bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-send-invite">
-                  {inviteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>) : "Create Account"}
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {showAssignModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="modal-assign">
-          <div className="bg-[#141110] rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-5 border-b border-white/[0.08]">
-              <h3 className="text-lg font-semibold text-white">Assign Project</h3>
-              <button onClick={() => setShowAssignModal(false)} className="text-white/40 hover:text-white/70" data-testid="button-close-assign"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">Intern</label>
-                <select value={assignInternId} onChange={(e) => setAssignInternId(e.target.value)} className="w-full rounded-md border border-white/[0.15] bg-[#141110] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="select-assign-intern">
-                  <option value="">Select an intern...</option>
-                  {(interns as any[]).filter((intern: any) => !intern.deactivatedAt).map((intern: any) => (<option key={intern.id} value={intern.id}>{intern.name} ({intern.email})</option>))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">Project Title</label>
-                <Input placeholder="e.g., Customer Portal Redesign" value={assignTitle} onChange={(e) => setAssignTitle(e.target.value)} className="border-white/[0.15]" data-testid="input-assign-title" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">Project Idea</label>
-                <Textarea placeholder="Brief description of the project..." value={assignIdea} onChange={(e) => setAssignIdea(e.target.value)} className="border-white/[0.15]" rows={3} data-testid="input-assign-idea" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">Minimum Total Hours</label>
-                <Input type="number" min="1" placeholder="e.g., 160" value={assignMinHours} onChange={(e) => setAssignMinHours(e.target.value)} className="border-white/[0.15]" data-testid="input-assign-hours" />
-              </div>
-              <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-assign-project">
-                {assignProjectMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Assigning...</>) : "Assign Project"}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setCreatedIntern(null)}
+                data-testid="button-add-another-intern"
+              >
+                Add Another Intern
               </Button>
             </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-1">Name</label>
+                <Input placeholder="Intern's full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} data-testid="input-invite-name" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-1">Email</label>
+                <Input type="email" placeholder="intern@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} data-testid="input-invite-email" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-1">Password</label>
+                <Input type="password" placeholder="At least 6 characters" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} data-testid="input-invite-password" />
+              </div>
+              <Button onClick={() => inviteMutation.mutate()} disabled={!inviteName.trim() || !inviteEmail.trim() || invitePassword.length < 6 || inviteMutation.isPending} className="w-full bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-send-invite">
+                {inviteMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</>) : "Create Account"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
+        <DialogContent className="max-w-md" data-testid="modal-assign">
+          <DialogHeader>
+            <DialogTitle>Assign Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">Intern</label>
+              <select value={assignInternId} onChange={(e) => setAssignInternId(e.target.value)} className="w-full rounded-md border border-input bg-white/[0.02] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary" data-testid="select-assign-intern">
+                <option value="">Select an intern...</option>
+                {(interns as any[]).filter((intern: any) => !intern.deactivatedAt).map((intern: any) => (<option key={intern.id} value={intern.id}>{intern.name} ({intern.email})</option>))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">Project Title</label>
+              <Input placeholder="e.g., Customer Portal Redesign" value={assignTitle} onChange={(e) => setAssignTitle(e.target.value)} data-testid="input-assign-title" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">Project Idea</label>
+              <Textarea placeholder="Brief description of the project..." value={assignIdea} onChange={(e) => setAssignIdea(e.target.value)} rows={3} data-testid="input-assign-idea" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-1">Minimum Total Hours</label>
+              <Input type="number" min="1" placeholder="e.g., 160" value={assignMinHours} onChange={(e) => setAssignMinHours(e.target.value)} data-testid="input-assign-hours" />
+            </div>
+            <Button onClick={handleAssignProject} disabled={!assignInternId || !assignTitle.trim() || !assignIdea.trim() || !assignMinHours || assignProjectMutation.isPending} className="w-full bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-assign-project">
+              {assignProjectMutation.isPending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Assigning...</>) : "Assign Project"}
+            </Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!confirmState} onOpenChange={(open) => { if (!open) setConfirmState(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmState?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmState?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-600/90 text-white"
+              onClick={() => { confirmState?.onConfirm(); setConfirmState(null); }}
+            >
+              {confirmState?.confirmLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!deleteInternTarget} onOpenChange={(open) => { if (!open) setDeleteInternTarget(null); }}>
+        <DialogContent className="max-w-sm" data-testid="modal-delete-intern">
+          <DialogHeader>
+            <DialogTitle>Delete {deleteInternTarget?.name} permanently?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-white/60">
+            This permanently deletes their account and every task, log, and message tied to it. This cannot be undone.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-1">
+              Type <span className="font-semibold text-white">{deleteInternTarget?.name}</span> to confirm
+            </label>
+            <Input value={deleteInternTyped} onChange={(e) => setDeleteInternTyped(e.target.value)} data-testid="input-delete-intern-confirm" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteInternTarget(null)}>Cancel</Button>
+            <Button
+              disabled={deleteInternTyped !== deleteInternTarget?.name || deleteInternMutation.isPending}
+              className="bg-red-600 hover:bg-red-600/90 text-white"
+              onClick={() => { if (deleteInternTarget) deleteInternMutation.mutate(deleteInternTarget.id); setDeleteInternTarget(null); }}
+              data-testid="button-confirm-delete-intern"
+            >
+              {deleteInternMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

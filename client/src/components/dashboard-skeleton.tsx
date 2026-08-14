@@ -1,6 +1,6 @@
 export function StatCardSkeleton() {
   return (
-    <div className="rounded-lg p-4 border bg-[#0B0A09] border-white/[0.06] animate-pulse">
+    <div className="rounded-lg p-4 border bg-background border-white/[0.06] animate-pulse">
       <div className="flex items-center gap-2 mb-2">
         <div className="w-4 h-4 bg-white/15 rounded" />
         <div className="w-16 h-3 bg-white/15 rounded" />
@@ -12,7 +12,7 @@ export function StatCardSkeleton() {
 
 export function InternCardSkeleton() {
   return (
-    <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm animate-pulse">
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm animate-pulse">
       <div className="p-5">
         <div className="flex items-center justify-between">
           <div className="flex-1">
@@ -32,7 +32,7 @@ export function InternCardSkeleton() {
 
 export function ProjectCardSkeleton() {
   return (
-    <div className="bg-[#141110] border border-white/[0.08] rounded-xl p-5 shadow-sm animate-pulse">
+    <div className="bg-card border border-white/[0.08] rounded-xl p-5 shadow-sm animate-pulse">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 mr-3">
           <div className="w-40 h-4 bg-white/15 rounded mb-2" />
@@ -52,9 +52,9 @@ export function ProjectCardSkeleton() {
 
 export function AdminDashboardSkeleton() {
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 animate-pulse">
+        <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 animate-pulse">
           <div className="flex items-center justify-between mb-6">
             <div>
               <div className="w-40 h-7 bg-white/15 rounded mb-2" />
@@ -87,7 +87,7 @@ export function AdminDashboardSkeleton() {
 
 export function InternDashboardSkeleton() {
   return (
-    <div className="min-h-screen bg-[#0B0A09]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8 animate-pulse">
           <div className="w-32 h-7 bg-white/15 rounded mb-2" />
@@ -105,8 +105,8 @@ export function InternDashboardSkeleton() {
 
 export function WorkspaceSkeleton() {
   return (
-    <div className="h-screen flex flex-col bg-[#0B0A09]">
-      <div className="border-b border-white/[0.08] bg-[#141110] px-4 py-3 flex items-center gap-4 shrink-0 animate-pulse">
+    <div className="h-screen flex flex-col bg-background">
+      <div className="border-b border-white/[0.08] bg-card px-4 py-3 flex items-center gap-4 shrink-0 animate-pulse">
         <div className="w-16 h-4 bg-white/15 rounded" />
         <div className="flex-1">
           <div className="w-48 h-5 bg-white/15 rounded mb-1" />
@@ -114,7 +114,7 @@ export function WorkspaceSkeleton() {
         </div>
       </div>
       <div className="flex-1 flex min-h-0">
-        <div className="w-[35%] border-r border-white/[0.08] bg-[#141110] p-4 animate-pulse">
+        <div className="w-[35%] border-r border-white/[0.08] bg-card p-4 animate-pulse">
           <div className="w-full h-8 bg-white/15 rounded mb-3" />
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -123,7 +123,7 @@ export function WorkspaceSkeleton() {
           </div>
         </div>
         <div className="flex-1 p-4 animate-pulse">
-          <div className="bg-[#141110] border border-white/[0.08] rounded-xl p-4 mb-4">
+          <div className="bg-card border border-white/[0.08] rounded-xl p-4 mb-4">
             <div className="w-32 h-5 bg-white/15 rounded mb-3" />
             <div className="grid grid-cols-4 gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -133,7 +133,7 @@ export function WorkspaceSkeleton() {
           </div>
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="bg-[#141110] border border-white/[0.08] rounded-xl p-4 h-16" />
+              <div key={i} className="bg-card border border-white/[0.08] rounded-xl p-4 h-16" />
             ))}
           </div>
         </div>
