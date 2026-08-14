@@ -1229,6 +1229,73 @@ export async function registerRoutes(
     }
   });
 
+  // Formally ends an internship — snapshots current stats/skills/narrative
+  // into alumniRecords, then deactivates login (same as /deactivate) but
+  // tracked separately via users.alumniAt so this isn't confused with an
+  // ordinary deactivation.
+  app.post("/api/interns/:id/transition-alumni", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+
+      const { user, alumniRecord } = await storage.transitionUserToAlumni(intern.id, (req as any).userId);
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "intern.alumni_transition",
+        targetType: "user",
+        targetId: intern.id,
+      });
+
+      res.json({ user: { id: user.id, name: user.name, alumniAt: user.alumniAt }, alumniRecord });
+    } catch (error: any) {
+      console.error("Failed to transition intern to alumni:", error);
+      res.status(500).json({ message: "Failed to transition intern to alumni" });
+    }
+  });
+
+  app.get("/api/alumni", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.json([]);
+      const alumni = await storage.getAlumniByCompany(companyId);
+      res.json(alumni.map((a) => ({
+        id: a.id, name: a.name, email: a.email, alumniAt: a.alumniAt, alumniRecord: a.alumniRecord,
+      })));
+    } catch (error: any) {
+      console.error("Failed to list alumni:", error);
+      res.status(500).json({ message: "Failed to list alumni" });
+    }
+  });
+
+  app.post("/api/alumni/:id/reactivate", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || !intern.alumniAt) {
+        return res.status(404).json({ message: "Alumnus not found" });
+      }
+      const updated = await storage.reactivateAlumnus(intern.id);
+
+      await logAudit({
+        actorUserId: (req as any).userId,
+        companyId,
+        action: "intern.alumni_reactivated",
+        targetType: "user",
+        targetId: intern.id,
+      });
+
+      res.json({ id: updated?.id, name: updated?.name, alumniAt: updated?.alumniAt, deactivatedAt: updated?.deactivatedAt });
+    } catch (error: any) {
+      console.error("Failed to reactivate alumnus:", error);
+      res.status(500).json({ message: "Failed to reactivate alumnus" });
+    }
+  });
+
   // Grants full admin access — the most sensitive action an admin can take
   // here. Only reachable by an existing admin (requireRole below), and the
   // target's role is a hardcoded server-side "admin" constant, never taken
@@ -2540,6 +2607,7 @@ export async function registerRoutes(
           email: intern.email,
           deactivatedAt: intern.deactivatedAt,
           completionBadgeAwardedAt: intern.completionBadgeAwardedAt,
+          alumniAt: intern.alumniAt,
           projects: projectDetails,
         };
       });

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Loader2, CheckCircle2, Circle, PlayCircle, Eye, Ban,
-  FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2, Award,
+  FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2, Award, GraduationCap,
 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
 
@@ -16,6 +16,22 @@ interface PerformanceNarrative {
   content: string;
   aiGenerated: boolean;
   createdAt: string;
+}
+
+interface AlumniListEntry {
+  id: string;
+  alumniRecord: {
+    internshipStartedAt: string | null;
+    internshipEndedAt: string;
+    totalTasksCompleted: number;
+    totalTasksAssigned: number;
+    skillTagCounts: { tag: string; count: number }[];
+  };
+}
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return "Unknown";
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 interface InternProfileProps {
@@ -45,12 +61,15 @@ export default function InternProfile({ internId }: InternProfileProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [confirmAlumni, setConfirmAlumni] = useState(false);
 
   const { data: dashboard, isLoading: dashboardLoading } = useQuery<any>({ queryKey: ["/api/dashboard"] });
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
   const { data: narrative } = useQuery<PerformanceNarrative | null>({
     queryKey: [`/api/interns/${internId}/performance-narrative`],
   });
+  const { data: alumniList = [] } = useQuery<AlumniListEntry[]>({ queryKey: ["/api/alumni"] });
+  const alumniRecord = alumniList.find((a) => a.id === internId)?.alumniRecord;
 
   const generateNarrativeMutation = useMutation({
     mutationFn: async () => {
@@ -74,6 +93,33 @@ export default function InternProfile({ internId }: InternProfileProps) {
       toast({ title: "Updated" });
     },
     onError: (err: any) => toast({ title: "Failed to update badge", description: err.message, variant: "destructive" }),
+  });
+
+  const transitionAlumniMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/interns/${internId}/transition-alumni`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/alumni"] });
+      setConfirmAlumni(false);
+      toast({ title: "Transitioned to alumni" });
+    },
+    onError: (err: any) => toast({ title: "Failed to transition to alumni", description: err.message, variant: "destructive" }),
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/alumni/${internId}/reactivate`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/alumni"] });
+      toast({ title: "Reactivated" });
+    },
+    onError: (err: any) => toast({ title: "Failed to reactivate", description: err.message, variant: "destructive" }),
   });
 
   const intern = useMemo(() => {
@@ -153,6 +199,32 @@ export default function InternProfile({ internId }: InternProfileProps) {
           Back to Dashboard
         </Button>
 
+        {intern.alumniAt && (
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 mb-6 flex items-center justify-between gap-3" data-testid="banner-alumni">
+            <div className="flex items-center gap-2.5">
+              <GraduationCap className="w-5 h-5 text-indigo-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-indigo-300">Alumni since {formatDate(intern.alumniAt)}</p>
+                {alumniRecord && (
+                  <p className="text-xs text-indigo-300/60 mt-0.5">
+                    {formatDate(alumniRecord.internshipStartedAt)} – {formatDate(alumniRecord.internshipEndedAt)} · {alumniRecord.totalTasksCompleted}/{alumniRecord.totalTasksAssigned} tasks completed
+                  </p>
+                )}
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => reactivateMutation.mutate()}
+              disabled={reactivateMutation.isPending}
+              data-testid="button-reactivate-alumnus"
+            >
+              {reactivateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+              Reactivate
+            </Button>
+          </div>
+        )}
+
         <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-[#6D5EF5]/15 rounded-full flex items-center justify-center text-[#6D5EF5] font-semibold text-xl shrink-0">
@@ -213,6 +285,42 @@ export default function InternProfile({ internId }: InternProfileProps) {
               {intern.completionBadgeAwardedAt ? "Revoke Badge" : "Award Completion Badge"}
             </Button>
           </div>
+
+          {!intern.alumniAt && (
+            <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-white/40" />
+                <span className="text-sm text-white/70">Formally end this internship</span>
+              </div>
+              {!confirmAlumni ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-indigo-400 hover:text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/10"
+                  onClick={() => setConfirmAlumni(true)}
+                  data-testid="button-transition-alumni"
+                >
+                  Transition to Alumni
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/50">This deactivates their login. Continue?</span>
+                  <Button
+                    size="sm"
+                    onClick={() => transitionAlumniMutation.mutate()}
+                    disabled={transitionAlumniMutation.isPending}
+                    data-testid="button-confirm-transition-alumni"
+                  >
+                    {transitionAlumniMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                    Confirm
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmAlumni(false)} disabled={transitionAlumniMutation.isPending}>
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="bg-[#141110] rounded-xl border border-white/[0.08] shadow-sm p-6 mb-6">

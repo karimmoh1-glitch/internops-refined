@@ -22,6 +22,7 @@ import ChatPage from "@/pages/chat";
 import TasksPage from "@/pages/tasks";
 import InternProfile from "@/pages/intern-profile";
 import SettingsPage from "@/pages/settings";
+import Alumni from "@/pages/alumni";
 import AppShell from "@/components/app-shell";
 import { useEffect } from "react";
 
@@ -58,6 +59,14 @@ function AuthenticatedInternProfile({ user, signOut, internId }: { user: any; si
   return (
     <AppShell user={user} onSignOut={signOut}>
       <InternProfile internId={internId} />
+    </AppShell>
+  );
+}
+
+function AuthenticatedAlumni({ user, signOut }: { user: any; signOut: () => void }) {
+  return (
+    <AppShell user={user} onSignOut={signOut}>
+      <Alumni />
     </AppShell>
   );
 }
@@ -158,6 +167,15 @@ function AppContent() {
             <Landing />
           )
         }
+      </Route>
+      <Route path="/alumni">
+        {user && user.role === "admin" ? (
+          <AuthenticatedAlumni user={user} signOut={signOut} />
+        ) : user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <Landing />
+        )}
       </Route>
       <Route path="/settings">
         {user ? (

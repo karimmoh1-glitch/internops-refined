@@ -2,9 +2,10 @@ import { eq, desc, and, count, inArray, gt, isNull, sql, or } from "drizzle-orm"
 import { db } from "./db";
 import { lt } from "drizzle-orm";
 import crypto from "crypto";
+import { aggregateSkillTags } from "@shared/skills";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
-  channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns,
+  channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns, alumniRecords,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -28,6 +29,7 @@ import {
   type Task, type InsertTask,
   type PerformanceNarrative, type InsertPerformanceNarrative,
   type DigestRun,
+  type AlumniRecord,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -45,6 +47,9 @@ export interface IStorage {
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
   setUserPublicProfile(id: string, enabled: boolean): Promise<User | undefined>;
   setUserCompletionBadge(id: string, awarded: boolean, awardedByUserId: string | null): Promise<User | undefined>;
+  transitionUserToAlumni(id: string, transitionedByUserId: string): Promise<{ user: User; alumniRecord: AlumniRecord }>;
+  getAlumniByCompany(companyId: string): Promise<(User & { alumniRecord: AlumniRecord })[]>;
+  reactivateAlumnus(id: string): Promise<User | undefined>;
   promoteToAdmin(id: string): Promise<User | undefined>;
   demoteToIntern(id: string): Promise<User | undefined>;
   deleteUserPermanently(id: string): Promise<void>;
@@ -302,6 +307,62 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(users.id, id))
       .returning();
+    return updated;
+  }
+
+  // Snapshot-then-deactivate. The snapshot is upserted (unique on userId)
+  // rather than appended, unlike performanceNarratives' intentional
+  // history — re-running the transition refreshes the record. Best-effort
+  // on internshipStartedAt (falls back to users.createdAt) and
+  // finalNarrative (nullable — tolerates the narrative feature never
+  // having run for this intern).
+  async transitionUserToAlumni(id: string, transitionedByUserId: string): Promise<{ user: User; alumniRecord: AlumniRecord }> {
+    const [existingUser] = await db.select().from(users).where(eq(users.id, id));
+    if (!existingUser) throw new Error("User not found");
+
+    const internTasks = await this.getTasksByAssignee(id);
+    const completed = internTasks.filter((t) => t.status === "completed");
+    const narrative = await this.getLatestPerformanceNarrative(id);
+
+    const snapshot = {
+      userId: id,
+      companyId: existingUser.companyId as string,
+      internshipStartedAt: existingUser.createdAt,
+      internshipEndedAt: new Date(),
+      totalTasksCompleted: completed.length,
+      totalTasksAssigned: internTasks.length,
+      skillTagCounts: aggregateSkillTags(completed),
+      completionBadgeAwarded: !!existingUser.completionBadgeAwardedAt,
+      finalNarrative: narrative?.content ?? null,
+      transitionedByUserId,
+    };
+
+    const [alumniRecord] = await db.insert(alumniRecords)
+      .values(snapshot)
+      .onConflictDoUpdate({ target: alumniRecords.userId, set: snapshot })
+      .returning();
+
+    const [user] = await db.update(users)
+      .set({ alumniAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    await this.setUserDeactivated(id, true);
+
+    return { user, alumniRecord };
+  }
+
+  async getAlumniByCompany(companyId: string): Promise<(User & { alumniRecord: AlumniRecord })[]> {
+    const rows = await db.select({ user: users, alumniRecord: alumniRecords }).from(users)
+      .innerJoin(alumniRecords, eq(users.id, alumniRecords.userId))
+      .where(eq(users.companyId, companyId))
+      .orderBy(desc(alumniRecords.internshipEndedAt));
+    return rows.map((r) => ({ ...r.user, alumniRecord: r.alumniRecord }));
+  }
+
+  // alumniRecords row is left as historical record, not deleted.
+  async reactivateAlumnus(id: string): Promise<User | undefined> {
+    const [updated] = await db.update(users).set({ alumniAt: null }).where(eq(users.id, id)).returning();
+    await this.setUserDeactivated(id, false);
     return updated;
   }
 

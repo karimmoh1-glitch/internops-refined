@@ -46,6 +46,12 @@ export const users = pgTable("users", {
   // Institutional credential — admin-awarded only, never self-asserted.
   completionBadgeAwardedAt: timestamp("completion_badge_awarded_at"),
   completionBadgeAwardedByUserId: varchar("completion_badge_awarded_by_user_id").references((): AnyPgColumn => users.id),
+  // Set only via storage.transitionUserToAlumni, alongside deactivatedAt
+  // (an alumnus can't log in). Tracked separately from deactivatedAt so
+  // "formally completed the internship" stays distinguishable from an
+  // ordinary deactivation (disciplinary, mistake, leave) — conflating the
+  // two would make future reactivation logic unsafe.
+  alumniAt: timestamp("alumni_at"),
 });
 
 export const invitations = pgTable("invitations", {
@@ -306,6 +312,28 @@ export const digestRuns = pgTable("digest_runs", {
   uniqueIndex("idx_digest_runs_user_date").on(table.userId, table.sentDate),
 ]);
 
+// A snapshot, not a log — upserted (unique on userId) each time an admin
+// transitions or re-transitions someone to alumni, unlike
+// performanceNarratives' intentional history. Exists so "who were our
+// best interns" queries don't depend on live task data forever (tasks
+// could later be reassigned or deleted).
+export const alumniRecords = pgTable("alumni_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  internshipStartedAt: timestamp("internship_started_at"),
+  internshipEndedAt: timestamp("internship_ended_at").notNull().defaultNow(),
+  totalTasksCompleted: integer("total_tasks_completed").notNull().default(0),
+  totalTasksAssigned: integer("total_tasks_assigned").notNull().default(0),
+  skillTagCounts: jsonb("skill_tag_counts").$type<{ tag: string; count: number }[]>().notNull().default(sql`'[]'::jsonb`),
+  completionBadgeAwarded: boolean("completion_badge_awarded").notNull().default(false),
+  finalNarrative: text("final_narrative"),
+  transitionedByUserId: varchar("transitioned_by_user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_alumni_records_company_ended").on(table.companyId, table.internshipEndedAt),
+]);
+
 export const insertApplicationSchema = createInsertSchema(applications).omit({ id: true, createdAt: true, reviewedAt: true });
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -328,6 +356,7 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: tru
 export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z.string()) }).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPerformanceNarrativeSchema = createInsertSchema(performanceNarratives).omit({ id: true, createdAt: true });
 export const insertDigestRunSchema = createInsertSchema(digestRuns).omit({ id: true, createdAt: true });
+export const insertAlumniRecordSchema = createInsertSchema(alumniRecords).omit({ id: true, createdAt: true });
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
@@ -373,6 +402,8 @@ export type PerformanceNarrative = typeof performanceNarratives.$inferSelect;
 export type InsertPerformanceNarrative = z.infer<typeof insertPerformanceNarrativeSchema>;
 export type DigestRun = typeof digestRuns.$inferSelect;
 export type InsertDigestRun = z.infer<typeof insertDigestRunSchema>;
+export type AlumniRecord = typeof alumniRecords.$inferSelect;
+export type InsertAlumniRecord = z.infer<typeof insertAlumniRecordSchema>;
 
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "completed", "blocked"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
