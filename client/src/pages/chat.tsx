@@ -327,12 +327,20 @@ function MessagePane({
   const prevChannelIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Reset tracking on channel switch
+    // Reset tracking on channel switch. Only clears the compose box when
+    // moving between two different real channels — not on the null-then-
+    // real transition a just-created channel briefly goes through before
+    // the channels list catches up — so a message typed in that window
+    // survives instead of being silently wiped (see the cache-seeding
+    // comment in NewDMDialog's createDMMutation for the other half of this).
     if (channelId !== prevChannelIdRef.current) {
+      const isRealSwitch = !!prevChannelIdRef.current && !!channelId;
       prevMessageCountRef.current = 0;
       prevChannelIdRef.current = channelId || null;
-      setInput("");
-      setShowMembers(false);
+      if (isRealSwitch) {
+        setInput("");
+        setShowMembers(false);
+      }
     }
 
     // Mark as read when message count changes
@@ -716,6 +724,18 @@ function NewDMDialog({
       return res.json();
     },
     onSuccess: (data: any) => {
+      // Seed the cache with the new channel immediately, not just
+      // invalidate-and-refetch: onDMCreated below sets activeChannelId
+      // synchronously, and activeChannel is derived via
+      // channels.find(c => c.id === activeChannelId). Without this, there's
+      // a real window — a network round trip wide — where that find()
+      // comes up empty and MessagePane renders with channel=null right as
+      // the user starts typing, which the reset-on-channel-switch effect
+      // there then reads as "switched to no channel, then to a channel" and
+      // clears whatever they'd already typed with no error shown.
+      queryClient.setQueryData<any[]>(["/api/channels"], (old) =>
+        old && old.some((c) => c.id === data.id) ? old : [...(old ?? []), data]
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/channels"] });
       onOpenChange(false);
       setSearchTerm("");
