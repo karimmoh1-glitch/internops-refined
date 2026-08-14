@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, generatePerformanceNarrative, type OrgDigest, type PerformanceDigest } from "./services/aiService";
 import { normalizeSkillTag, aggregateSkillTags } from "@shared/skills";
 import { computeRiskFlags } from "./services/riskRadar";
+import { runMorningDigestForCompany } from "./services/morningDigest";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
@@ -449,6 +450,7 @@ export async function registerRoutes(
         id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId,
         publicProfileEnabled: user.publicProfileEnabled, publicProfileSlug: user.publicProfileSlug,
         completionBadgeAwardedAt: user.completionBadgeAwardedAt,
+        morningDigestEnabled: user.morningDigestEnabled,
       });
     } catch (error: any) {
       console.error("Failed to get user:", error);
@@ -510,6 +512,38 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to update public profile setting:", error);
       res.status(500).json({ message: "Failed to update public profile setting" });
+    }
+  });
+
+  // Self-service opt-out (default on — an internal work-tool digest, not
+  // marketing) from the automated morning digest DM.
+  app.put("/api/settings/morning-digest", requireAuth, async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ message: "enabled must be a boolean" });
+      }
+      const updated = await storage.setUserMorningDigestEnabled((req as any).userId, enabled);
+      if (!updated) return res.status(404).json({ message: "User not found" });
+      res.json({ morningDigestEnabled: updated.morningDigestEnabled });
+    } catch (error: any) {
+      console.error("Failed to update morning digest setting:", error);
+      res.status(500).json({ message: "Failed to update morning digest setting" });
+    }
+  });
+
+  // Admin-triggered, own-company-only. There's no staging/ops tooling in
+  // this codebase, so this is the only way to test the digest without
+  // waiting for the real scheduled time.
+  app.post("/api/admin/morning-digest/run-now", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.status(400).json({ message: "Admin must belong to a company" });
+      await runMorningDigestForCompany(companyId);
+      res.json({ message: "Morning digest run complete" });
+    } catch (error: any) {
+      console.error("Failed to run morning digest:", error);
+      res.status(500).json({ message: "Failed to run morning digest" });
     }
   });
 
@@ -3189,7 +3223,10 @@ export async function registerRoutes(
       const companyId = (req as any).companyId;
       if (!companyId) return res.json([]);
       const allUsers = await storage.getUsersByCompany(companyId);
-      res.json(allUsers.map(u => ({ id: u.id, name: u.name, role: u.role })));
+      // Excludes the automated "system" sender account (see
+      // storage.getOrCreateSystemUser) — it must never appear as a
+      // DM/member-picker target for real users.
+      res.json(allUsers.filter(u => u.role !== "system").map(u => ({ id: u.id, name: u.name, role: u.role })));
     } catch (error: any) {
       console.error("Failed to list users:", error);
       res.status(500).json({ message: "Failed to list users" });
@@ -3206,9 +3243,10 @@ export async function registerRoutes(
       // Ensure general channel exists
       const generalChannel = await storage.ensureGeneralChannel(companyId);
 
-      // Add all company users as members
+      // Add all company users as members (excluding the automated
+      // "system" sender account, if one exists — see getOrCreateSystemUser)
       const companyUsers = await storage.getUsersByCompany(companyId);
-      for (const u of companyUsers) {
+      for (const u of companyUsers.filter(u => u.role !== "system")) {
         await storage.addChannelMember(generalChannel.id, u.id);
       }
 

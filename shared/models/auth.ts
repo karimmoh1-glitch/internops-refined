@@ -27,9 +27,12 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: varchar("email").notNull().unique(),
   passwordHash: varchar("password_hash").notNull(),
-  role: varchar("role").notNull().default("intern"),
+  role: varchar("role").notNull().default("intern"), // admin | intern | system (see storage.getOrCreateSystemUser)
   companyId: varchar("company_id").references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow(),
+  // Opt-out, not opt-in — an internal work-tool digest, analogous to the
+  // existing notification defaults rather than marketing.
+  morningDigestEnabled: boolean("morning_digest_enabled").notNull().default(true),
   // Null = active. Set = blocked from login and every authenticated
   // request, checked immediately (not just at next login) — same pattern
   // as userDevices.revokedAt below. History (tasks, logs, chat) is left
@@ -289,6 +292,20 @@ export const performanceNarratives = pgTable("performance_narratives", {
   index("idx_perf_narratives_user_created").on(table.userId, table.createdAt),
 ]);
 
+// The real concurrency/double-send guard for the morning digest: insert
+// first (onConflictDoNothing), skip sending if no row was newly inserted.
+// Correct even under process restarts or, if this app is ever scaled to
+// more than one instance, concurrent sweeps — a DB unique constraint,
+// not an assumption about instance count.
+export const digestRuns = pgTable("digest_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  sentDate: varchar("sent_date").notNull(), // "YYYY-MM-DD"
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_digest_runs_user_date").on(table.userId, table.sentDate),
+]);
+
 export const insertApplicationSchema = createInsertSchema(applications).omit({ id: true, createdAt: true, reviewedAt: true });
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -310,6 +327,7 @@ export const insertUserDeviceSchema = createInsertSchema(userDevices).omit({ id:
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z.string()) }).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPerformanceNarrativeSchema = createInsertSchema(performanceNarratives).omit({ id: true, createdAt: true });
+export const insertDigestRunSchema = createInsertSchema(digestRuns).omit({ id: true, createdAt: true });
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
@@ -353,6 +371,8 @@ export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type PerformanceNarrative = typeof performanceNarratives.$inferSelect;
 export type InsertPerformanceNarrative = z.infer<typeof insertPerformanceNarrativeSchema>;
+export type DigestRun = typeof digestRuns.$inferSelect;
+export type InsertDigestRun = z.infer<typeof insertDigestRunSchema>;
 
 export const TASK_STATUSES = ["todo", "in_progress", "in_review", "completed", "blocked"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
