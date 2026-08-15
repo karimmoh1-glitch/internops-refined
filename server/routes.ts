@@ -3405,9 +3405,12 @@ export async function registerRoutes(
   // Delete channel (admin, custom only)
   app.delete("/api/channels/:id", requireAuth, requireRole("admin"), async (req, res) => {
     try {
+      const companyId = (req as any).companyId;
       const channel = await storage.getChannelById(req.params.id);
-      if (!channel) return res.status(404).json({ message: "Channel not found" });
-      if (channel.type !== "custom") return res.status(400).json({ message: "Only custom channels can be deleted" });
+      if (!channel || channel.companyId !== companyId) return res.status(404).json({ message: "Channel not found" });
+      if (channel.type !== "custom" && channel.type !== "dm") {
+        return res.status(400).json({ message: "Only custom channels and direct messages can be deleted" });
+      }
       await storage.deleteChannel(channel.id);
       res.json({ success: true });
     } catch (error: any) {

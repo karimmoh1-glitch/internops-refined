@@ -298,16 +298,35 @@ function MessagePane({
   channel,
   user,
   onBack,
+  onChannelDeleted,
 }: {
   channel: Channel | null;
   user: ChatPageProps["user"];
   onBack?: () => void;
+  onChannelDeleted?: () => void;
 }) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [showMembers, setShowMembers] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const deleteChannelMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/channels/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/channels"] });
+      toast({ title: channel?.type === "dm" ? "Conversation deleted" : "Channel deleted" });
+      setShowDeleteConfirm(false);
+      onChannelDeleted?.();
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
   const channelId = channel?.id;
 
@@ -409,6 +428,16 @@ function MessagePane({
           )}
           <h3 className="font-semibold text-white truncate">{channel.name}</h3>
         </div>
+        {user.role === "admin" && (channel.type === "dm" || channel.type === "custom") && (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 rounded-lg transition-colors hover:bg-red-500/10 text-white/50 hover:text-red-400"
+            title={channel.type === "dm" ? "Delete conversation" : "Delete channel"}
+            data-testid="button-delete-channel"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
         <button
           onClick={() => setShowMembers(!showMembers)}
           className={`p-2 rounded-lg transition-colors ${
@@ -419,6 +448,30 @@ function MessagePane({
           <Users className="w-4 h-4" />
         </button>
       </div>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{channel.type === "dm" ? "Delete this conversation?" : `Delete #${channel.name}?`}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-white/60">
+            {channel.type === "dm"
+              ? `This permanently deletes every message in this conversation with ${channel.name}. This cannot be undone.`
+              : `This permanently deletes the channel and every message in it. This cannot be undone.`}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+            <Button
+              disabled={deleteChannelMutation.isPending}
+              className="bg-red-600 hover:bg-red-600/90 text-white"
+              onClick={() => deleteChannelMutation.mutate(channel.id)}
+              data-testid="button-confirm-delete-channel"
+            >
+              {deleteChannelMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Messages */}
@@ -860,6 +913,7 @@ export default function ChatPage({ user }: ChatPageProps) {
             channel={activeChannel}
             user={user}
             onBack={() => setShowSidebar(true)}
+            onChannelDeleted={() => { setActiveChannelId(null); setShowSidebar(true); }}
           />
         )}
         <NewDMDialog
@@ -889,7 +943,7 @@ export default function ChatPage({ user }: ChatPageProps) {
         user={user}
         isLoading={loadingChannels}
       />
-      <MessagePane channel={activeChannel} user={user} />
+      <MessagePane channel={activeChannel} user={user} onChannelDeleted={() => setActiveChannelId(null)} />
       <NewDMDialog
         open={showNewDM}
         onOpenChange={setShowNewDM}
