@@ -509,6 +509,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(chatMessages).where(eq(chatMessages.userId, id));
     await db.delete(channelMessages).where(eq(channelMessages.userId, id));
     await db.delete(channelMembers).where(eq(channelMembers.userId, id));
+    await db.delete(alumniRecords).where(eq(alumniRecords.userId, id));
     await db.update(channels).set({ createdById: null }).where(eq(channels.createdById, id));
     await db.delete(userDevices).where(eq(userDevices.userId, id));
     await db.update(auditLogs).set({ actorUserId: null }).where(eq(auditLogs.actorUserId, id));
