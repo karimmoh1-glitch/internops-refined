@@ -67,6 +67,17 @@ const EDAI_COMPANY_SLUG = "edai";
 async function getOrCreateEdaiCompany() {
   const existing = await storage.getCompanyBySlug(EDAI_COMPANY_SLUG);
   if (existing) return existing;
+
+  // This app is single-tenant by design — there should only ever be one
+  // company row. If the canonical slug doesn't match (e.g. a company
+  // created before this slug convention existed, or under a different
+  // generated slug), reuse whichever company already exists rather than
+  // silently spinning up a second, empty one that real signups would be
+  // invisibly routed into. Only create a brand-new company on a truly
+  // fresh, empty database.
+  const [anyCompany] = await storage.getAllCompanies();
+  if (anyCompany) return anyCompany;
+
   return storage.createCompany({ name: EDAI_COMPANY_NAME, slug: EDAI_COMPANY_SLUG });
 }
 
@@ -320,10 +331,13 @@ export async function registerRoutes(
       // and the dev-only seed script refuses to run in production, so
       // without this there would be no way to ever get a first manager
       // account on a real deployment. Only fires once — the moment any
-      // admin exists, every subsequent signup goes through the normal
-      // pending-approval queue below, same as always.
-      const existingAdmins = await storage.getAdminsByCompany(company.id);
-      if (existingAdmins.length === 0) {
+      // admin exists anywhere in the system, every subsequent signup goes
+      // through the normal pending-approval queue below, same as always.
+      // Checked globally (not scoped to `company`) so a stray/legacy
+      // company row can never cause this to re-fire and mint a second,
+      // unintended admin — this app is single-tenant by design.
+      const adminExists = await storage.anyAdminExists();
+      if (!adminExists) {
         const passwordHash = await bcrypt.hash(password, 10);
         const user = await storage.createUser({
           name: name.trim(),
@@ -370,7 +384,8 @@ export async function registerRoutes(
         status: "pending",
       } as any);
 
-      for (const admin of existingAdmins) {
+      const companyAdmins = await storage.getAdminsByCompany(company.id);
+      for (const admin of companyAdmins) {
         await storage.createNotification({
           userId: admin.id,
           title: "New Signup Request",
@@ -1878,6 +1893,16 @@ export async function registerRoutes(
 
   app.get("/api/plan-versions/:id/comments", requireAuth, async (req, res) => {
     try {
+      const pv = await storage.getPlanVersionById(req.params.id as string);
+      if (!pv) return res.status(404).json({ message: "Plan version not found" });
+
+      const project = await storage.getProjectById(pv.projectId);
+      const isOwner = project && project.internId === (req as any).userId;
+      const isCompanyAdmin = (req as any).userRole === "admin" && project && project.companyId === (req as any).companyId;
+      if (!project || (!isOwner && !isCompanyAdmin)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
       const comments = await storage.getCommentsByVersion(req.params.id as string);
       res.json(comments);
     } catch (error: any) {
@@ -2256,7 +2281,7 @@ export async function registerRoutes(
 
   app.put("/api/notifications/:id/read", requireAuth, async (req: Request, res: Response) => {
     try {
-      const updated = await storage.markNotificationRead(req.params.id as string);
+      const updated = await storage.markNotificationRead(req.params.id as string, (req as any).userId);
       if (!updated) return res.status(404).json({ message: "Notification not found" });
       res.json(updated);
     } catch (error: any) {
@@ -3103,6 +3128,13 @@ export async function registerRoutes(
     try {
       const project = await storage.getProjectById(req.params.id as string);
       if (!project) return res.status(404).json({ message: "Project not found" });
+      const role = (req as any).userRole;
+      if (role === "intern" && project.internId !== (req as any).userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      if (role === "admin" && project.companyId !== (req as any).companyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       if (!project.githubRepoUrl) return res.json([]);
 
       const { parseGithubUrl, getRecentCommits } = await import("./services/githubService");
@@ -3124,6 +3156,13 @@ export async function registerRoutes(
     try {
       const project = await storage.getProjectById(req.params.id as string);
       if (!project) return res.status(404).json({ message: "Project not found" });
+      const role = (req as any).userRole;
+      if (role === "intern" && project.internId !== (req as any).userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      if (role === "admin" && project.companyId !== (req as any).companyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       if (!project.githubRepoUrl) return res.json([]);
 
       const { parseGithubUrl, getRecentPullRequests } = await import("./services/githubService");
@@ -3352,6 +3391,15 @@ export async function registerRoutes(
       const userId = (req as any).userId;
       const companyId = (req as any).companyId;
       if (!companyId) return res.status(400).json({ message: "No company" });
+
+      // Self-healing: every user in the company should always be a member
+      // of #general. Accounts created outside the normal signup path (e.g.
+      // an admin restored directly via script during a data reset) can
+      // otherwise end up permanently unable to see or post in it, with no
+      // way to self-recover since the channel is invisible to them.
+      const generalChannel = await storage.ensureGeneralChannel(companyId);
+      await storage.addChannelMember(generalChannel.id, userId);
+
       const allChannels = await storage.getChannelsByCompany(companyId, userId);
       res.json(allChannels);
     } catch (error: any) {

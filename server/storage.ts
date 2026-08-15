@@ -46,6 +46,7 @@ export interface IStorage {
   getUsersByCompany(companyId: string): Promise<User[]>;
   getInternsByCompany(companyId: string): Promise<User[]>;
   getAdminsByCompany(companyId: string): Promise<User[]>;
+  anyAdminExists(): Promise<boolean>;
   updateUserPassword(id: string, passwordHash: string): Promise<void>;
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
   setUserPublicProfile(id: string, enabled: boolean): Promise<User | undefined>;
@@ -114,7 +115,7 @@ export interface IStorage {
 
   createNotification(data: InsertNotification): Promise<Notification>;
   getNotificationsByUser(userId: string): Promise<Notification[]>;
-  markNotificationRead(id: string): Promise<Notification | undefined>;
+  markNotificationRead(id: string, userId: string): Promise<Notification | undefined>;
   markAllNotificationsRead(userId: string): Promise<void>;
   getUnreadNotificationCount(userId: string): Promise<number>;
 
@@ -274,6 +275,15 @@ export class DatabaseStorage implements IStorage {
     ).orderBy(desc(users.createdAt));
   }
 
+  // Global, not company-scoped — used by the signup bootstrap escape hatch,
+  // which must never fire a second time system-wide even if a stray/legacy
+  // company row causes getOrCreateEdaiCompany() to resolve to a company
+  // that itself has no admins yet.
+  async anyAdminExists(): Promise<boolean> {
+    const [row] = await db.select({ id: users.id }).from(users).where(eq(users.role, "admin")).limit(1);
+    return !!row;
+  }
+
   async updateUserPassword(id: string, passwordHash: string): Promise<void> {
     await db.update(users).set({ passwordHash }).where(eq(users.id, id));
   }
@@ -398,7 +408,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllCompanies(): Promise<Company[]> {
-    return db.select().from(companies);
+    return db.select().from(companies).orderBy(companies.createdAt);
   }
 
   async getCompanyById(id: string): Promise<Company | undefined> {
@@ -490,6 +500,19 @@ export class DatabaseStorage implements IStorage {
     // channel's own FK) — without this, deleting a project left a channel
     // in the sidebar pointing at a project that no longer exists.
     await db.delete(channels).where(eq(channels.projectId, id));
+
+    // Tasks reference this project but aren't cascade-deleted at the DB
+    // level. A completion criterion can optionally point at one of this
+    // project's tasks (also no cascade) — null that reference first (the
+    // criteria rows themselves cascade-delete with the project below) so
+    // deleting the tasks doesn't hit a foreign-key violation.
+    const projectTasks = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
+    if (projectTasks.length > 0) {
+      const taskIds = projectTasks.map((t) => t.id);
+      await db.update(projectCompletionCriteria).set({ taskId: null }).where(inArray(projectCompletionCriteria.taskId, taskIds));
+    }
+    await db.delete(tasks).where(eq(tasks.projectId, id));
+
     await db.delete(projects).where(eq(projects.id, id));
   }
 
@@ -630,8 +653,13 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
   }
 
-  async markNotificationRead(id: string): Promise<Notification | undefined> {
-    const [updated] = await db.update(notifications).set({ read: true }).where(eq(notifications.id, id)).returning();
+  // Scoped by userId as well as id — without this, any authenticated user
+  // could mark (and have echoed back to them) another user's notification
+  // just by knowing or guessing its id.
+  async markNotificationRead(id: string, userId: string): Promise<Notification | undefined> {
+    const [updated] = await db.update(notifications).set({ read: true })
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+      .returning();
     return updated;
   }
 
