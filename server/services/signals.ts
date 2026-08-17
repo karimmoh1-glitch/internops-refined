@@ -1,4 +1,4 @@
-import type { Task, Project } from "@shared/schema";
+import type { Task, Project, WorkSession } from "@shared/schema";
 
 // Manager Signals: "what actually needs my attention right now?"
 //
@@ -19,7 +19,11 @@ export type SignalType =
   | "possible_blocker"
   | "pending_review"
   | "workflow_stalled"
-  | "project_at_risk";
+  | "project_at_risk"
+  | "no_work_assigned"
+  | "inactive"
+  | "unusual_hours"
+  | "pending_proposal";
 
 export interface SignalAction {
   label: string;
@@ -219,6 +223,144 @@ export function computeSignals(
       description: `"${project.title}" has ${parts.join(" and ")}.`,
       projectId,
       actions: [{ label: "View Project", kind: "view_project", projectId }],
+    });
+  }
+
+  const severityRank = { high: 0, medium: 1 } as const;
+  return signals.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+}
+
+// Worktime-aware signals: same rule-based, explainable approach as
+// computeSignals, but over work-session (shift) data instead of task
+// timestamps. Kept as a separate function (rather than folded into
+// computeSignals) because it needs a different input shape — a window of
+// recent sessions per intern — that the task/project-only call sites don't
+// have to fetch.
+function localDayKey(d: Date): string {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+export function computeWorktimeSignals(
+  interns: { id: string; name: string; deactivatedAt?: Date | string | null }[],
+  tasks: Task[],
+  projects: Project[],
+  recentSessions: WorkSession[], // last 14 days, all interns in the company
+  now: number = Date.now(),
+): Signal[] {
+  const signals: Signal[] = [];
+  const activeInterns = interns.filter((i) => !i.deactivatedAt);
+  const todayKey = localDayKey(new Date(now));
+
+  const sessionsByIntern = new Map<string, WorkSession[]>();
+  for (const s of recentSessions) {
+    if (!sessionsByIntern.has(s.internId)) sessionsByIntern.set(s.internId, []);
+    sessionsByIntern.get(s.internId)!.push(s);
+  }
+
+  for (const intern of activeInterns) {
+    const internTasks = tasks.filter((t) => t.assigneeId === intern.id);
+    const openTasks = internTasks.filter((t) => t.status !== "completed");
+    const mySessions = sessionsByIntern.get(intern.id) ?? [];
+
+    // No open work at all — nothing to be inactive on, so this is the only
+    // worktime signal that applies; skip the rest for this intern.
+    if (openTasks.length === 0) {
+      signals.push({
+        key: `no-work:${intern.id}`,
+        type: "no_work_assigned",
+        severity: "medium",
+        headline: "No work assigned",
+        description: `${intern.name} has no open tasks assigned.`,
+        internId: intern.id,
+        internName: intern.name,
+        actions: [{ label: `Message ${intern.name}`, kind: "message", userId: intern.id }],
+      });
+      continue;
+    }
+
+    // Inactive: open work exists, but no shift started in 3+ calendar days
+    // — and the oldest open task is itself old enough that "just assigned,
+    // hasn't started yet" isn't the more likely explanation.
+    const lastSession = mySessions.reduce<WorkSession | null>((latest, s) => {
+      const ts = new Date(s.startedAt).getTime();
+      return !latest || ts > new Date(latest.startedAt).getTime() ? s : latest;
+    }, null);
+    const daysSinceLastShift = lastSession ? Math.floor((now - new Date(lastSession.startedAt).getTime()) / DAY_MS) : null;
+    const oldestAssignedMs = Math.min(...openTasks.map((t) => (t.createdAt ? new Date(t.createdAt).getTime() : now)));
+    const daysSinceAssigned = Math.floor((now - oldestAssignedMs) / DAY_MS);
+    if (daysSinceAssigned >= 3 && (daysSinceLastShift === null || daysSinceLastShift >= 3)) {
+      const days = daysSinceLastShift ?? daysSinceAssigned;
+      signals.push({
+        key: `inactive:${intern.id}`,
+        type: "inactive",
+        severity: days >= 5 ? "high" : "medium",
+        headline: "No recent activity",
+        description: lastSession
+          ? `${intern.name} has open tasks but hasn't started a shift in ${days} day${days === 1 ? "" : "s"}.`
+          : `${intern.name} has open tasks but has never started a shift.`,
+        internId: intern.id,
+        internName: intern.name,
+        actions: [{ label: `Message ${intern.name}`, kind: "message", userId: intern.id }],
+      });
+    }
+
+    // Unusual hours today: only evaluated once today's shift(s) are over
+    // (a still-active shift isn't done accumulating yet, so comparing it
+    // makes for a noisy, meaningless signal). Baseline is the average
+    // worked-per-day over the prior 13 days, and only counted when there
+    // are at least 3 prior worked days to average — otherwise there isn't
+    // enough history to call anything "unusual" without fabricating one.
+    const todaySessions = mySessions.filter((s) => localDayKey(new Date(s.startedAt)) === todayKey);
+    const todayStillActive = todaySessions.some((s) => s.status === "active");
+    if (todaySessions.length > 0 && !todayStillActive) {
+      const todayTotal = todaySessions.reduce((sum, s) => sum + (s.durationSeconds ?? 0), 0);
+      const priorByDay = new Map<string, number>();
+      for (const s of mySessions) {
+        const key = localDayKey(new Date(s.startedAt));
+        if (key === todayKey || s.status !== "completed") continue;
+        priorByDay.set(key, (priorByDay.get(key) ?? 0) + (s.durationSeconds ?? 0));
+      }
+      if (priorByDay.size >= 3) {
+        const priorTotal = Array.from(priorByDay.values()).reduce((a, b) => a + b, 0);
+        const avgPerDay = priorTotal / priorByDay.size;
+        if (avgPerDay > 0) {
+          const ratio = todayTotal / avgPerDay;
+          if (ratio <= 0.4 || ratio >= 2) {
+            signals.push({
+              key: `unusual-hours:${intern.id}:${todayKey}`,
+              type: "unusual_hours",
+              severity: "medium",
+              headline: ratio <= 0.4 ? "Worked less than usual today" : "Worked more than usual today",
+              description: `${intern.name} logged ${Math.round(todayTotal / 60)}m today, vs. a ${Math.round(avgPerDay / 60)}m daily average over the prior ${priorByDay.size} worked days.`,
+              internId: intern.id,
+              internName: intern.name,
+              actions: [{ label: `Message ${intern.name}`, kind: "message", userId: intern.id }],
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Pending project proposals awaiting admin review for 24h+.
+  for (const project of projects) {
+    if ((project as any).status !== "pending_approval") continue;
+    const createdAt = (project as any).createdAt;
+    if (!createdAt) continue;
+    const hours = Math.floor((now - new Date(createdAt).getTime()) / HOUR_MS);
+    if (hours < 24) continue;
+    const intern = interns.find((i) => i.id === (project as any).internId);
+    const days = Math.max(1, Math.floor(hours / 24));
+    signals.push({
+      key: `proposal:${project.id}`,
+      type: "pending_proposal",
+      severity: hours >= 72 ? "high" : "medium",
+      headline: "Pending manager action",
+      description: `Project proposal "${(project as any).title}"${intern ? ` from ${intern.name}` : ""} has been awaiting review for ${days} day${days === 1 ? "" : "s"}.`,
+      projectId: project.id,
+      internId: intern?.id,
+      internName: intern?.name,
+      actions: [{ label: "Review Proposal", kind: "view_project", projectId: project.id }],
     });
   }
 

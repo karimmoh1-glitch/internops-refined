@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, Loader2, CheckCircle2, Circle, PlayCircle, Eye, Ban,
+  ArrowLeft, Loader2, CheckCircle2, Circle,
   FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2, Award, GraduationCap,
-  ListChecks, Plus, X,
+  ListChecks, Plus, X, Timer,
 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
 import { SimplePageSkeleton } from "@/components/dashboard-skeleton";
+import { formatDuration } from "@/components/shift-control";
 
 interface PerformanceNarrative {
   id: string;
@@ -41,21 +42,13 @@ interface InternProfileProps {
   internId: string;
 }
 
-const TASK_STATUS_META: Record<string, { label: string; cls: string; icon: any }> = {
-  todo: { label: "To Do", cls: "bg-white/10 text-white/70 border-white/[0.08]", icon: Circle },
-  in_progress: { label: "In Progress", cls: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: PlayCircle },
-  in_review: { label: "In Review", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20", icon: Eye },
-  completed: { label: "Completed", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
-  blocked: { label: "Blocked", cls: "bg-red-500/10 text-red-400 border-red-500/20", icon: Ban },
-};
-
 function formatDateTime(dateStr: string) {
   return new Date(dateStr).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 interface TimelineEvent {
   ts: string;
-  kind: "task" | "log" | "plan";
+  kind: "task" | "log" | "plan" | "shift";
   title: string;
   detail?: string;
 }
@@ -242,6 +235,8 @@ export default function InternProfile({ internId }: InternProfileProps) {
   });
   const { data: alumniList = [] } = useQuery<AlumniListEntry[]>({ queryKey: ["/api/alumni"] });
   const alumniRecord = alumniList.find((a) => a.id === internId)?.alumniRecord;
+  const { data: workSessions = [] } = useQuery<any[]>({ queryKey: [`/api/interns/${internId}/work-sessions`] });
+  const { data: worktimeSummary } = useQuery<any>({ queryKey: [`/api/interns/${internId}/worktime-summary`] });
 
   const generateNarrativeMutation = useMutation({
     mutationFn: async () => {
@@ -322,9 +317,23 @@ export default function InternProfile({ internId }: InternProfileProps) {
 
     internTasks.forEach((t: any) => {
       events.push({ ts: t.createdAt, kind: "task", title: `Assigned task "${t.title}"` });
+      if (t.startedAt) events.push({ ts: t.startedAt, kind: "task", title: `Started "${t.title}"` });
       if (t.submittedAt) events.push({ ts: t.submittedAt, kind: "task", title: `Submitted "${t.title}" for review`, detail: t.submission || undefined });
       if (t.completedAt) events.push({ ts: t.completedAt, kind: "task", title: `Completed "${t.title}"`, detail: t.feedback || undefined });
       if (t.status === "blocked" && t.blockedReason) events.push({ ts: t.updatedAt, kind: "task", title: `Blocked on "${t.title}"`, detail: t.blockedReason });
+    });
+
+    workSessions.forEach((s: any) => {
+      events.push({ ts: s.startedAt, kind: "shift", title: "Started shift" });
+      if (s.endedAt) {
+        const mins = s.durationSeconds ? Math.round(s.durationSeconds / 60) : null;
+        events.push({
+          ts: s.endedAt,
+          kind: "shift",
+          title: "Ended shift",
+          detail: mins !== null ? `${Math.floor(mins / 60)}h ${mins % 60}m worked` : undefined,
+        });
+      }
     });
 
     (intern?.projects || []).forEach((project: any) => {
@@ -337,12 +346,12 @@ export default function InternProfile({ internId }: InternProfileProps) {
         });
       });
       (project.versions || []).forEach((v: any) => {
-        events.push({ ts: v.createdAt, kind: "plan", title: `Plan v${v.versionNumber} created for "${project.title}"`, detail: v.status });
+        events.push({ ts: v.createdAt, kind: "plan", title: `Plan v${v.versionNumber} created for "${project.title}"`, detail: v.status ? v.status.charAt(0).toUpperCase() + v.status.slice(1) : undefined });
       });
     });
 
     return events.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
-  }, [internTasks, intern]);
+  }, [internTasks, intern, workSessions]);
 
   const isLoading = dashboardLoading || tasksLoading;
 
@@ -556,6 +565,31 @@ export default function InternProfile({ internId }: InternProfileProps) {
           </div>
         )}
 
+        {worktimeSummary && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Timer className="w-5 h-5 text-white/60" />
+              Worktime
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {([
+                ["Today", worktimeSummary.today],
+                ["This Week", worktimeSummary.week],
+                ["Overall", worktimeSummary.overall],
+              ] as [string, any][]).map(([label, bucket]) => (
+                <div key={label} className="bg-card border border-white/[0.08] rounded-xl p-4" data-testid={`worktime-bucket-${label.toLowerCase().replace(/\s/g, "-")}`}>
+                  <p className="text-xs font-medium text-white/50 uppercase tracking-wide mb-3">{label}</p>
+                  <div className="flex items-baseline gap-1.5 mb-3">
+                    <Clock className="w-4 h-4 text-[#6D5EF5] mb-0.5" />
+                    <span className="text-2xl font-bold text-white tabular-nums">{formatDuration(bucket.totalSeconds)}</span>
+                  </div>
+                  <p className="text-xs text-white/50">{bucket.sessionCount} shift{bucket.sessionCount !== 1 ? "s" : ""}{bucket.sessionCount > 0 ? ` · avg ${formatDuration(bucket.avgSessionSeconds)}` : ""}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-white/60" />
           Work History
@@ -574,6 +608,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
                   {event.kind === "task" && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
                   {event.kind === "log" && <Clock className="w-4 h-4 text-white/40" />}
                   {event.kind === "plan" && <FileText className="w-4 h-4 text-indigo-500" />}
+                  {event.kind === "shift" && <Timer className="w-4 h-4 text-emerald-500" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-white font-medium">{event.title}</p>

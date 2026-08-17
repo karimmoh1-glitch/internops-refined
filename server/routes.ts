@@ -4,8 +4,9 @@ import { storage } from "./storage";
 import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, internAssistantChat, generatePerformanceNarrative, type OrgDigest, type PerformanceDigest, type InternDigest } from "./services/aiService";
 import { normalizeSkillTag, aggregateSkillTags } from "@shared/skills";
 import { computeRiskFlags } from "./services/riskRadar";
-import { computeSignals } from "./services/signals";
+import { computeSignals, computeWorktimeSignals } from "./services/signals";
 import { computeNextBestAction } from "./services/nextBestAction";
+import { summarizeSessions, startOfToday, startOfWeek, tasksInWindow } from "./services/worktime";
 import { runMorningDigestForCompany } from "./services/morningDigest";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
@@ -2674,7 +2675,7 @@ export async function registerRoutes(
       if (task.status !== "todo") {
         return res.status(400).json({ message: "Only a To Do task can be started" });
       }
-      const updated = await storage.updateTaskStatus(task.id, "in_progress");
+      const updated = await storage.updateTaskStatus(task.id, "in_progress", { startedAt: new Date() });
       res.json(updated);
     } catch (error: any) {
       console.error("Failed to start task:", error);
@@ -2833,11 +2834,12 @@ export async function registerRoutes(
     try {
       const companyId = (req as any).companyId;
       if (!companyId) return res.json([]);
-      const [interns, tasks, projects, dismissals] = await Promise.all([
+      const [interns, tasks, projects, dismissals, recentSessions] = await Promise.all([
         storage.getInternsByCompany(companyId),
         storage.getTasksByCompany(companyId),
         storage.getProjectsByCompany(companyId),
         storage.getSignalDismissalsByCompany(companyId),
+        storage.getWorkSessionsByCompanySince(companyId, new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)),
       ]);
       const now = Date.now();
       const suppressed = new Set(
@@ -2845,7 +2847,10 @@ export async function registerRoutes(
           .filter((d) => !d.snoozedUntil || new Date(d.snoozedUntil).getTime() > now)
           .map((d) => d.signalKey)
       );
-      const signals = computeSignals(interns, tasks, projects).filter((s) => !suppressed.has(s.key));
+      const signals = [
+        ...computeSignals(interns, tasks, projects),
+        ...computeWorktimeSignals(interns, tasks, projects, recentSessions, now),
+      ].filter((s) => !suppressed.has(s.key));
       res.json(signals);
     } catch (error: any) {
       console.error("Failed to compute signals:", error);
@@ -2881,6 +2886,204 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to snooze signal:", error);
       res.status(500).json({ message: "Failed to snooze signal" });
+    }
+  });
+
+  // --- Work Sessions ("shifts") ---
+
+  app.post("/api/work-sessions/start", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const companyId = (req as any).companyId;
+      const existing = await storage.getActiveWorkSession(userId);
+      if (existing) {
+        return res.status(400).json({ message: "You already have an active shift." });
+      }
+      const session = await storage.startWorkSession(userId, companyId);
+      res.status(201).json(session);
+    } catch (error: any) {
+      console.error("Failed to start work session:", error);
+      res.status(500).json({ message: "Couldn't start your shift. Please try again." });
+    }
+  });
+
+  app.post("/api/work-sessions/end", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const ended = await storage.endWorkSession(userId);
+      if (!ended) {
+        return res.status(400).json({ message: "You don't have an active shift to end." });
+      }
+
+      const myTasks = await storage.getTasksByAssignee(userId);
+      const start = new Date(ended.startedAt);
+      const end = new Date(ended.endedAt as Date);
+      const completed = tasksInWindow(myTasks, start, end, "completedAt");
+      const submitted = tasksInWindow(myTasks, start, end, "submittedAt");
+
+      res.json({
+        session: ended,
+        summary: {
+          durationSeconds: ended.durationSeconds,
+          tasksCompleted: completed.length,
+          tasksSubmitted: submitted.length,
+        },
+      });
+    } catch (error: any) {
+      console.error("Failed to end work session:", error);
+      res.status(500).json({ message: "Couldn't end your shift. Please try again." });
+    }
+  });
+
+  app.get("/api/work-sessions/active", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const session = await storage.getActiveWorkSession((req as any).userId);
+      res.json(session || null);
+    } catch (error: any) {
+      console.error("Failed to get active work session:", error);
+      res.status(500).json({ message: "Failed to get active work session" });
+    }
+  });
+
+  app.get("/api/work-sessions/mine", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const sessions = await storage.getWorkSessionsByIntern((req as any).userId, 100);
+      res.json(sessions);
+    } catch (error: any) {
+      console.error("Failed to get work sessions:", error);
+      res.status(500).json({ message: "Failed to get work sessions" });
+    }
+  });
+
+  app.get("/api/work-sessions/summary", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const now = new Date();
+      const [todaySessions, weekSessions, overall, myTasks] = await Promise.all([
+        storage.getWorkSessionsByInternSince(userId, startOfToday(now)),
+        storage.getWorkSessionsByInternSince(userId, startOfWeek(now)),
+        storage.getWorkSessionAggregateByIntern(userId),
+        storage.getTasksByAssignee(userId),
+      ]);
+      const today = summarizeSessions(todaySessions, now);
+      const week = summarizeSessions(weekSessions, now);
+      const activeSession = todaySessions.find((s) => s.status === "active");
+
+      res.json({
+        today: {
+          ...today,
+          tasksCompleted: tasksInWindow(myTasks, startOfToday(now), now, "completedAt").length,
+        },
+        week: {
+          ...week,
+          tasksCompleted: tasksInWindow(myTasks, startOfWeek(now), now, "completedAt").length,
+        },
+        overall: {
+          totalSeconds: overall.totalSeconds + (activeSession ? Math.max(0, Math.round((now.getTime() - new Date(activeSession.startedAt).getTime()) / 1000)) : 0),
+          sessionCount: overall.sessionCount + (activeSession ? 1 : 0),
+          avgSessionSeconds: overall.sessionCount > 0 ? Math.round(overall.totalSeconds / overall.sessionCount) : 0,
+          tasksCompleted: myTasks.filter((t) => t.status === "completed").length,
+        },
+      });
+    } catch (error: any) {
+      console.error("Failed to get work session summary:", error);
+      res.status(500).json({ message: "Failed to get work session summary" });
+    }
+  });
+
+  // Admin command-center overview: one intern's current status/stats each,
+  // computed from a handful of bulk queries (not one query per intern) so
+  // this stays fast regardless of cohort size.
+  app.get("/api/worktime/overview", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      if (!companyId) return res.json([]);
+      const now = new Date();
+      const [interns, activeSessions, todaySessions, weekSessions, allTasks] = await Promise.all([
+        storage.getInternsByCompany(companyId),
+        storage.getActiveWorkSessionsByCompany(companyId),
+        storage.getWorkSessionsByCompanySince(companyId, startOfToday(now)),
+        storage.getWorkSessionsByCompanySince(companyId, startOfWeek(now)),
+        storage.getTasksByCompany(companyId),
+      ]);
+
+      const activeByIntern = new Map(activeSessions.map((s) => [s.internId, s]));
+      const overview = interns.map((intern) => {
+        const myTodaySessions = todaySessions.filter((s) => s.internId === intern.id);
+        const myWeekSessions = weekSessions.filter((s) => s.internId === intern.id);
+        const myTasks = allTasks.filter((t) => t.assigneeId === intern.id);
+        const activeSession = activeByIntern.get(intern.id);
+        const currentTask = activeSession
+          ? myTasks.filter((t) => t.status === "in_progress").sort((a, b) => new Date(b.startedAt || b.updatedAt || 0).getTime() - new Date(a.startedAt || a.updatedAt || 0).getTime())[0]
+          : undefined;
+
+        const openTasks = myTasks.filter((t) => t.status !== "completed");
+        const overdueTasks = openTasks.filter((t) => t.dueDate && new Date(t.dueDate).getTime() < now.getTime());
+        const blockedTasks = myTasks.filter((t) => t.status === "blocked");
+
+        return {
+          id: intern.id,
+          name: intern.name,
+          deactivatedAt: intern.deactivatedAt,
+          isActive: !!activeSession,
+          shiftStartedAt: activeSession?.startedAt ?? null,
+          currentTaskTitle: currentTask?.title ?? null,
+          today: summarizeSessions(myTodaySessions, now),
+          week: summarizeSessions(myWeekSessions, now),
+          totalTasks: myTasks.length,
+          openTasks: openTasks.length,
+          overdueTasks: overdueTasks.length,
+          blockedTasks: blockedTasks.length,
+          tasksCompletedToday: tasksInWindow(myTasks, startOfToday(now), now, "completedAt").length,
+        };
+      });
+
+      res.json(overview);
+    } catch (error: any) {
+      console.error("Failed to get worktime overview:", error);
+      res.status(500).json({ message: "Failed to get worktime overview" });
+    }
+  });
+
+  app.get("/api/interns/:id/work-sessions", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId) {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+      const sessions = await storage.getWorkSessionsByIntern(intern.id, 200);
+      res.json(sessions);
+    } catch (error: any) {
+      console.error("Failed to get intern work sessions:", error);
+      res.status(500).json({ message: "Failed to get intern work sessions" });
+    }
+  });
+
+  app.get("/api/interns/:id/worktime-summary", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId) {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+      const now = new Date();
+      const [todaySessions, weekSessions, overall] = await Promise.all([
+        storage.getWorkSessionsByInternSince(intern.id, startOfToday(now)),
+        storage.getWorkSessionsByInternSince(intern.id, startOfWeek(now)),
+        storage.getWorkSessionAggregateByIntern(intern.id),
+      ]);
+      res.json({
+        today: summarizeSessions(todaySessions, now),
+        week: summarizeSessions(weekSessions, now),
+        overall: {
+          ...overall,
+          avgSessionSeconds: overall.sessionCount > 0 ? Math.round(overall.totalSeconds / overall.sessionCount) : 0,
+        },
+      });
+    } catch (error: any) {
+      console.error("Failed to get intern worktime summary:", error);
+      res.status(500).json({ message: "Failed to get intern worktime summary" });
     }
   });
 

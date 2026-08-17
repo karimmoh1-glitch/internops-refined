@@ -255,6 +255,11 @@ export const tasks = pgTable("tasks", {
   priority: varchar("priority").notNull().default("medium"), // low | medium | high
   status: varchar("status").notNull().default("todo"), // todo | in_progress | in_review | completed | blocked
   dueDate: timestamp("due_date"),
+  // Set once, the first time a task moves todo -> in_progress (not
+  // overwritten on later transitions e.g. blocked -> in_progress again) —
+  // this is what powers the "Started X" activity-timeline event and shift
+  // summaries, neither of which existed before this could be tracked.
+  startedAt: timestamp("started_at"),
   submission: text("submission"),
   submittedAt: timestamp("submitted_at"),
   feedback: text("feedback"),
@@ -276,6 +281,30 @@ export const tasks = pgTable("tasks", {
   index("idx_tasks_company_status").on(table.companyId, table.status),
   index("idx_tasks_assignee_status").on(table.assigneeId, table.status),
   index("idx_tasks_depends_on").on(table.dependsOnTaskId),
+]);
+
+// A "shift" — deliberately just start/end/duration, not invasive activity
+// tracking. What the intern *did* during a session is derived on read by
+// correlating task timestamps (startedAt/submittedAt/completedAt) that
+// fall inside [startedAt, endedAt], not stored redundantly here.
+export const workSessions = pgTable("work_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  internId: varchar("intern_id").notNull().references(() => users.id),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"),
+  // Persisted rather than always recomputed from started/endedAt so a
+  // completed session's duration is a fixed historical fact.
+  durationSeconds: integer("duration_seconds"),
+  status: varchar("status").notNull().default("active"), // active | completed
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_work_sessions_intern_started").on(table.internId, table.startedAt),
+  index("idx_work_sessions_company_started").on(table.companyId, table.startedAt),
+  // DB-level guarantee against a double "Start Shift" (e.g. two rapid
+  // clicks, or two tabs) racing past an application-level check — at most
+  // one active session per intern, enforced by Postgres, not just the API.
+  uniqueIndex("idx_work_sessions_one_active_per_intern").on(table.internId).where(sql`status = 'active'`),
 ]);
 
 export const auditLogs = pgTable("audit_logs", {
@@ -404,6 +433,7 @@ export const insertChannelMessageSchema = createInsertSchema(channelMessages).om
 export const insertUserDeviceSchema = createInsertSchema(userDevices).omit({ id: true, firstSeenAt: true, lastSeenAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z.string()) }).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkSessionSchema = createInsertSchema(workSessions).omit({ id: true, createdAt: true });
 export const insertPerformanceNarrativeSchema = createInsertSchema(performanceNarratives).omit({ id: true, createdAt: true });
 export const insertDigestRunSchema = createInsertSchema(digestRuns).omit({ id: true, createdAt: true });
 export const insertAlumniRecordSchema = createInsertSchema(alumniRecords).omit({ id: true, createdAt: true });
@@ -450,6 +480,8 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type WorkSession = typeof workSessions.$inferSelect;
+export type InsertWorkSession = z.infer<typeof insertWorkSessionSchema>;
 export type PerformanceNarrative = typeof performanceNarratives.$inferSelect;
 export type InsertPerformanceNarrative = z.infer<typeof insertPerformanceNarrativeSchema>;
 export type DigestRun = typeof digestRuns.$inferSelect;

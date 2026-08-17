@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  LogOut, Bell, CheckCheck, X, Command, MessageSquare, ListTodo, LayoutGrid, GraduationCap,
+  LogOut, Bell, CheckCheck, X, Command, MessageSquare, ListTodo, LayoutGrid, GraduationCap, Clock,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import LogoMark from "@/components/logo-mark";
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutGrid, testid: "link-dashboard" },
   { href: "/tasks", label: "Tasks", icon: ListTodo, testid: "link-tasks" },
   { href: "/chat", label: "Messages", icon: MessageSquare, testid: "link-chat" },
+  { href: "/worktime", label: "Worktime", icon: Clock, testid: "link-worktime", adminOnly: true },
   { href: "/alumni", label: "Alumni", icon: GraduationCap, testid: "link-alumni", adminOnly: true },
 ];
 

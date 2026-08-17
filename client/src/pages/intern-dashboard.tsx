@@ -24,6 +24,8 @@ import CommandPalette, { useInternCommands } from "@/components/command-palette"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { PersonalProgressLineChart, WeeklyHoursBarChart } from "@/components/analytics-charts";
 import GitHubPanel from "@/components/github-panel";
+import ShiftControl from "@/components/shift-control";
+import WorktimeSummary from "@/components/worktime-summary";
 import { useLocation } from "wouter";
 
 interface InternDashboardProps {
@@ -114,9 +116,20 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  assigned: "Assigned",
+  planning: "Planning",
+  submitted: "Submitted",
+  approved: "Approved",
+  active: "Active",
+  completed: "Completed",
+  draft: "Draft",
   pending_approval: "Awaiting Approval",
   rejected: "Not Approved",
 };
+
+function statusLabel(status: string): string {
+  return STATUS_LABELS[status] || status.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
 
 function getCompletionRate(project: any): number {
   const planContent = project.latestVersion?.contentJson ||
@@ -353,14 +366,22 @@ function AskInternOpsCard() {
 // server-side from real deadline/priority/dependency data (see
 // server/services/nextBestAction.ts); the intern can always ignore it and
 // pick something else from the full task list below.
+//
+// When there's no actionable task, this never just vanishes — an intern
+// should never be left silently wondering what happened. It falls back,
+// in order: an active project with room to keep logging progress, then a
+// prompt to propose new work, then an explicit "you're caught up" state.
+// Nothing here is fabricated work — if there's truly nothing, it says so.
 function NextBestActionCard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showPropose, setShowPropose] = useState(false);
   const { data, isLoading } = useQuery<{ recommended: { task: any; reason: string; blockingCount: number } | null; alternateCount: number }>({
     queryKey: ["/api/tasks/next-best"],
     refetchInterval: 15000,
   });
+  const { data: projects = [] } = useQuery<any[]>({ queryKey: ["/api/projects"] });
 
   const startMutation = useMutation({
     mutationFn: async (id: string) => apiRequest("POST", `/api/tasks/${id}/start`),
@@ -372,7 +393,57 @@ function NextBestActionCard() {
     onError: (err: any) => toast({ title: "Couldn't start task", description: err.message, variant: "destructive" }),
   });
 
-  if (isLoading || !data?.recommended) return null;
+  if (isLoading) return null;
+
+  if (!data?.recommended) {
+    const activeProjects = projects.filter((p: any) => p.status === "assigned" || p.status === "planning" || p.status === "active" || p.status === "submitted");
+
+    return (
+      <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent mb-4" data-testid="section-next-best-action">
+        <div className="bg-card rounded-[11px] p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400">You're All Caught Up</span>
+          </div>
+          {activeProjects.length > 0 ? (
+            <>
+              <h3 className="text-lg font-heading font-semibold text-white mb-1">No assigned tasks waiting on you</h3>
+              <p className="text-sm text-white/50 mb-4">
+                You have {activeProjects.length} active project{activeProjects.length === 1 ? "" : "s"} — log progress, keep working toward its Definition of Done, or propose something new.
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" onClick={() => setLocation("/tasks")} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-view-tasks-caught-up">
+                  View Tasks
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowPropose(true)} data-testid="button-propose-caught-up">
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Propose a Project
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-heading font-semibold text-white mb-1">Nothing assigned right now</h3>
+              <p className="text-sm text-white/50 mb-4">
+                You have no open tasks and no active projects. Propose a project idea, or reach out to your manager.
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" onClick={() => setShowPropose(true)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-propose-caught-up">
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Propose a Project
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setLocation("/chat")} data-testid="button-message-manager-caught-up">
+                  Message Your Manager
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+        <ProposeProjectDialog open={showPropose} onOpenChange={setShowPropose} />
+      </div>
+    );
+  }
+
   const { task, reason } = data.recommended;
 
   return (
@@ -617,6 +688,8 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
     return (
       <div className="min-h-screen bg-background" data-testid="no-project-state">
         <div className="max-w-6xl mx-auto px-4 py-8">
+          <ShiftControl />
+          <WorktimeSummary />
           <NextBestActionCard />
           <InternTaskOverview />
           <div className="flex items-center justify-center py-12">
@@ -671,6 +744,8 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
 
         <ProposeProjectDialog open={showPropose} onOpenChange={setShowPropose} />
 
+        <ShiftControl />
+        <WorktimeSummary />
         <NextBestActionCard />
         <AskInternOpsCard />
         <InternTaskOverview />
@@ -724,7 +799,7 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
                   )}
                 </div>
                 <Badge className={`${STATUS_COLORS[project.status] || STATUS_COLORS.assigned} capitalize`} data-testid={`badge-status-${project.id}`}>
-                  {STATUS_LABELS[project.status] || project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                  {statusLabel(project.status)}
                 </Badge>
               </div>
               <div className="flex items-center gap-4">
@@ -806,8 +881,8 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
             {project.title || project.idea || "My Project"}
           </h1>
           <div className="flex items-center gap-2 mt-0.5">
-            <Badge className={`${STATUS_COLORS[status] || STATUS_COLORS.assigned} text-xs capitalize`}>
-              {status}
+            <Badge className={`${STATUS_COLORS[status] || STATUS_COLORS.assigned} text-xs`}>
+              {statusLabel(status)}
             </Badge>
             {project.minimumTotalHours && (
               <span className="text-xs text-white/40 flex items-center gap-1">
@@ -942,7 +1017,7 @@ function RightPanel({ project, projectDetail, status, planContent, currentVersio
             <h2 className="text-lg font-semibold text-white">Project Plan</h2>
             {currentVersion && (
               <Badge className={STATUS_COLORS[currentVersion.status] || STATUS_COLORS.assigned}>
-                v{currentVersion.versionNumber}.0 {currentVersion.status}
+                v{currentVersion.versionNumber}.0 {statusLabel(currentVersion.status)}
               </Badge>
             )}
           </div>
@@ -1029,7 +1104,7 @@ function RightPanel({ project, projectDetail, status, planContent, currentVersio
             {versions.map((v: any) => (
               <div key={v.id} className="flex items-center justify-between px-3 py-2 rounded-lg border border-white/[0.06] text-sm" data-testid={`version-item-${v.id}`}>
                 <span className="text-white/70 font-medium">v{v.versionNumber || 1}.0</span>
-                <Badge className={STATUS_COLORS[v.status] || STATUS_COLORS.assigned}>{v.status}</Badge>
+                <Badge className={STATUS_COLORS[v.status] || STATUS_COLORS.assigned}>{statusLabel(v.status)}</Badge>
               </div>
             ))}
           </div>

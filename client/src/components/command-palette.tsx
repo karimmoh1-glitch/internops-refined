@@ -5,6 +5,10 @@ import {
   LogOut, Search, FileText, Home
 } from "lucide-react";
 
+function humanizeStatus(status: string): string {
+  return status.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
 interface CommandItem {
   id: string;
   label: string;
@@ -135,7 +139,7 @@ export function useAdminCommands({
   const taskItems: CommandItem[] = tasks.map((t) => ({
     id: `task-${t.id}`,
     label: t.title,
-    description: t.status.replace("_", " "),
+    description: humanizeStatus(t.status),
     icon: FileText,
     action: () => onNavigate?.(`/tasks?assigneeId=${t.assigneeId}`),
     group: "Tasks",
@@ -145,7 +149,7 @@ export function useAdminCommands({
   const projectItems: CommandItem[] = projects.map((p) => ({
     id: `project-${p.id}`,
     label: p.title,
-    description: [p.internName, p.status].filter(Boolean).join(" · "),
+    description: [p.internName, p.status ? humanizeStatus(p.status) : null].filter(Boolean).join(" · "),
     icon: Briefcase,
     action: () => onNavigate?.(`/?projectId=${p.id}`),
     group: "Projects",
@@ -178,7 +182,7 @@ export function useInternCommands({
   const projectItems: CommandItem[] = projects.map((p) => ({
     id: `project-${p.id}`,
     label: p.title || p.idea || "Untitled",
-    description: p.status,
+    description: p.status ? humanizeStatus(p.status) : undefined,
     icon: FileText,
     action: () => onSelectProject(p.id),
     group: "Projects",
