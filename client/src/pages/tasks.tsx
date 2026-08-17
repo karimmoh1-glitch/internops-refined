@@ -119,6 +119,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const [presetAssigneeId, setPresetAssigneeId] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -128,6 +129,14 @@ function ManagerTasksView({ user }: TasksPageProps) {
     if (assigneeId) setAssigneeFilter(assigneeId);
     const status = params.get("status");
     if (status) setStatusFilter(status);
+    // Deep-linked from the Worktime "no work assigned" quick action —
+    // opens the create dialog pre-filled instead of requiring the admin
+    // to pick the intern manually.
+    const assign = params.get("assign");
+    if (assign) {
+      setPresetAssigneeId(assign);
+      setCreateOpen(true);
+    }
   }, [search]);
 
   // Switching filters can hide selected rows, which would let a bulk action
@@ -474,6 +483,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
         existingTasks={taskList}
         onCreate={(data) => createMutation.mutate(data)}
         isPending={createMutation.isPending}
+        defaultAssigneeId={presetAssigneeId}
       />
 
       {selectedTask && (
@@ -585,7 +595,7 @@ function BulkActionBar({
 }
 
 function CreateTaskDialog({
-  open, onOpenChange, interns, projects, existingTasks, onCreate, isPending,
+  open, onOpenChange, interns, projects, existingTasks, onCreate, isPending, defaultAssigneeId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -594,6 +604,7 @@ function CreateTaskDialog({
   existingTasks: Task[];
   onCreate: (data: any) => void;
   isPending: boolean;
+  defaultAssigneeId?: string;
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -603,6 +614,10 @@ function CreateTaskDialog({
   const [dueDate, setDueDate] = useState("");
   const [skillTags, setSkillTags] = useState<string[]>([]);
   const [dependsOnTaskId, setDependsOnTaskId] = useState("");
+
+  useEffect(() => {
+    if (open && defaultAssigneeId) setAssigneeId(defaultAssigneeId);
+  }, [open, defaultAssigneeId]);
 
   const reset = () => {
     setTitle(""); setDescription(""); setAssigneeId(""); setProjectId(""); setPriority("medium"); setDueDate(""); setSkillTags([]); setDependsOnTaskId("");
@@ -918,7 +933,7 @@ function InternTasksView({ user }: TasksPageProps) {
         <div className="mb-4 flex items-center gap-2">
           <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 px-3 py-1 text-sm flex items-center gap-1.5" data-testid="badge-active-filter">
             <Filter className="w-3 h-3" />
-            Filtering: {statusFilter === "in_review" ? "In Review" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+            Filtering: {statusFilter.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
           </Badge>
           <button onClick={() => setLocation("/tasks")} className="text-xs text-white/50 hover:text-white/80 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 transition-colors" data-testid="button-clear-filter">
             <X className="w-3 h-3" /> Clear filter

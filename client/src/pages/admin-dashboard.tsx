@@ -819,7 +819,7 @@ interface SignalAction {
 
 interface Signal {
   key: string;
-  type: "deadline_risk" | "possible_blocker" | "pending_review" | "workflow_stalled" | "project_at_risk";
+  type: "deadline_risk" | "possible_blocker" | "pending_review" | "workflow_stalled" | "project_at_risk" | "no_work_assigned" | "inactive" | "unusual_hours" | "pending_proposal";
   severity: "high" | "medium";
   headline: string;
   description: string;
@@ -1061,10 +1061,18 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     const params = new URLSearchParams(window.location.search);
     const view = params.get("view");
     const projectId = params.get("projectId");
+    const assignProjectFor = params.get("assignProject");
     let handled = false;
 
     if (view === "review") {
       setShowPlanReview(true);
+      handled = true;
+    }
+
+    // Deep-linked from the Worktime "no work assigned" quick action.
+    if (assignProjectFor) {
+      setAssignInternId(assignProjectFor);
+      setShowAssignModal(true);
       handled = true;
     }
     if (view === "interns") {

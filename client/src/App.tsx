@@ -24,6 +24,7 @@ import InternProfile from "@/pages/intern-profile";
 import SettingsPage from "@/pages/settings";
 import Alumni from "@/pages/alumni";
 import AlumniCertificate from "@/pages/alumni-certificate";
+import Worktime from "@/pages/worktime";
 import AppShell from "@/components/app-shell";
 import { useEffect } from "react";
 
@@ -76,6 +77,14 @@ function AuthenticatedAlumniCertificate({ user, signOut, internId }: { user: any
   return (
     <AppShell user={user} onSignOut={signOut}>
       <AlumniCertificate internId={internId} />
+    </AppShell>
+  );
+}
+
+function AuthenticatedWorktime({ user, signOut }: { user: any; signOut: () => void }) {
+  return (
+    <AppShell user={user} onSignOut={signOut}>
+      <Worktime />
     </AppShell>
   );
 }
@@ -196,6 +205,15 @@ function AppContent() {
             <Landing />
           )
         }
+      </Route>
+      <Route path="/worktime">
+        {user && user.role === "admin" ? (
+          <AuthenticatedWorktime user={user} signOut={signOut} />
+        ) : user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <Landing />
+        )}
       </Route>
       <Route path="/settings">
         {user ? (

@@ -6,7 +6,7 @@ import { aggregateSkillTags } from "@shared/skills";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
   channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns, alumniRecords,
-  projectCompletionCriteria, signalDismissals,
+  projectCompletionCriteria, signalDismissals, workSessions,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -33,6 +33,7 @@ import {
   type AlumniRecord,
   type ProjectCompletionCriterion,
   type SignalDismissal,
+  type WorkSession,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -205,6 +206,16 @@ export interface IStorage {
   // Signal dismiss/snooze
   getSignalDismissalsByCompany(companyId: string): Promise<SignalDismissal[]>;
   upsertSignalDismissal(companyId: string, signalKey: string, userId: string, snoozedUntil: Date | null): Promise<SignalDismissal>;
+
+  // Work sessions ("shifts")
+  getActiveWorkSession(internId: string): Promise<WorkSession | undefined>;
+  startWorkSession(internId: string, companyId: string): Promise<WorkSession>;
+  endWorkSession(internId: string): Promise<WorkSession | undefined>;
+  getWorkSessionsByIntern(internId: string, limit?: number): Promise<WorkSession[]>;
+  getWorkSessionsByInternSince(internId: string, since: Date): Promise<WorkSession[]>;
+  getActiveWorkSessionsByCompany(companyId: string): Promise<WorkSession[]>;
+  getWorkSessionsByCompanySince(companyId: string, since: Date): Promise<WorkSession[]>;
+  getWorkSessionAggregateByIntern(internId: string): Promise<{ totalSeconds: number; sessionCount: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -558,6 +569,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(channelMessages).where(eq(channelMessages.userId, id));
     await db.delete(channelMembers).where(eq(channelMembers.userId, id));
     await db.delete(alumniRecords).where(eq(alumniRecords.userId, id));
+    await db.delete(workSessions).where(eq(workSessions.internId, id));
     await db.update(channels).set({ createdById: null }).where(eq(channels.createdById, id));
     await db.delete(userDevices).where(eq(userDevices.userId, id));
     await db.update(auditLogs).set({ actorUserId: null }).where(eq(auditLogs.actorUserId, id));
@@ -1213,13 +1225,14 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(tasks).where(eq(tasks.dependsOnTaskId, taskId));
   }
 
-  async updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null }): Promise<Task | undefined> {
+  async updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null; startedAt?: Date }): Promise<Task | undefined> {
     const updateData: any = { status, updatedAt: new Date() };
     if (extra?.submission !== undefined) updateData.submission = extra.submission;
     if (extra?.submittedAt !== undefined) updateData.submittedAt = extra.submittedAt;
     if (extra?.feedback !== undefined) updateData.feedback = extra.feedback;
     if (extra?.blockedReason !== undefined) updateData.blockedReason = extra.blockedReason;
     if (extra?.completedAt !== undefined) updateData.completedAt = extra.completedAt;
+    if (extra?.startedAt !== undefined) updateData.startedAt = extra.startedAt;
     const [updated] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
     return updated;
   }
@@ -1283,6 +1296,74 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return row;
+  }
+
+  // --- Work Sessions ("shifts") ---
+
+  async getActiveWorkSession(internId: string): Promise<WorkSession | undefined> {
+    const [session] = await db.select().from(workSessions)
+      .where(and(eq(workSessions.internId, internId), eq(workSessions.status, "active")));
+    return session;
+  }
+
+  // The partial unique index (one active session per intern) is the real
+  // guarantee against a race between two near-simultaneous start calls;
+  // this pre-check just gives the common (non-race) case a clean, typed
+  // error path instead of surfacing a raw constraint-violation.
+  async startWorkSession(internId: string, companyId: string): Promise<WorkSession> {
+    const existing = await this.getActiveWorkSession(internId);
+    if (existing) return existing;
+    const [created] = await db.insert(workSessions)
+      .values({ internId, companyId, status: "active" })
+      .returning();
+    return created;
+  }
+
+  async endWorkSession(internId: string): Promise<WorkSession | undefined> {
+    const active = await this.getActiveWorkSession(internId);
+    if (!active) return undefined;
+    const endedAt = new Date();
+    const durationSeconds = Math.round((endedAt.getTime() - new Date(active.startedAt).getTime()) / 1000);
+    const [updated] = await db.update(workSessions)
+      .set({ endedAt, durationSeconds, status: "completed" })
+      .where(and(eq(workSessions.id, active.id), eq(workSessions.status, "active")))
+      .returning();
+    return updated;
+  }
+
+  async getWorkSessionsByIntern(internId: string, limit = 50): Promise<WorkSession[]> {
+    return db.select().from(workSessions)
+      .where(eq(workSessions.internId, internId))
+      .orderBy(desc(workSessions.startedAt))
+      .limit(limit);
+  }
+
+  async getWorkSessionsByInternSince(internId: string, since: Date): Promise<WorkSession[]> {
+    return db.select().from(workSessions)
+      .where(and(eq(workSessions.internId, internId), gt(workSessions.startedAt, since)))
+      .orderBy(desc(workSessions.startedAt));
+  }
+
+  async getActiveWorkSessionsByCompany(companyId: string): Promise<WorkSession[]> {
+    return db.select().from(workSessions)
+      .where(and(eq(workSessions.companyId, companyId), eq(workSessions.status, "active")));
+  }
+
+  async getWorkSessionsByCompanySince(companyId: string, since: Date): Promise<WorkSession[]> {
+    return db.select().from(workSessions)
+      .where(and(eq(workSessions.companyId, companyId), gt(workSessions.startedAt, since)))
+      .orderBy(desc(workSessions.startedAt));
+  }
+
+  // SQL-aggregated rather than fetching every row — "overall" totals grow
+  // unbounded over a long internship, so this stays O(1) response size
+  // regardless of history length.
+  async getWorkSessionAggregateByIntern(internId: string): Promise<{ totalSeconds: number; sessionCount: number }> {
+    const [row] = await db.select({
+      totalSeconds: sql<number>`coalesce(sum(${workSessions.durationSeconds}), 0)::int`,
+      sessionCount: count(),
+    }).from(workSessions).where(and(eq(workSessions.internId, internId), eq(workSessions.status, "completed")));
+    return { totalSeconds: row?.totalSeconds ?? 0, sessionCount: row?.sessionCount ?? 0 };
   }
 }
 
