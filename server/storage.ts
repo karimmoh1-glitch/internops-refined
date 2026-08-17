@@ -51,7 +51,9 @@ export interface IStorage {
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
   setUserPublicProfile(id: string, enabled: boolean): Promise<User | undefined>;
   setUserCompletionBadge(id: string, awarded: boolean, awardedByUserId: string | null): Promise<User | undefined>;
-  transitionUserToAlumni(id: string, transitionedByUserId: string): Promise<{ user: User; alumniRecord: AlumniRecord }>;
+  transitionUserToAlumni(id: string, transitionedByUserId: string, endDate?: Date): Promise<{ user: User; alumniRecord: AlumniRecord }>;
+  setUserExpectedEndDate(id: string, expectedEndDate: Date | null): Promise<User | undefined>;
+  getInternsWithPastExpectedEndDate(): Promise<User[]>;
   getAlumniByCompany(companyId: string): Promise<(User & { alumniRecord: AlumniRecord })[]>;
   reactivateAlumnus(id: string): Promise<User | undefined>;
   promoteToAdmin(id: string): Promise<User | undefined>;
@@ -342,7 +344,12 @@ export class DatabaseStorage implements IStorage {
   // on internshipStartedAt (falls back to users.createdAt) and
   // finalNarrative (nullable — tolerates the narrative feature never
   // having run for this intern).
-  async transitionUserToAlumni(id: string, transitionedByUserId: string): Promise<{ user: User; alumniRecord: AlumniRecord }> {
+  // endDate defaults to now (a manual, immediate "Transition to Alumni"
+  // click). The automatic sweep passes the intern's recorded
+  // expectedEndDate instead, since the sweep itself may run up to a day
+  // after that date actually passed — using "now" there would record a
+  // slightly wrong internshipEndedAt.
+  async transitionUserToAlumni(id: string, transitionedByUserId: string, endDate?: Date): Promise<{ user: User; alumniRecord: AlumniRecord }> {
     const [existingUser] = await db.select().from(users).where(eq(users.id, id));
     if (!existingUser) throw new Error("User not found");
 
@@ -354,7 +361,7 @@ export class DatabaseStorage implements IStorage {
       userId: id,
       companyId: existingUser.companyId as string,
       internshipStartedAt: existingUser.createdAt,
-      internshipEndedAt: new Date(),
+      internshipEndedAt: endDate ?? new Date(),
       totalTasksCompleted: completed.length,
       totalTasksAssigned: internTasks.length,
       skillTagCounts: aggregateSkillTags(completed),
@@ -375,6 +382,24 @@ export class DatabaseStorage implements IStorage {
     await this.setUserDeactivated(id, true);
 
     return { user, alumniRecord };
+  }
+
+  async setUserExpectedEndDate(id: string, expectedEndDate: Date | null): Promise<User | undefined> {
+    const [updated] = await db.update(users).set({ expectedEndDate }).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
+  // Candidates for the daily auto-transition sweep: active (not yet
+  // alumni, not deactivated) interns whose planned end date has passed.
+  async getInternsWithPastExpectedEndDate(): Promise<User[]> {
+    return db.select().from(users).where(
+      and(
+        eq(users.role, "intern"),
+        isNull(users.alumniAt),
+        isNull(users.deactivatedAt),
+        lt(users.expectedEndDate, new Date()),
+      )
+    );
   }
 
   async getAlumniByCompany(companyId: string): Promise<(User & { alumniRecord: AlumniRecord })[]> {

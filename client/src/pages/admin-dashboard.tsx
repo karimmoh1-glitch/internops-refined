@@ -26,6 +26,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ProjectStatusPieChart, CompletionRateBarChart, WeeklyActivityLineChart, HoursComparisonChart, TaskStatusPieChart, TaskCompletionByInternChart } from "@/components/analytics-charts";
 import GitHubPanel, { GitHubTokenSettings, GitHubRepoInput } from "@/components/github-panel";
 import ApplicationsPanel from "@/components/applications-panel";
+import ProjectProposalsPanel from "@/components/project-proposals-panel";
 import PulseScoreCard from "@/components/pulse-score";
 import { exportTeamReport } from "@/lib/export-report";
 
@@ -41,11 +42,14 @@ const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   completed: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   draft: "bg-white/10 text-white/60 border-white/[0.08]",
+  pending_approval: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  rejected: "bg-white/10 text-white/50 border-white/[0.08]",
 };
 
 function statusBadge(status: string) {
   const cls = STATUS_COLORS[status] || STATUS_COLORS.assigned;
-  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  const words = status.split("_");
+  const label = words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   return <Badge variant="outline" className={`${cls} text-xs font-medium`} data-testid={`badge-status-${status}`}>{label}</Badge>;
 }
 
@@ -1252,7 +1256,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6" data-testid="header-section">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
@@ -1310,7 +1314,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 <Filter className="w-3 h-3" />
                 Filtering: {filter === "interns" ? "All Interns" : filter === "projects" ? "All Projects" : filter === "active" ? "Active Projects" : "Pending Review"}
               </Badge>
-              <button onClick={() => { setFilter(null); }} className="text-xs text-white/50 hover:text-red-400 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors" data-testid="button-clear-filter">
+              <button onClick={() => { setFilter(null); }} className="text-xs text-white/50 hover:text-white/80 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 transition-colors" data-testid="button-clear-filter">
                 <X className="w-3 h-3" /> Clear filter
               </button>
             </div>
@@ -1389,6 +1393,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         )}
 
         <ApplicationsPanel companyId={user.companyId} />
+
+        <ProjectProposalsPanel />
 
         <ManagersSection currentUserId={user.id} />
 

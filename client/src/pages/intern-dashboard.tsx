@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Sparkles, Loader2, Send, ChevronDown, ChevronRight,
@@ -105,6 +109,13 @@ const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   completed: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   draft: "bg-white/10 text-white/60 border-white/[0.08]",
+  pending_approval: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  rejected: "bg-white/10 text-white/50 border-white/[0.08]",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending_approval: "Awaiting Approval",
+  rejected: "Not Approved",
 };
 
 function getCompletionRate(project: any): number {
@@ -518,10 +529,73 @@ function InternTaskOverview() {
   );
 }
 
+function ProposeProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [title, setTitle] = useState("");
+  const [idea, setIdea] = useState("");
+  const [minimumTotalHours, setMinimumTotalHours] = useState("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const reset = () => { setTitle(""); setIdea(""); setMinimumTotalHours(""); };
+
+  const proposeMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/projects/propose", {
+      title: title.trim(),
+      idea: idea.trim(),
+      minimumTotalHours: Number(minimumTotalHours),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Sent for admin review", description: "You'll be notified once it's approved." });
+      reset();
+      onOpenChange(false);
+    },
+    onError: (error: any) => toast({ title: "Couldn't send proposal", description: error.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+      <DialogContent data-testid="dialog-propose-project">
+        <DialogHeader>
+          <DialogTitle>Propose a Project</DialogTitle>
+          <DialogDescription>Pitch a project idea — an admin reviews it before it becomes active.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-1.5 block">Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Internal analytics dashboard" data-testid="input-propose-title" />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">What's the idea?</Label>
+            <Textarea value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="What would you build, and why does it matter?" rows={4} data-testid="input-propose-idea" />
+          </div>
+          <div>
+            <Label className="mb-1.5 block">Minimum total hours</Label>
+            <Input type="number" min="1" value={minimumTotalHours} onChange={(e) => setMinimumTotalHours(e.target.value)} placeholder="e.g. 40" data-testid="input-propose-hours" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={() => proposeMutation.mutate()}
+            disabled={!title.trim() || !idea.trim() || !minimumTotalHours || Number(minimumTotalHours) <= 0 || proposeMutation.isPending}
+            data-testid="button-submit-propose-project"
+          >
+            {proposeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
+            Send for Review
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectProject: (id: string) => void }) {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showPropose, setShowPropose] = useState(false);
   const { data: internAnalytics } = useQuery<any>({ queryKey: ["/api/analytics/intern"] });
 
   const filtered = [...projects]
@@ -542,7 +616,7 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
   if (projects.length === 0) {
     return (
       <div className="min-h-screen bg-background" data-testid="no-project-state">
-        <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto px-4 py-8">
           <NextBestActionCard />
           <InternTaskOverview />
           <div className="flex items-center justify-center py-12">
@@ -551,33 +625,51 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
                 <FileText className="w-8 h-8 text-white/30" />
               </div>
               <h2 className="text-lg font-semibold text-white/70 mb-1">No Projects Yet</h2>
-              <p className="text-white/50 text-sm" data-testid="text-no-project">
+              <p className="text-white/50 text-sm mb-5" data-testid="text-no-project">
                 Your manager will assign you a project soon. You'll be able to plan and track your work here.
               </p>
+              <Button variant="outline" onClick={() => setShowPropose(true)} data-testid="button-propose-project-empty">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Propose a Project
+              </Button>
             </div>
           </div>
         </div>
+        <ProposeProjectDialog open={showPropose} onOpenChange={setShowPropose} />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background" data-testid="project-list">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white" data-testid="text-dashboard-title">My Projects</h1>
             <p className="text-sm text-white/50 mt-1">{projects.length} project{projects.length !== 1 ? "s" : ""} assigned</p>
           </div>
-          <Button
-            onClick={() => setLocation("/chat")}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <MessageSquare className="w-4 h-4" />
-            Team Chat
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowPropose(true)}
+              variant="outline"
+              className="flex items-center gap-2"
+              data-testid="button-propose-project"
+            >
+              <Plus className="w-4 h-4" />
+              Propose a Project
+            </Button>
+            <Button
+              onClick={() => setLocation("/chat")}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Team Chat
+            </Button>
+          </div>
         </div>
+
+        <ProposeProjectDialog open={showPropose} onOpenChange={setShowPropose} />
 
         <NextBestActionCard />
         <AskInternOpsCard />
@@ -632,7 +724,7 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
                   )}
                 </div>
                 <Badge className={`${STATUS_COLORS[project.status] || STATUS_COLORS.assigned} capitalize`} data-testid={`badge-status-${project.id}`}>
-                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                  {STATUS_LABELS[project.status] || project.status.charAt(0).toUpperCase() + project.status.slice(1)}
                 </Badge>
               </div>
               <div className="flex items-center gap-4">

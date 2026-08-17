@@ -91,7 +91,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
   return (
     <div className="flex bg-card">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col w-64 shrink-0 border-r border-white/[0.08] bg-popover h-screen sticky top-0" data-testid="sidebar">
+      <aside className="hidden md:flex md:flex-col w-64 shrink-0 border-r border-white/[0.08] bg-popover h-screen sticky top-0" data-testid="sidebar" data-print-hide>
         <Link href="/" className="flex items-center gap-2.5 px-5 h-16 border-b border-white/[0.08] no-underline shrink-0" data-testid="link-home">
           <LogoMark size={30} rounded="md" />
           <div className="min-w-0">
@@ -177,7 +177,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
 
       {/* Main column */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="md:hidden sticky top-0 z-30 h-14 bg-card border-b border-white/[0.08] flex items-center justify-between px-4 shrink-0">
+        <div className="md:hidden sticky top-0 z-30 h-14 bg-card border-b border-white/[0.08] flex items-center justify-between px-4 shrink-0" data-print-hide>
           <button onClick={() => setMobileNavOpen(true)} className="p-2 -ml-2 rounded-lg hover:bg-white/10" data-testid="button-open-mobile-nav">
             <LayoutGrid className="w-5 h-5 text-white/60" />
           </button>
@@ -220,7 +220,7 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
                       {unreadCount > 0 && (
                         <button
                           onClick={() => markAllReadMutation.mutate()}
-                          className="text-xs text-[#6D5EF5] hover:text-[#5142D6] px-2 py-1 rounded hover:bg-red-500/10 flex items-center gap-1"
+                          className="text-xs text-[#6D5EF5] hover:text-[#5142D6] px-2 py-1 rounded hover:bg-[#6D5EF5]/10 flex items-center gap-1"
                           data-testid="button-mark-all-read"
                         >
                           <CheckCheck className="w-3 h-3" />
@@ -265,7 +265,9 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
               </>
         )}
         <main className="flex-1 min-h-0">
-          {children}
+          <div key={location} className="h-full animate-fade-in">
+            {children}
+          </div>
         </main>
       </div>
     </div>

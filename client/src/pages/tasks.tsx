@@ -21,6 +21,7 @@ import {
   Plus, Loader2, Clock, AlertTriangle, CheckCircle2, Circle, PlayCircle,
   Eye, Ban, Pencil, Trash2, ListTodo, Calendar, User, X, UserCog, Flag, Filter,
 } from "lucide-react";
+import { SimplePageSkeleton } from "@/components/dashboard-skeleton";
 
 interface TaskUser {
   id: string;
@@ -311,11 +312,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
   };
 
   if (tasksLoading) {
-    return (
-      <div className="max-w-6xl mx-auto px-4 py-10 flex items-center justify-center min-h-[40vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-white/40" />
-      </div>
-    );
+    return <SimplePageSkeleton rows={5} />;
   }
 
   if (tasksError) {
@@ -895,16 +892,12 @@ function InternTasksView({ user }: TasksPageProps) {
   });
 
   if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-10 flex items-center justify-center min-h-[40vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-white/40" />
-      </div>
-    );
+    return <SimplePageSkeleton rows={5} />;
   }
 
   if (isError) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-10 text-center">
+      <div className="max-w-6xl mx-auto px-4 py-10 text-center">
         <p className="text-red-400 font-medium">Couldn't load your tasks. Try refreshing the page.</p>
       </div>
     );
@@ -915,7 +908,7 @@ function InternTasksView({ user }: TasksPageProps) {
   taskList.forEach((t) => { if (grouped[t.status]) grouped[t.status].push(t); });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white" data-testid="text-tasks-title">My Tasks</h1>
         <p className="text-sm text-white/50 mt-0.5">Everything assigned to you, grouped by status</p>
@@ -927,7 +920,7 @@ function InternTasksView({ user }: TasksPageProps) {
             <Filter className="w-3 h-3" />
             Filtering: {statusFilter === "in_review" ? "In Review" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
           </Badge>
-          <button onClick={() => setLocation("/tasks")} className="text-xs text-white/50 hover:text-red-400 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors" data-testid="button-clear-filter">
+          <button onClick={() => setLocation("/tasks")} className="text-xs text-white/50 hover:text-white/80 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 transition-colors" data-testid="button-clear-filter">
             <X className="w-3 h-3" /> Clear filter
           </button>
         </div>
@@ -991,7 +984,7 @@ function InternTasksView({ user }: TasksPageProps) {
                                 <Button size="sm" onClick={() => startMutation.mutate(task.id)} disabled={startMutation.isPending} data-testid={`button-start-${task.id}`}>
                                   Start
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => setBlockTask(task)} data-testid={`button-block-${task.id}`}>
+                                <Button size="sm" variant="outline" onClick={() => setBlockTask(task)} disabled={startMutation.isPending} data-testid={`button-block-${task.id}`}>
                                   Block
                                 </Button>
                               </>

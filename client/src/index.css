@@ -117,6 +117,16 @@
   animation: fade-in 0.15s ease-out forwards;
 }
 
+/* Printing any page: never print the app chrome, only the content. The
+   certificate page additionally opts into a light background via its own
+   .certificate-print class, since printing white text on a dark page
+   wastes ink and looks broken on paper. */
+@media print {
+  [data-print-hide] {
+    display: none !important;
+  }
+}
+
 @keyframes slide-up {
   from {
     opacity: 0;
