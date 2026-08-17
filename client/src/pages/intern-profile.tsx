@@ -12,6 +12,7 @@ import {
   ListChecks, Plus, X,
 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
+import { SimplePageSkeleton } from "@/components/dashboard-skeleton";
 
 interface PerformanceNarrative {
   id: string;
@@ -164,6 +165,70 @@ function ProjectDefinitionOfDone({ projectId, projectTitle }: { projectId: strin
   );
 }
 
+// Separate component so its local date-input state doesn't have to be
+// threaded through InternProfile's already-long hook chain — it just
+// needs to know the intern's current value and how to save a new one.
+function ExpectedEndDateEditor({ internId, expectedEndDate }: { internId: string; expectedEndDate: string | null }) {
+  const [value, setValue] = useState(expectedEndDate ? expectedEndDate.slice(0, 10) : "");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const saveMutation = useMutation({
+    mutationFn: async (expectedEndDate: string | null) => {
+      const res = await apiRequest("PUT", `/api/interns/${internId}/expected-end-date`, { expectedEndDate });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Updated" });
+    },
+    onError: (err: any) => toast({ title: "Failed to update end date", description: err.message, variant: "destructive" }),
+  });
+
+  const savedValue = expectedEndDate ? expectedEndDate.slice(0, 10) : "";
+  const isDirty = value !== savedValue;
+
+  return (
+    <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-2">
+        <Clock className="w-4 h-4 text-white/40" />
+        <span className="text-sm text-white/70">Expected end date</span>
+        <span className="text-xs text-white/40">{expectedEndDate ? "" : "(undecided)"}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          type="date"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="h-8 w-auto text-sm"
+          data-testid={`input-expected-end-date-${internId}`}
+        />
+        {value && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-white/50 hover:text-white/80"
+            onClick={() => setValue("")}
+            data-testid={`button-clear-expected-end-date-${internId}`}
+          >
+            Mark Undecided
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!isDirty || saveMutation.isPending}
+          onClick={() => saveMutation.mutate(value || null)}
+          data-testid={`button-save-expected-end-date-${internId}`}
+        >
+          {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+          Save
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function InternProfile({ internId }: InternProfileProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -282,16 +347,12 @@ export default function InternProfile({ internId }: InternProfileProps) {
   const isLoading = dashboardLoading || tasksLoading;
 
   if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-10 flex items-center justify-center min-h-[40vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-white/40" />
-      </div>
-    );
+    return <SimplePageSkeleton rows={3} />;
   }
 
   if (!intern) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-10 text-center">
+      <div className="max-w-6xl mx-auto px-4 py-10 text-center">
         <p className="text-white/50 font-medium">Intern not found.</p>
         <Button variant="outline" className="mt-4" onClick={() => setLocation("/")}>Back to Dashboard</Button>
       </div>
@@ -300,7 +361,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-white/50" onClick={() => setLocation("/")} data-testid="button-back-to-dashboard">
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Dashboard
@@ -319,16 +380,26 @@ export default function InternProfile({ internId }: InternProfileProps) {
                 )}
               </div>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => reactivateMutation.mutate()}
-              disabled={reactivateMutation.isPending}
-              data-testid="button-reactivate-alumnus"
-            >
-              {reactivateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
-              Reactivate
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setLocation(`/alumni/${internId}/certificate`)}
+                data-testid="button-view-certificate"
+              >
+                View Certificate
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => reactivateMutation.mutate()}
+                disabled={reactivateMutation.isPending}
+                data-testid="button-reactivate-alumnus"
+              >
+                {reactivateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                Reactivate
+              </Button>
+            </div>
           </div>
         )}
 
@@ -396,6 +467,10 @@ export default function InternProfile({ internId }: InternProfileProps) {
               {intern.completionBadgeAwardedAt ? "Revoke Badge" : "Award Completion Badge"}
             </Button>
           </div>
+
+          {!intern.alumniAt && (
+            <ExpectedEndDateEditor internId={internId} expectedEndDate={intern.expectedEndDate} />
+          )}
 
           {!intern.alumniAt && (
             <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3">

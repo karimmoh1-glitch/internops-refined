@@ -50,10 +50,40 @@ export function ProjectCardSkeleton() {
   );
 }
 
+export function ListRowSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-4 flex items-center gap-4 animate-pulse">
+      <div className="w-10 h-10 bg-white/15 rounded-full shrink-0" />
+      <div className="flex-1">
+        <div className="w-40 h-4 bg-white/15 rounded mb-2" />
+        <div className="w-56 h-3 bg-white/15 rounded" />
+      </div>
+    </div>
+  );
+}
+
+export function SimplePageSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="mb-8 animate-pulse">
+          <div className="w-40 h-7 bg-white/15 rounded mb-2" />
+          <div className="w-56 h-4 bg-white/15 rounded" />
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: rows }).map((_, i) => (
+            <ListRowSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminDashboardSkeleton() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6 animate-pulse">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -88,7 +118,7 @@ export function AdminDashboardSkeleton() {
 export function InternDashboardSkeleton() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8 animate-pulse">
           <div className="w-32 h-7 bg-white/15 rounded mb-2" />
           <div className="w-24 h-4 bg-white/15 rounded" />

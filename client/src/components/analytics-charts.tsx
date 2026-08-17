@@ -55,7 +55,7 @@ export function ProjectStatusPieChart({ data }: { data: { status: string; count:
   }
 
   const chartData = data.map((d) => ({
-    name: d.status.charAt(0).toUpperCase() + d.status.slice(1),
+    name: d.status.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
     value: d.count,
     fill: STATUS_COLORS[d.status] || COLORS[0],
   }));

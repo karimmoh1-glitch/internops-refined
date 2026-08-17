@@ -1260,6 +1260,34 @@ export async function registerRoutes(
     }
   });
 
+  // Sets or clears (null = "undecided") an intern's planned end date. Purely
+  // a scheduling field for the auto-transition sweep — doesn't touch
+  // alumniAt or deactivate anyone by itself.
+  app.put("/api/interns/:id/expected-end-date", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId || intern.role !== "intern") {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+
+      const { expectedEndDate } = req.body;
+      let parsed: Date | null = null;
+      if (expectedEndDate) {
+        parsed = new Date(expectedEndDate);
+        if (isNaN(parsed.getTime())) {
+          return res.status(400).json({ message: "Invalid date" });
+        }
+      }
+
+      const updated = await storage.setUserExpectedEndDate(intern.id, parsed);
+      res.json({ id: updated?.id, expectedEndDate: updated?.expectedEndDate });
+    } catch (error: any) {
+      console.error("Failed to set expected end date:", error);
+      res.status(500).json({ message: "Failed to set expected end date" });
+    }
+  });
+
   app.get("/api/alumni", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const companyId = (req as any).companyId;
@@ -1495,6 +1523,114 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to assign project:", error);
       res.status(500).json({ message: "Failed to assign project" });
+    }
+  });
+
+  // Intern-initiated project proposal — same shape as the admin-create
+  // path above, but internId is always the caller and it starts in
+  // pending_approval rather than assigned. No channel is created until an
+  // admin actually approves it (see approve-proposal below).
+  app.post("/api/projects/propose", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const { title, idea, minimumTotalHours } = req.body;
+      const userId = (req as any).userId;
+      const companyId = (req as any).companyId;
+
+      if (!title || !idea || !minimumTotalHours) {
+        return res.status(400).json({ message: "title, idea, and minimumTotalHours are required" });
+      }
+      if (Number(minimumTotalHours) <= 0) {
+        return res.status(400).json({ message: "Minimum total hours must be greater than 0" });
+      }
+      if (!companyId) {
+        return res.status(400).json({ message: "You must belong to a company" });
+      }
+
+      const project = await storage.createProject({
+        internId: userId,
+        companyId,
+        title: title.trim(),
+        idea: idea.trim(),
+        minimumTotalHours: Number(minimumTotalHours),
+        status: "pending_approval",
+      });
+
+      const intern = await storage.getUser(userId);
+      const admins = (await storage.getUsersByCompany(companyId)).filter((u) => u.role === "admin");
+      for (const admin of admins) {
+        await storage.createNotification({
+          userId: admin.id,
+          title: "New Project Proposal",
+          message: `${intern?.name || "An intern"} proposed a project: "${title.trim()}"`,
+          read: false,
+          link: "/?view=proposals",
+        });
+      }
+
+      res.status(201).json(project);
+    } catch (error: any) {
+      console.error("Failed to propose project:", error);
+      res.status(500).json({ message: "Failed to propose project" });
+    }
+  });
+
+  app.post("/api/projects/:id/approve-proposal", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const project = await storage.getProjectById(req.params.id as string);
+      if (!project || project.companyId !== companyId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (project.status !== "pending_approval") {
+        return res.status(400).json({ message: "Only pending proposals can be approved" });
+      }
+
+      const updated = await storage.updateProjectStatus(project.id, "assigned");
+      await storage.createProjectChannel(project);
+
+      await storage.createNotification({
+        userId: project.internId,
+        title: "Project Approved",
+        message: `Your proposed project "${project.title}" was approved — you're all set to start.`,
+        read: false,
+        link: "/?projectId=" + project.id,
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Failed to approve project proposal:", error);
+      res.status(500).json({ message: "Failed to approve project proposal" });
+    }
+  });
+
+  app.post("/api/projects/:id/reject-proposal", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const project = await storage.getProjectById(req.params.id as string);
+      if (!project || project.companyId !== companyId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (project.status !== "pending_approval") {
+        return res.status(400).json({ message: "Only pending proposals can be rejected" });
+      }
+
+      const { reason } = req.body || {};
+      const updated = await storage.updateProjectStatus(project.id, "rejected");
+
+      await storage.createNotification({
+        userId: project.internId,
+        title: "Project Proposal Not Approved",
+        message: reason?.trim()
+          ? `Your proposed project "${project.title}" wasn't approved: ${reason.trim()}`
+          : `Your proposed project "${project.title}" wasn't approved.`,
+        read: false,
+        link: "/",
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Failed to reject project proposal:", error);
+      res.status(500).json({ message: "Failed to reject project proposal" });
     }
   });
 
@@ -2855,6 +2991,7 @@ export async function registerRoutes(
           deactivatedAt: intern.deactivatedAt,
           completionBadgeAwardedAt: intern.completionBadgeAwardedAt,
           alumniAt: intern.alumniAt,
+          expectedEndDate: intern.expectedEndDate,
           projects: projectDetails,
         };
       });

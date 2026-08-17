@@ -52,6 +52,12 @@ export const users = pgTable("users", {
   // ordinary deactivation (disciplinary, mistake, leave) — conflating the
   // two would make future reactivation logic unsafe.
   alumniAt: timestamp("alumni_at"),
+  // Admin-set, planned end date — distinct from alumniAt (the moment the
+  // transition actually happened, manual or automatic). Null means
+  // undecided. Once this date is in the past, the daily sweep in
+  // alumniAutoTransition.ts moves the intern to alumni automatically using
+  // this date as the recorded internshipEndedAt.
+  expectedEndDate: timestamp("expected_end_date"),
 });
 
 export const invitations = pgTable("invitations", {

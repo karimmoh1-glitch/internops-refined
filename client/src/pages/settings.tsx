@@ -15,6 +15,7 @@ import {
   Laptop, Smartphone, Pencil, Check, X, ShieldAlert, History, User as UserIcon, Globe, Copy, Award, MessageCircle,
   UserPlus, UserMinus, UserCheck, ShieldPlus, KeyRound, FileText, CheckCircle2, XCircle, HelpCircle, ListTodo, GraduationCap,
 } from "lucide-react";
+import { ListRowSkeleton } from "@/components/dashboard-skeleton";
 
 interface SettingsProps {
   user: { id: string; name: string; email: string; role: string; companyId: string | null };
@@ -150,7 +151,11 @@ function DevicesTab() {
   const { data: devices = [], isLoading } = useQuery<Device[]>({ queryKey: ["/api/devices"] });
 
   if (isLoading) {
-    return <div className="text-sm text-white/40 py-8 text-center">Loading devices...</div>;
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => <ListRowSkeleton key={i} />)}
+      </div>
+    );
   }
 
   const active = devices.filter((d) => !d.revokedAt);
@@ -203,7 +208,11 @@ function AuditLogTab() {
   const { data: logs = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/audit-logs"] });
 
   if (isLoading) {
-    return <div className="text-sm text-white/40 py-8 text-center">Loading activity...</div>;
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => <ListRowSkeleton key={i} />)}
+      </div>
+    );
   }
 
   if (logs.length === 0) {
@@ -421,7 +430,7 @@ function PublicProfileCard() {
 export default function Settings({ user }: SettingsProps) {
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-white" data-testid="text-settings-title">Settings</h1>
           <p className="text-white/50 text-sm mt-1">Manage your profile, devices, and security</p>
