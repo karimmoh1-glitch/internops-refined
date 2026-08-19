@@ -25,6 +25,7 @@ import SettingsPage from "@/pages/settings";
 import Alumni from "@/pages/alumni";
 import AlumniCertificate from "@/pages/alumni-certificate";
 import Worktime from "@/pages/worktime";
+import ApplicationsHistory from "@/pages/applications";
 import AppShell from "@/components/app-shell";
 import { useEffect } from "react";
 
@@ -85,6 +86,14 @@ function AuthenticatedWorktime({ user, signOut }: { user: any; signOut: () => vo
   return (
     <AppShell user={user} onSignOut={signOut}>
       <Worktime />
+    </AppShell>
+  );
+}
+
+function AuthenticatedApplications({ user, signOut }: { user: any; signOut: () => void }) {
+  return (
+    <AppShell user={user} onSignOut={signOut}>
+      <ApplicationsHistory />
     </AppShell>
   );
 }
@@ -209,6 +218,15 @@ function AppContent() {
       <Route path="/worktime">
         {user && user.role === "admin" ? (
           <AuthenticatedWorktime user={user} signOut={signOut} />
+        ) : user ? (
+          <AuthenticatedView user={user} signOut={signOut} />
+        ) : (
+          <Landing />
+        )}
+      </Route>
+      <Route path="/applications">
+        {user && user.role === "admin" ? (
+          <AuthenticatedApplications user={user} signOut={signOut} />
         ) : user ? (
           <AuthenticatedView user={user} signOut={signOut} />
         ) : (

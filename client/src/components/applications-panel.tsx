@@ -14,7 +14,7 @@ import {
   Github, Linkedin, Globe, Loader2, Inbox,
 } from "lucide-react";
 
-interface Application {
+export interface Application {
   id: string;
   name: string;
   email: string;
@@ -24,6 +24,7 @@ interface Application {
   linkedinUrl: string | null;
   portfolioUrl: string | null;
   status: string;
+  dismissedAt: string | null;
   createdAt: string;
 }
 
@@ -47,7 +48,7 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
 }
 
-function ApplicationRow({ application }: { application: Application }) {
+export function ApplicationRow({ application }: { application: Application }) {
   const [expanded, setExpanded] = useState(false);
   const [showReject, setShowReject] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
@@ -79,6 +80,15 @@ function ApplicationRow({ application }: { application: Application }) {
     onError: (error: any) => toast({ title: "Couldn't reject", description: error.message, variant: "destructive" }),
   });
 
+  const dismissMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", `/api/applications/${application.id}/dismiss`),
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "Dismissed", description: "Still visible in Application History." });
+    },
+    onError: (error: any) => toast({ title: "Couldn't dismiss", description: error.message, variant: "destructive" }),
+  });
+
   const isPending = application.status === "pending" || application.status === "under_review" || application.status === "needs_information";
 
   return (
@@ -91,9 +101,22 @@ function ApplicationRow({ application }: { application: Application }) {
             <p className="text-xs text-white/50 truncate">{application.email} &middot; {formatDate(application.createdAt)}</p>
           </div>
         </div>
-        <Badge variant="outline" className={`${STATUS_COLORS[application.status]} text-xs font-medium shrink-0`}>
-          {STATUS_LABELS[application.status] || application.status}
-        </Badge>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant="outline" className={`${STATUS_COLORS[application.status]} text-xs font-medium`}>
+            {STATUS_LABELS[application.status] || application.status}
+          </Badge>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); dismissMutation.mutate(); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); dismissMutation.mutate(); } }}
+            className="text-white/30 hover:text-white/70 transition-colors p-1 -m-1 rounded"
+            title="Dismiss from dashboard"
+            data-testid={`button-dismiss-application-${application.id}`}
+          >
+            <X className="w-4 h-4" />
+          </span>
+        </div>
       </button>
 
       {expanded && (
@@ -178,13 +201,17 @@ function ApplicationRow({ application }: { application: Application }) {
   );
 }
 
-export default function ApplicationsPanel({ companyId }: { companyId: string | null }) {
+export default function ApplicationsPanel({ companyId, onViewHistory }: { companyId: string | null; onViewHistory?: () => void }) {
   const [expanded, setExpanded] = useState(true);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: applications = [], isLoading } = useQuery<Application[]>({ queryKey: ["/api/applications"] });
+  const { data: allApplications = [], isLoading } = useQuery<Application[]>({ queryKey: ["/api/applications"] });
   const { data: dashboard } = useQuery<any>({ queryKey: ["/api/dashboard"] });
+  // Dismissed applications stay out of this at-a-glance panel to keep it
+  // tidy — they're never deleted, just moved to the full history page.
+  const applications = allApplications.filter((a) => !a.dismissedAt);
+  const dismissedCount = allApplications.length - applications.length;
 
   const acceptingApplications = dashboard?.company?.acceptingApplications ?? false;
   const companySlug = dashboard?.company?.slug;
@@ -252,12 +279,22 @@ export default function ApplicationsPanel({ companyId }: { companyId: string | n
           ) : applications.length === 0 ? (
             <div className="text-center py-8">
               <Inbox className="w-8 h-8 text-white/30 mx-auto mb-2" />
-              <p className="text-sm text-white/50">No applications yet.</p>
+              <p className="text-sm text-white/50">{allApplications.length === 0 ? "No applications yet." : "All caught up — nothing new to review."}</p>
             </div>
           ) : (
             <div className="space-y-2">
               {applications.map((app) => <ApplicationRow key={app.id} application={app} />)}
             </div>
+          )}
+
+          {onViewHistory && (
+            <button
+              onClick={onViewHistory}
+              className="w-full text-center text-xs text-white/40 hover:text-white/70 transition-colors pt-1"
+              data-testid="button-view-application-history"
+            >
+              View Application History{allApplications.length > 0 ? ` (${allApplications.length})` : ""}{dismissedCount > 0 ? ` · ${dismissedCount} dismissed` : ""} →
+            </button>
           )}
         </div>
       )}

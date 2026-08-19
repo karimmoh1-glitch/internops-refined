@@ -180,6 +180,7 @@ export interface IStorage {
   createApplication(data: InsertApplication): Promise<Application>;
   getApplicationById(id: string): Promise<Application | undefined>;
   getApplicationsByCompany(companyId: string): Promise<Application[]>;
+  dismissApplication(id: string): Promise<Application | undefined>;
   getPendingApplicationByEmail(companyId: string, email: string): Promise<Application | undefined>;
   getApplicationByEmail(companyId: string, email: string): Promise<Application | undefined>;
   updateApplicationStatus(id: string, status: string, reviewedByUserId: string, reviewerNotes?: string): Promise<Application | undefined>;
@@ -1181,6 +1182,11 @@ export class DatabaseStorage implements IStorage {
       reviewedAt: new Date(),
       ...(reviewerNotes !== undefined ? { reviewerNotes } : {}),
     }).where(eq(applications.id, id)).returning();
+    return updated;
+  }
+
+  async dismissApplication(id: string): Promise<Application | undefined> {
+    const [updated] = await db.update(applications).set({ dismissedAt: new Date() }).where(eq(applications.id, id)).returning();
     return updated;
   }
 

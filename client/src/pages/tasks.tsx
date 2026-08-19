@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TagInput } from "@/components/tag-input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
 } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -151,6 +151,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
     refetchInterval: 15000,
   });
   const { data: interns = [] } = useQuery<TaskUser[]>({ queryKey: ["/api/interns"] });
+  const { data: managers = [] } = useQuery<TaskUser[]>({ queryKey: ["/api/managers"] });
   const { data: projects = [] } = useQuery<Project[]>({ queryKey: ["/api/projects"] });
 
   const internNameById = useMemo(() => {
@@ -479,6 +480,7 @@ function ManagerTasksView({ user }: TasksPageProps) {
         open={createOpen}
         onOpenChange={setCreateOpen}
         interns={interns}
+        admins={managers}
         projects={projects}
         existingTasks={taskList}
         onCreate={(data) => createMutation.mutate(data)}
@@ -595,11 +597,12 @@ function BulkActionBar({
 }
 
 function CreateTaskDialog({
-  open, onOpenChange, interns, projects, existingTasks, onCreate, isPending, defaultAssigneeId,
+  open, onOpenChange, interns, admins = [], projects, existingTasks, onCreate, isPending, defaultAssigneeId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   interns: TaskUser[];
+  admins?: TaskUser[];
   projects: Project[];
   existingTasks: Task[];
   onCreate: (data: any) => void;
@@ -658,9 +661,18 @@ function CreateTaskDialog({
             <div>
               <Label className="mb-1.5 block">Assignee</Label>
               <Select value={assigneeId} onValueChange={setAssigneeId}>
-                <SelectTrigger data-testid="select-task-assignee"><SelectValue placeholder="Choose intern" /></SelectTrigger>
+                <SelectTrigger data-testid="select-task-assignee"><SelectValue placeholder="Choose someone" /></SelectTrigger>
                 <SelectContent>
-                  {interns.filter((i) => !i.deactivatedAt).map((i) => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
+                  <SelectGroup>
+                    <SelectLabel>Interns</SelectLabel>
+                    {interns.filter((i) => !i.deactivatedAt).map((i) => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
+                  </SelectGroup>
+                  {admins.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Admins</SelectLabel>
+                      {admins.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
             </div>
