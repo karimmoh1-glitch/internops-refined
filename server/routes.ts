@@ -1631,7 +1631,7 @@ export async function registerRoutes(
       }
 
       const { reason } = req.body || {};
-      const updated = await storage.updateProjectStatus(project.id, "rejected");
+      const updated = await storage.updateProjectStatus(project.id, "rejected", { rejectionReason: reason?.trim() || undefined });
 
       await storage.createNotification({
         userId: project.internId,
@@ -2553,7 +2553,11 @@ export async function registerRoutes(
         storage.getTasksByAssignee(userId),
         companyId ? storage.getTasksByCompany(companyId) : Promise.resolve([]),
       ]);
-      const { recommended, alternates } = computeNextBestAction(myTasks, companyTasks);
+      // Clamp to real-world UTC offset range so a malformed/malicious value
+      // can't skew due-date math into nonsense.
+      const rawOffset = Number(req.query.tzOffsetMinutes);
+      const tzOffsetMinutes = Number.isFinite(rawOffset) ? Math.max(-720, Math.min(840, rawOffset)) : 0;
+      const { recommended, alternates } = computeNextBestAction(myTasks, companyTasks, tzOffsetMinutes);
       res.json({
         recommended: recommended ? { task: recommended.task, reason: recommended.reason, blockingCount: recommended.blockingCount } : null,
         alternateCount: alternates.length,

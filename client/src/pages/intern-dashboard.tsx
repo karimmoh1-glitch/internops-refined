@@ -15,7 +15,7 @@ import {
   FileText, Clock, AlertCircle, Plus, ArrowLeft,
   MessageCircle, Pencil, Save, X, Trash2, RotateCcw,
   Calendar, Target, Zap, Layout, CheckCircle2, Search, MessageSquare,
-  Shuffle, ThumbsDown, Scale, Building2, Layers, Flame, Shield, BookOpen, TrendingUp
+  Shuffle, ThumbsDown, Scale, Building2, Layers, Flame, Shield, BookOpen, TrendingUp, XCircle
 } from "lucide-react";
 import { InternDashboardSkeleton, WorkspaceSkeleton } from "@/components/dashboard-skeleton";
 import SearchFilterBar from "@/components/search-filter-bar";
@@ -379,6 +379,14 @@ function NextBestActionCard() {
   const [showPropose, setShowPropose] = useState(false);
   const { data, isLoading } = useQuery<{ recommended: { task: any; reason: string; blockingCount: number } | null; alternateCount: number }>({
     queryKey: ["/api/tasks/next-best"],
+    // Custom queryFn (rather than the default join-based one) so the
+    // request can carry the browser's real UTC offset — "due today"/"due
+    // tomorrow" needs to bucket by the intern's own calendar day, not the
+    // server's, or this can disagree with the "Due Today" list below it.
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/tasks/next-best?tzOffsetMinutes=${new Date().getTimezoneOffset()}`);
+      return res.json();
+    },
     refetchInterval: 15000,
   });
   const { data: projects = [] } = useQuery<any[]>({ queryKey: ["/api/projects"] });
@@ -495,9 +503,14 @@ function InternTaskOverview() {
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
 
-  const dueToday = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && new Date(t.dueDate) >= startOfToday && new Date(t.dueDate) <= endOfToday);
+  // Excludes in_review as well as completed — a task already submitted is
+  // out of the intern's hands until a manager acts on it, so surfacing it
+  // as "due today" would wrongly suggest there's still something to do.
+  const dueToday = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && t.status !== "in_review" && new Date(t.dueDate) >= startOfToday && new Date(t.dueDate) <= endOfToday);
   const myWork = tasks.filter((t: any) => t.status === "in_progress" || t.status === "blocked");
-  const upcoming = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() > endOfToday.getTime())
+  const awaitingReview = tasks.filter((t: any) => t.status === "in_review")
+    .sort((a: any, b: any) => new Date(b.submittedAt || b.updatedAt).getTime() - new Date(a.submittedAt || a.updatedAt).getTime());
+  const upcoming = tasks.filter((t: any) => t.dueDate && t.status !== "completed" && t.status !== "in_review" && new Date(t.dueDate).getTime() > endOfToday.getTime())
     .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
     .slice(0, 5);
   const recentlyCompleted = tasks.filter((t: any) => t.status === "completed" && t.completedAt)
@@ -553,6 +566,20 @@ function InternTaskOverview() {
             </div>
           )}
         </div>
+
+        {awaitingReview.length > 0 && (
+          <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5">
+            <h3 className="font-semibold text-white text-sm mb-3">Awaiting Review {awaitingReview.length > 0 && `(${awaitingReview.length})`}</h3>
+            <div className="space-y-2">
+              {awaitingReview.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-white/70 truncate">{t.title}</span>
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs">Submitted</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {upcoming.length > 0 && (
           <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5">
@@ -716,12 +743,12 @@ function ProjectList({ projects, onSelectProject }: { projects: any[]; onSelectP
   return (
     <div className="min-h-screen bg-background" data-testid="project-list">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-6 flex items-start justify-between">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-white" data-testid="text-dashboard-title">My Projects</h1>
             <p className="text-sm text-white/50 mt-1">{projects.length} project{projects.length !== 1 ? "s" : ""} assigned</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               onClick={() => setShowPropose(true)}
               variant="outline"
@@ -835,6 +862,7 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState<"chat" | "plan">("plan");
+  const [showPropose, setShowPropose] = useState(false);
 
   const { data: projectDetail, isLoading: loadingDetail } = useQuery<any>({
     queryKey: [`/api/projects/${project.id}`],
@@ -893,6 +921,28 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
         </div>
       </div>
 
+      {status === "rejected" ? (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md text-center">
+            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-7 h-7 text-white/30" />
+            </div>
+            <h2 className="text-lg font-semibold text-white mb-1">This proposal wasn't approved</h2>
+            <p className="text-sm text-white/50 mb-1" data-testid="text-rejection-reason">
+              {project.rejectionReason || "No reason was given."}
+            </p>
+            <p className="text-sm text-white/40 mb-5">
+              This idea won't move forward, but you're welcome to propose something else.
+            </p>
+            <Button onClick={() => setShowPropose(true)} data-testid="button-propose-again">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Propose Another Project
+            </Button>
+          </div>
+          <ProposeProjectDialog open={showPropose} onOpenChange={setShowPropose} />
+        </div>
+      ) : (
+      <>
       {isMobile && (
         <div className="flex border-b border-white/[0.08] bg-card shrink-0">
           <button
@@ -953,6 +1003,8 @@ function ProjectWorkspace({ project, user, onBack }: { project: any; user: any; 
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

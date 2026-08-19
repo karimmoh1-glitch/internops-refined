@@ -77,7 +77,7 @@ export interface IStorage {
   getProjectById(id: string): Promise<Project | undefined>;
   getProjectsByIntern(internId: string): Promise<Project[]>;
   getProjectsByCompany(companyId: string): Promise<Project[]>;
-  updateProjectStatus(id: string, status: string): Promise<Project | undefined>;
+  updateProjectStatus(id: string, status: string, extra?: { rejectionReason?: string }): Promise<Project | undefined>;
   updateProject(id: string, data: { title?: string; idea?: string; minimumTotalHours?: number; githubRepoUrl?: string | null }): Promise<Project | undefined>;
   deleteProject(id: string): Promise<void>;
 
@@ -503,8 +503,8 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(projects).where(eq(projects.companyId, companyId)).orderBy(desc(projects.createdAt));
   }
 
-  async updateProjectStatus(id: string, status: string): Promise<Project | undefined> {
-    const [updated] = await db.update(projects).set({ status }).where(eq(projects.id, id)).returning();
+  async updateProjectStatus(id: string, status: string, extra?: { rejectionReason?: string }): Promise<Project | undefined> {
+    const [updated] = await db.update(projects).set({ status, ...extra }).where(eq(projects.id, id)).returning();
     return updated;
   }
 
