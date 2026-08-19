@@ -38,10 +38,13 @@ function createWindow() {
 }
 
 function createTray() {
-  // A minimal template-style dot; kept as a data URL so no extra asset
-  // pipeline is needed for this first version.
-  const icon = nativeImage.createEmpty();
-  tray = new Tray(icon.isEmpty() ? nativeImage.createFromNamedImage("NSImageNameStatusAvailable") : icon);
+  // A small solid-color dot, same asset on every platform. (An earlier
+  // version used macOS's NSImageNameStatusAvailable named image, which
+  // resolves to nothing on Windows/Linux and left the tray icon blank
+  // there — a real file works everywhere.)
+  let icon = nativeImage.createFromPath(path.join(__dirname, "renderer", "tray-icon.png"));
+  if (icon.isEmpty()) icon = nativeImage.createFromNamedImage("NSImageNameStatusAvailable");
+  tray = new Tray(icon);
   tray.setToolTip("InternOps Companion");
   updateTrayMenu();
   tray.on("click", () => {
