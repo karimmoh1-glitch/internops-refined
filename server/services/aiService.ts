@@ -351,6 +351,11 @@ export interface OrgDigestIntern {
   completedTasks: number;
   blockedTasks: number;
   overdueTasks: number;
+  currentTask: string | null;
+  tasksCompletedToday: string[];
+  tasksCompletedYesterday: string[];
+  hoursThisWeek: number;
+  nextStep: string | null;
 }
 
 export interface OrgDigest {
@@ -399,6 +404,29 @@ function buildDigestBlock(digest: OrgDigest): string {
 
 const FALLBACK_FOOTER = "\n_This is a data lookup, not an AI-generated answer — set OPENAI_API_KEY to enable free-form conversational Q&A._";
 
+// Finds an intern the question is asking about, by name. Matches on
+// first-name-or-full-name whole-word occurrences (word-boundary, not plain
+// substring — otherwise a name part like "Intern" would false-match inside
+// an unrelated word like "interns"), longest match wins (so "Sarah Chen"
+// beats a coincidental "Sarah" in a two-Sarah org). Returns null rather
+// than guessing when nothing matches.
+function findMentionedIntern(digest: OrgDigest, q: string): OrgDigestIntern | null {
+  let best: OrgDigestIntern | null = null;
+  let bestLen = 0;
+  for (const intern of digest.interns) {
+    const nameParts = [intern.name.toLowerCase(), ...intern.name.toLowerCase().split(" ")];
+    for (const part of nameParts) {
+      if (part.length < 3) continue;
+      const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escaped}\\b`).test(q) && part.length > bestLen) {
+        best = intern;
+        bestLen = part.length;
+      }
+    }
+  }
+  return best;
+}
+
 // Deterministic, non-AI answers built only from real digest data — used
 // whenever no OpenAI key is configured, or the AI call fails. Rather than
 // always returning the same generic briefing regardless of what was asked
@@ -407,8 +435,42 @@ const FALLBACK_FOOTER = "\n_This is a data lookup, not an AI-generated answer �
 // message to a targeted, real answer. Falls back to the full briefing only
 // when nothing recognizable was asked — and says plainly what it *can*
 // answer, rather than guessing.
+
+function personQuestionAnswer(intern: OrgDigestIntern, q: string): string | null {
+  if (/yesterday/.test(q)) {
+    if (intern.tasksCompletedYesterday.length === 0) return `${intern.name} didn't complete any tasks yesterday.${FALLBACK_FOOTER}`;
+    return `**${intern.name} completed yesterday:**\n` + intern.tasksCompletedYesterday.map((t) => `- "${t}"`).join("\n") + FALLBACK_FOOTER;
+  }
+  if (/hour|how long|how much time/.test(q)) {
+    return `${intern.name} has worked ~${intern.hoursThisWeek}h this week (from real shift records).${FALLBACK_FOOTER}`;
+  }
+  if (/next|should.*do|what.*next/.test(q)) {
+    if (!intern.nextStep) return `${intern.name} has no clear next task recommended right now — check if they have open work assigned.${FALLBACK_FOOTER}`;
+    return `**Recommended next for ${intern.name}:** ${intern.nextStep}${FALLBACK_FOOTER}`;
+  }
+  if (/working on|currently|right now|today|complete|doing/.test(q)) {
+    const parts: string[] = [];
+    parts.push(intern.currentTask ? `${intern.name} is currently working on "${intern.currentTask}".` : `${intern.name} has no task in progress right now.`);
+    if (intern.tasksCompletedToday.length > 0) {
+      parts.push(`Completed today: ` + intern.tasksCompletedToday.map((t) => `"${t}"`).join(", ") + ".");
+    }
+    return parts.join(" ") + FALLBACK_FOOTER;
+  }
+  // Name was mentioned but the specific angle wasn't recognized — give a
+  // general per-intern summary rather than falling through to the org-wide
+  // briefing, which would ignore that a specific person was asked about.
+  return `**${intern.name}:** ${intern.completedTasks}/${intern.totalTasks} tasks completed, ${intern.blockedTasks} blocked, ${intern.overdueTasks} overdue. ` +
+    (intern.currentTask ? `Currently working on "${intern.currentTask}".` : `No task currently in progress.`) + FALLBACK_FOOTER;
+}
+
 function fallbackOrgAnswer(digest: OrgDigest, question: string): string {
   const q = question.toLowerCase();
+
+  const mentioned = findMentionedIntern(digest, q);
+  if (mentioned) {
+    const answer = personQuestionAnswer(mentioned, q);
+    if (answer) return answer;
+  }
 
   if (/no (assigned |open )?work|unassigned|nothing assigned|no open task/.test(q)) {
     if (digest.noWorkInterns.length === 0) return `Everyone currently has at least one open task assigned.${FALLBACK_FOOTER}`;
@@ -430,7 +492,7 @@ function fallbackOrgAnswer(digest: OrgDigest, question: string): string {
     return `**${digest.pendingProposals.length} proposal${digest.pendingProposals.length === 1 ? "" : "s"} awaiting review:**\n` + digest.pendingProposals.map((p) => `- "${p.title}" — ${p.internName}`).join("\n") + FALLBACK_FOOTER;
   }
 
-  if (/working now|currently working|active (shift|now)|who'?s working/.test(q)) {
+  if ((/\bworking\b/.test(q) && /\bnow\b|\bcurrently\b/.test(q)) || /active (shift|now)/.test(q) || /who'?s working/.test(q)) {
     if (digest.workingNowNames.length === 0) return `No one is currently working a shift.${FALLBACK_FOOTER}`;
     return `**${digest.workingNowNames.length} intern${digest.workingNowNames.length === 1 ? "" : "s"} currently working:**\n` + digest.workingNowNames.map((n) => `- ${n}`).join("\n") + FALLBACK_FOOTER;
   }
@@ -441,7 +503,7 @@ function fallbackOrgAnswer(digest: OrgDigest, question: string): string {
   }
 
   return fallbackOrgBriefing(digest) +
-    `\n\n_I can answer specific questions about: who has no work, overdue tasks, blocked tasks, pending review, project proposals, or who's currently working._` +
+    `\n\n_I can answer specific questions about: who has no work, overdue tasks, blocked tasks, pending review, project proposals, who's currently working, or ask about a specific intern by name (what they're working on, completed today/yesterday, hours this week, or what's next for them)._` +
     FALLBACK_FOOTER;
 }
 
