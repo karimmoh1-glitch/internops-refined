@@ -2921,6 +2921,14 @@ export async function registerRoutes(
       const session = await storage.startWorkSession(userId, companyId);
       res.status(201).json(session);
     } catch (error: any) {
+      // Two Start Shift requests racing past the check above both reach the
+      // insert; the DB's partial unique index (idx_work_sessions_one_active_
+      // per_intern) correctly lets only one through — the loser should see
+      // the same friendly message as the sequential-duplicate case above,
+      // not a raw 500. Postgres unique-violation is error code 23505.
+      if (error?.code === "23505") {
+        return res.status(400).json({ message: "You already have an active shift." });
+      }
       console.error("Failed to start work session:", error);
       res.status(500).json({ message: "Couldn't start your shift. Please try again." });
     }
