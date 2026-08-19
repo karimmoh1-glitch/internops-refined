@@ -7,7 +7,7 @@ import { computeRiskFlags } from "./services/riskRadar";
 import { computeSignals, computeWorktimeSignals } from "./services/signals";
 import { computeNextBestAction } from "./services/nextBestAction";
 import { summarizeSessions, startOfToday, startOfWeek, tasksInWindow } from "./services/worktime";
-import { categorizeApplication, summarizeActivityByCategory } from "./services/workJournal";
+import { categorizeApplication, summarizeActivityByCategory, categoryLabel } from "./services/workJournal";
 import { runMorningDigestForCompany } from "./services/morningDigest";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
@@ -3093,10 +3093,94 @@ export async function registerRoutes(
       if (!summary || (role !== "admin" && summary.internId !== userId)) {
         return res.status(404).json({ message: "Shift report not found" });
       }
-      res.json(summary);
+      // Per-task activity correlation, computed at read time (not stored)
+      // from work_activities.taskId, set at ingestion whenever exactly one
+      // task was in_progress for the intern. "Likely associated" — an
+      // observed time-overlap, never a claim the system verified the work.
+      const activities = await storage.getWorkActivitiesBySession(summary.sessionId);
+      const byTask = new Map<string, { seconds: number; apps: Map<string, number> }>();
+      for (const a of activities) {
+        if (!a.taskId) continue;
+        const entry = byTask.get(a.taskId) ?? { seconds: 0, apps: new Map() };
+        entry.seconds += a.durationSeconds;
+        entry.apps.set(a.application, (entry.apps.get(a.application) ?? 0) + a.durationSeconds);
+        byTask.set(a.taskId, entry);
+      }
+      let taskActivity: { taskId: string; title: string; seconds: number; topApp: string | null }[] = [];
+      if (byTask.size > 0) {
+        const internTasks = await storage.getTasksByAssignee(summary.internId);
+        const titleById = new Map(internTasks.map((t) => [t.id, t.title]));
+        taskActivity = Array.from(byTask.entries()).map(([taskId, v]) => ({
+          taskId,
+          title: titleById.get(taskId) ?? "Unknown task",
+          seconds: v.seconds,
+          topApp: Array.from(v.apps.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
+        })).sort((a, b) => b.seconds - a.seconds);
+      }
+      res.json({ ...summary, taskActivity });
     } catch (error: any) {
       console.error("Failed to get shift report:", error);
       res.status(500).json({ message: "Failed to get shift report" });
+    }
+  });
+
+  // "Workday Replay" — a chronological reconstruction of one shift from
+  // real stored events (activity samples + task timestamps), never a
+  // screen recording or invented narrative. Every entry is traceable back
+  // to a row in work_activities or tasks.
+  app.get("/api/work-sessions/:id/timeline", requireAuth, async (req, res) => {
+    try {
+      const role = (req as any).userRole;
+      const userId = (req as any).userId;
+      const companyId = (req as any).companyId;
+      const session = await storage.getWorkSessionById(req.params.id as string);
+      if (!session || session.companyId !== companyId || (role !== "admin" && session.internId !== userId)) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+
+      const start = new Date(session.startedAt);
+      const end = session.endedAt ? new Date(session.endedAt) : new Date();
+
+      type Event = { ts: string; type: string; label: string; detail?: string; durationSeconds?: number };
+      const events: Event[] = [
+        { ts: session.startedAt as unknown as string, type: "shift_started", label: "Shift started" },
+      ];
+
+      const activities = await storage.getWorkActivitiesBySession(session.id);
+      for (const a of activities) {
+        events.push({
+          ts: a.startedAt as unknown as string,
+          type: "app_active",
+          label: a.application,
+          detail: categoryLabel(a.category),
+          durationSeconds: a.durationSeconds,
+        });
+      }
+
+      const internTasks = await storage.getTasksByAssignee(session.internId);
+      for (const t of tasksInWindow(internTasks, start, end, "startedAt")) {
+        events.push({ ts: t.startedAt as unknown as string, type: "task_started", label: `Started "${t.title}"` });
+      }
+      for (const t of tasksInWindow(internTasks, start, end, "submittedAt")) {
+        events.push({ ts: t.submittedAt as unknown as string, type: "task_submitted", label: `Submitted "${t.title}" for review` });
+      }
+      for (const t of tasksInWindow(internTasks, start, end, "completedAt")) {
+        events.push({ ts: t.completedAt as unknown as string, type: "task_completed", label: `Completed "${t.title}"` });
+      }
+
+      if (session.endedAt) {
+        events.push({ ts: session.endedAt as unknown as string, type: "shift_ended", label: "Shift ended" });
+        const summary = await storage.getWorkSummaryBySession(session.id);
+        if (summary?.generatedAt) {
+          events.push({ ts: summary.generatedAt as unknown as string, type: "report_generated", label: "Shift report generated" });
+        }
+      }
+
+      events.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+      res.json({ session, events });
+    } catch (error: any) {
+      console.error("Failed to build workday timeline:", error);
+      res.status(500).json({ message: "Failed to build workday timeline" });
     }
   });
 
