@@ -3797,7 +3797,7 @@ export async function registerRoutes(
           });
         }
         return {
-          internName: intern.name.split(" ")[0],
+          internName: intern.name,
           completionRate: totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0,
         };
       });
@@ -3813,7 +3813,7 @@ export async function registerRoutes(
           totalLogged += allLogs.filter((l: any) => l.projectId === project.id).length;
         }
         return {
-          internName: intern.name.split(" ")[0],
+          internName: intern.name,
           planned: totalPlanned,
           logged: totalLogged,
         };
@@ -3830,7 +3830,7 @@ export async function registerRoutes(
       const taskCompletionByIntern = interns.map((intern) => {
         const internTasks = allTasks.filter((t) => t.assigneeId === intern.id);
         return {
-          internName: intern.name.split(" ")[0],
+          internName: intern.name,
           completed: internTasks.filter((t) => t.status === "completed").length,
           total: internTasks.length,
         };
