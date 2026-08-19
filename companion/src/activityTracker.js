@@ -1,5 +1,6 @@
-// Real OS-level activity sampling — macOS only for v1. Reads the name of
-// the frontmost application via AppleScript/System Events, which needs no
+// Real OS-level activity sampling. Reads only the name of the frontmost
+// application — on macOS via AppleScript/System Events, on Windows via a
+// small Win32 foreground-window lookup through PowerShell. Neither needs
 // special permission for the app name alone (unlike window titles or
 // screen content, which we deliberately never touch). Samples are
 // aggregated client-side into per-application duration buckets and only
@@ -8,16 +9,38 @@ const { exec } = require("child_process");
 const { promisify } = require("util");
 const execAsync = promisify(exec);
 
+const WIN_FOREGROUND_APP_SCRIPT = `
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public class InternOpsForeground {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+}
+'@
+$hwnd = [InternOpsForeground]::GetForegroundWindow()
+$procId = 0
+[InternOpsForeground]::GetWindowThreadProcessId($hwnd, [ref]$procId) | Out-Null
+(Get-Process -Id $procId).ProcessName
+`.trim();
+
 async function getFrontmostApplication() {
   try {
+    if (process.platform === "win32") {
+      const { stdout } = await execAsync(
+        `powershell -NoProfile -NonInteractive -Command "${WIN_FOREGROUND_APP_SCRIPT.replace(/"/g, '\\"')}"`,
+        { timeout: 5000 }
+      );
+      return stdout.trim() || null;
+    }
     const { stdout } = await execAsync(
       `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
       { timeout: 5000 }
     );
     return stdout.trim() || null;
   } catch {
-    // Permission not yet granted, or a transient AppleScript failure —
-    // fail closed (no sample) rather than guessing.
+    // Permission not yet granted, unsupported platform, or a transient
+    // failure — fail closed (no sample) rather than guessing.
     return null;
   }
 }
