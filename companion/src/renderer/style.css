@@ -62,6 +62,17 @@ button {
 #status-label { font-size: 13px; font-weight: 600; }
 
 .timer { font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 8px 0; }
+.permission-warning {
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.25);
+  color: rgba(255,255,255,0.75);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.permission-warning strong { color: #fbbf24; }
 .current-task {
   background: rgba(109,94,245,0.1);
   border: 1px solid rgba(109,94,245,0.2);

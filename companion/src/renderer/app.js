@@ -40,6 +40,11 @@ function stopTimer() {
 }
 
 async function refreshStatus() {
+  // The report view is a deliberate stop for the intern to review and
+  // submit — the 30s background poll below must never yank them back to
+  // the home screen mid-review just because a status check happened to
+  // land at that moment.
+  if (!views.report.classList.contains("hidden")) return;
   const status = await window.internops.getStatus();
   if (!status.loggedIn) {
     showView("login");
@@ -94,6 +99,7 @@ document.getElementById("login-submit").addEventListener("click", async () => {
 
 document.getElementById("btn-start").addEventListener("click", async () => {
   try {
+    document.getElementById("permission-warning").classList.add("hidden");
     await window.internops.startWorkMode();
     await refreshStatus();
   } catch (err) {
@@ -162,6 +168,7 @@ document.getElementById("btn-submit-report").addEventListener("click", async () 
     statusEl.textContent = "Report submitted.";
     statusEl.classList.remove("hidden");
     setTimeout(async () => {
+      views.report.classList.add("hidden"); // lets refreshStatus leave this view now that submission is done
       await refreshStatus();
     }, 1200);
   } catch (err) {
@@ -171,5 +178,8 @@ document.getElementById("btn-submit-report").addEventListener("click", async () 
 });
 
 window.internops.onSessionRestored(() => refreshStatus());
+window.internops.onActivityPermissionNeeded(() => {
+  document.getElementById("permission-warning").classList.remove("hidden");
+});
 refreshStatus();
 setInterval(refreshStatus, 30_000);
