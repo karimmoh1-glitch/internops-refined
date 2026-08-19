@@ -372,6 +372,27 @@ function AskInternOpsCard() {
 // in order: an active project with room to keep logging progress, then a
 // prompt to propose new work, then an explicit "you're caught up" state.
 // Nothing here is fabricated work — if there's truly nothing, it says so.
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function firstName(): string {
+  try {
+    const stored = localStorage.getItem("internops_auth");
+    const name = stored ? JSON.parse(stored)?.user?.name : "";
+    return name ? name.split(" ")[0] : "there";
+  } catch {
+    return "there";
+  }
+}
+
+// "Today's Brief" — the single thing an intern should read to know what to
+// do next. Every branch is driven by real task/project state (deterministic
+// priority scoring from server/services/nextBestAction.ts, or a real
+// pending_approval project) — never an invented estimate or fabricated work.
 function NextBestActionCard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -403,12 +424,46 @@ function NextBestActionCard() {
 
   if (isLoading) return null;
 
+  const pendingProposal = projects.find((p: any) => p.status === "pending_approval");
+
   if (!data?.recommended) {
     const activeProjects = projects.filter((p: any) => p.status === "assigned" || p.status === "planning" || p.status === "active" || p.status === "submitted");
+
+    if (pendingProposal) {
+      return (
+        <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-amber-500/30 via-amber-500/10 to-transparent mb-4" data-testid="section-next-best-action">
+          <div className="bg-card rounded-[11px] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-white/40 uppercase tracking-wide">Today's Brief</span>
+            </div>
+            <p className="text-sm text-white/60 mb-3">{greeting()}, {firstName()}.</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="w-4 h-4 text-amber-400" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-400">Waiting On Your Manager</span>
+            </div>
+            <h3 className="text-lg font-heading font-semibold text-white mb-1">
+              "{pendingProposal.title}" is awaiting approval
+            </h3>
+            <p className="text-sm text-white/50 mb-4">
+              You'll be notified as soon as it's reviewed. {activeProjects.length > 0 ? "In the meantime, you can keep working on your other project." : "Nothing else is assigned right now, so feel free to reach out if you'd like more to do."}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" onClick={() => setLocation(activeProjects.length > 0 ? "/" : "/chat")} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-brief-waiting-cta">
+                {activeProjects.length > 0 ? "View My Projects" : "Message Your Manager"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent mb-4" data-testid="section-next-best-action">
         <div className="bg-card rounded-[11px] p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-white/40 uppercase tracking-wide">Today's Brief</span>
+          </div>
+          <p className="text-sm text-white/60 mb-3">{greeting()}, {firstName()}.</p>
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400">You're All Caught Up</span>
@@ -431,9 +486,9 @@ function NextBestActionCard() {
             </>
           ) : (
             <>
-              <h3 className="text-lg font-heading font-semibold text-white mb-1">Nothing assigned right now</h3>
+              <h3 className="text-lg font-heading font-semibold text-white mb-1">You have no outstanding assigned work</h3>
               <p className="text-sm text-white/50 mb-4">
-                You have no open tasks and no active projects. Propose a project idea, or reach out to your manager.
+                Propose a project idea, or reach out to your manager for more work.
               </p>
               <div className="flex items-center gap-2 flex-wrap">
                 <Button size="sm" onClick={() => setShowPropose(true)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-propose-caught-up">
@@ -453,16 +508,27 @@ function NextBestActionCard() {
   }
 
   const { task, reason } = data.recommended;
+  const isOverdue = /overdue/i.test(reason);
+  const nextStep = task.status === "todo"
+    ? "Start it, then submit for review when you're done."
+    : "Finish it up and submit for review.";
 
   return (
-    <div className="relative rounded-xl p-[1px] bg-gradient-to-br from-[#6D5EF5]/40 via-[#8B7FF7]/20 to-transparent mb-4" data-testid="section-next-best-action">
+    <div className={`relative rounded-xl p-[1px] bg-gradient-to-br ${isOverdue ? "from-red-500/40 via-red-500/10 to-transparent" : "from-[#6D5EF5]/40 via-[#8B7FF7]/20 to-transparent"} mb-4`} data-testid="section-next-best-action">
       <div className="bg-card rounded-[11px] p-5">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold text-white/40 uppercase tracking-wide">Today's Brief</span>
+        </div>
+        <p className="text-sm text-white/60 mb-3">{greeting()}, {firstName()}.</p>
         <div className="flex items-center gap-2 mb-2">
-          <Zap className="w-4 h-4 text-[#8B7FF7]" />
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-[#8B7FF7]">Your Next Best Action</span>
+          {isOverdue ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Zap className="w-4 h-4 text-[#8B7FF7]" />}
+          <span className={`text-[11px] font-semibold uppercase tracking-wide ${isOverdue ? "text-red-400" : "text-[#8B7FF7]"}`}>
+            {isOverdue ? "Priority" : "Your Focus"}
+          </span>
         </div>
         <h3 className="text-lg font-heading font-semibold text-white mb-1">{task.title}</h3>
-        <p className="text-sm text-white/50 mb-4">{reason}</p>
+        <p className="text-sm text-white/50">{reason}</p>
+        <p className="text-sm text-white/40 mb-4">{nextStep}</p>
         <div className="flex items-center gap-2">
           {task.status === "todo" ? (
             <Button size="sm" onClick={() => startMutation.mutate(task.id)} className="bg-[#6D5EF5] hover:bg-[#5142D6] text-white" data-testid="button-start-next-best">
