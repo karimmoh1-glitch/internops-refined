@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld("internops", {
   updateSummaryNote: (sessionId, note) => ipcRenderer.invoke("update-summary-note", { sessionId, note }),
   submitSummary: (sessionId) => ipcRenderer.invoke("submit-summary", sessionId),
   onSessionRestored: (cb) => ipcRenderer.on("session-restored", (_e, data) => cb(data)),
+  onActivityPermissionNeeded: (cb) => ipcRenderer.on("activity-permission-needed", () => cb()),
 });

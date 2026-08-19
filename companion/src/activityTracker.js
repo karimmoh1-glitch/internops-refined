@@ -45,15 +45,24 @@ async function getFrontmostApplication() {
   }
 }
 
+// Consecutive failed samples before we tell the intern something's wrong —
+// high enough to ride out one transient AppleScript hiccup, low enough
+// that a real permission problem is surfaced well within the first minute
+// rather than silently costing them the whole shift.
+const PERMISSION_WARNING_THRESHOLD = 3;
+
 class ActivityTracker {
-  constructor({ sampleIntervalMs, onFlush, flushIntervalMs }) {
+  constructor({ sampleIntervalMs, onFlush, flushIntervalMs, onPermissionIssue }) {
     this.sampleIntervalMs = sampleIntervalMs;
     this.flushIntervalMs = flushIntervalMs;
     this.onFlush = onFlush;
+    this.onPermissionIssue = onPermissionIssue;
     this.timer = null;
     this.flushTimer = null;
     this.current = null; // { application, startedAt }
     this.buckets = []; // completed { application, startedAt, endedAt, durationSeconds }
+    this.consecutiveFailures = 0;
+    this.warned = false;
   }
 
   start() {
@@ -73,7 +82,15 @@ class ActivityTracker {
 
   async _sample() {
     const app = await getFrontmostApplication();
-    if (!app) return;
+    if (!app) {
+      this.consecutiveFailures++;
+      if (!this.warned && this.consecutiveFailures >= PERMISSION_WARNING_THRESHOLD) {
+        this.warned = true;
+        this.onPermissionIssue?.();
+      }
+      return;
+    }
+    this.consecutiveFailures = 0;
     if (this.current && this.current.application === app) return; // still on the same app
     this._closeCurrent();
     this.current = { application: app, startedAt: new Date() };

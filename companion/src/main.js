@@ -82,6 +82,7 @@ function startTracking() {
     sampleIntervalMs: SAMPLE_INTERVAL_MS,
     flushIntervalMs: SYNC_INTERVAL_MS,
     onFlush: flushActivity,
+    onPermissionIssue: () => send("activity-permission-needed"),
   });
   tracker.start();
   updateTrayMenu();
