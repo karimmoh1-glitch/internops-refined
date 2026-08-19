@@ -1023,6 +1023,78 @@ function OrgAssistantPanel() {
   );
 }
 
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+// "Today's Brief" — an admin should be able to read this and know the
+// state of their whole program in seconds. Every count comes from data
+// already computed elsewhere in this app (Signals, worktime overview,
+// dashboard stats, real project statuses) — nothing here is invented, and
+// every row is clickable straight to the relevant view.
+function AdminTodaysBrief({ onGoToWorktime, onGoToOverdueTasks, onGoToReviewTasks, onGoToProposals, companyId }: {
+  onGoToWorktime: () => void; onGoToOverdueTasks: () => void; onGoToReviewTasks: () => void; onGoToProposals: () => void;
+  companyId: string | null;
+}) {
+  const { data: signals = [] } = useQuery<Signal[]>({ queryKey: ["/api/signals"] });
+  const { data: worktimeOverview = [] } = useQuery<any[]>({ queryKey: ["/api/worktime/overview"] });
+  const { data: dashboard } = useQuery<any>({ queryKey: ["/api/dashboard"] });
+  const { data: projects = [] } = useQuery<any[]>({ queryKey: ["/api/projects"] });
+
+  const needWork = signals.filter((s) => s.type === "no_work_assigned").length;
+  const overdue = signals.filter((s) => s.type === "deadline_risk").length;
+  const awaitingReview = dashboard?.pendingReview ?? 0;
+  const workingNow = worktimeOverview.filter((i: any) => i.isActive).length;
+  const proposalsToReview = projects.filter((p: any) => p.status === "pending_approval").length;
+
+  const items = [
+    needWork > 0 && { label: `${needWork} intern${needWork === 1 ? "" : "s"} need${needWork === 1 ? "s" : ""} work`, sub: "No meaningful upcoming tasks assigned.", action: "View", onClick: onGoToWorktime, tone: "amber" },
+    overdue > 0 && { label: `${overdue} task${overdue === 1 ? "" : "s"} overdue`, sub: "Past their due date and not yet complete.", action: "Review", onClick: onGoToOverdueTasks, tone: "red" },
+    awaitingReview > 0 && { label: `${awaitingReview} item${awaitingReview === 1 ? "" : "s"} awaiting review`, sub: "Submitted work waiting on you.", action: "Review", onClick: onGoToReviewTasks, tone: "blue" },
+    proposalsToReview > 0 && { label: `${proposalsToReview} project proposal${proposalsToReview === 1 ? "" : "s"} need${proposalsToReview === 1 ? "s" : ""} review`, sub: "Interns are waiting on a decision.", action: "Review", onClick: onGoToProposals, tone: "blue" },
+    workingNow > 0 && { label: `${workingNow} intern${workingNow === 1 ? "" : "s"} currently working`, sub: "Active shifts right now.", action: "View", onClick: onGoToWorktime, tone: "emerald" },
+  ].filter(Boolean) as { label: string; sub: string; action: string; onClick: () => void; tone: string }[];
+
+  const toneCls: Record<string, string> = {
+    amber: "text-amber-400",
+    red: "text-red-400",
+    blue: "text-blue-400",
+    emerald: "text-emerald-400",
+  };
+
+  if (!companyId) return null;
+
+  return (
+    <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-5 mb-6" data-testid="section-admin-todays-brief">
+      <span className="text-xs font-semibold text-white/40 uppercase tracking-wide">Today's Brief</span>
+      <p className="text-sm text-white/60 mt-1 mb-4">{greeting()}. Here's what needs your attention.</p>
+      {items.length === 0 ? (
+        <div className="flex items-center gap-2 text-sm text-emerald-400" data-testid="text-brief-all-clear">
+          <CheckCircle2 className="w-4 h-4" />
+          Nothing needs your attention right now — the program is running smoothly.
+        </div>
+      ) : (
+        <div className="divide-y divide-white/[0.06]">
+          {items.map((item, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+              <div className="min-w-0">
+                <p className={`text-sm font-medium ${toneCls[item.tone]}`} data-testid={`text-brief-item-${i}`}>{item.label}</p>
+                <p className="text-xs text-white/40 mt-0.5">{item.sub}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={item.onClick} className="shrink-0" data-testid={`button-brief-action-${i}`}>
+                {item.action}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard({ user }: AdminDashboardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1050,6 +1122,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   const internOverviewRef = useRef<HTMLDivElement>(null);
+  const proposalsRef = useRef<HTMLDivElement>(null);
 
   const { data: dashboard, isLoading } = useQuery<any>({ queryKey: ["/api/dashboard"], refetchInterval: 20000 });
   const { data: interns = [] } = useQuery<any[]>({ queryKey: ["/api/interns"] });
@@ -1266,6 +1339,13 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <AdminTodaysBrief
+          companyId={user.companyId}
+          onGoToWorktime={() => setLocation("/worktime")}
+          onGoToOverdueTasks={() => setLocation("/tasks?status=overdue")}
+          onGoToReviewTasks={() => setLocation("/tasks?status=in_review")}
+          onGoToProposals={() => proposalsRef.current?.scrollIntoView({ behavior: "smooth" })}
+        />
         <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm p-6" data-testid="header-section">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
@@ -1403,7 +1483,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
         <ApplicationsPanel companyId={user.companyId} onViewHistory={() => setLocation("/applications")} />
 
-        <ProjectProposalsPanel />
+        <div ref={proposalsRef} data-testid="project-proposals-section">
+          <ProjectProposalsPanel />
+        </div>
 
         <ManagersSection currentUserId={user.id} />
 
