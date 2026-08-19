@@ -21,13 +21,14 @@ export type SignalType =
   | "workflow_stalled"
   | "project_at_risk"
   | "no_work_assigned"
+  | "overloaded"
   | "inactive"
   | "unusual_hours"
   | "pending_proposal";
 
 export interface SignalAction {
   label: string;
-  kind: "view_task" | "view_project" | "message" | "review";
+  kind: "view_task" | "view_project" | "view_intern" | "message" | "review";
   taskId?: string;
   projectId?: string;
   userId?: string;
@@ -276,6 +277,24 @@ export function computeWorktimeSignals(
         actions: [{ label: `Message ${intern.name}`, kind: "message", userId: intern.id }],
       });
       continue;
+    }
+
+    // Overloaded: 5+ open tasks due within the next 7 days is the line
+    // between "busy" and "needs the admin to redistribute work" — a fixed,
+    // documented threshold rather than a fuzzy judgment call. 8+ escalates
+    // to high severity.
+    const dueSoonCount = openTasks.filter((t) => t.dueDate && new Date(t.dueDate).getTime() <= now + 7 * DAY_MS).length;
+    if (dueSoonCount >= 5) {
+      signals.push({
+        key: `overloaded:${intern.id}`,
+        type: "overloaded",
+        severity: dueSoonCount >= 8 ? "high" : "medium",
+        headline: "Heavy workload",
+        description: `${intern.name} has ${dueSoonCount} tasks due within the next 7 days.`,
+        internId: intern.id,
+        internName: intern.name,
+        actions: [{ label: "Review Workload", kind: "view_intern", userId: intern.id }],
+      });
     }
 
     // Inactive: open work exists, but no shift started in 3+ calendar days

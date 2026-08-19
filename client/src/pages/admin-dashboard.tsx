@@ -811,7 +811,7 @@ const SUGGESTED_PROMPTS = [
 
 interface SignalAction {
   label: string;
-  kind: "view_task" | "view_project" | "message" | "review";
+  kind: "view_task" | "view_project" | "view_intern" | "message" | "review";
   taskId?: string;
   projectId?: string;
   userId?: string;
@@ -819,7 +819,7 @@ interface SignalAction {
 
 interface Signal {
   key: string;
-  type: "deadline_risk" | "possible_blocker" | "pending_review" | "workflow_stalled" | "project_at_risk" | "no_work_assigned" | "inactive" | "unusual_hours" | "pending_proposal";
+  type: "deadline_risk" | "possible_blocker" | "pending_review" | "workflow_stalled" | "project_at_risk" | "no_work_assigned" | "overloaded" | "inactive" | "unusual_hours" | "pending_proposal";
   severity: "high" | "medium";
   headline: string;
   description: string;
@@ -861,6 +861,7 @@ function SignalsPanel() {
     else if (action.kind === "review" && action.taskId) setLocation(`/?view=tasks&taskId=${action.taskId}`);
     else if (action.kind === "view_project" && action.projectId) setLocation(`/?projectId=${action.projectId}`);
     else if (action.kind === "message" && action.userId) setLocation(`/chat?userId=${action.userId}`);
+    else if (action.kind === "view_intern" && action.userId) setLocation(`/interns/${action.userId}`);
   };
 
   if (isLoading || signals.length === 0) return null;

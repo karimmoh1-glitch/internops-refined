@@ -11,9 +11,18 @@ export interface NextBestAction {
   blockingCount: number;
 }
 
-function calendarDaysUntil(dueDate: Date, now: Date): number {
-  const dueDay = Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate());
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+// tzOffsetMinutes is the browser's Date.getTimezoneOffset() value (minutes
+// to ADD to local time to reach UTC). Without it, "due today" is computed
+// against the server's UTC calendar day, which can disagree with what the
+// intern's own device considers "today" — the client-rendered task list
+// buckets by local calendar day, so this has to match or the same due date
+// can be labeled "due today" in one place and "due tomorrow" in another.
+function calendarDaysUntil(dueDate: Date, now: Date, tzOffsetMinutes: number): number {
+  const shift = (d: Date) => new Date(d.getTime() - tzOffsetMinutes * 60000);
+  const shiftedDue = shift(dueDate);
+  const shiftedNow = shift(now);
+  const dueDay = Date.UTC(shiftedDue.getUTCFullYear(), shiftedDue.getUTCMonth(), shiftedDue.getUTCDate());
+  const today = Date.UTC(shiftedNow.getUTCFullYear(), shiftedNow.getUTCMonth(), shiftedNow.getUTCDate());
   return Math.round((dueDay - today) / (24 * 60 * 60 * 1000));
 }
 
@@ -22,6 +31,7 @@ const PRIORITY_WEIGHT: Record<string, number> = { high: 30, medium: 15, low: 5 }
 export function computeNextBestAction(
   myTasks: Task[],
   companyTasks: Task[],
+  tzOffsetMinutes: number = 0,
 ): { recommended: NextBestAction | null; alternates: Task[] } {
   const now = new Date();
   const dependentCounts = new Map<string, number>();
@@ -42,7 +52,7 @@ export function computeNextBestAction(
     if (task.priority === "high") reasons.push("high priority");
 
     if (task.dueDate) {
-      const days = calendarDaysUntil(new Date(task.dueDate), now);
+      const days = calendarDaysUntil(new Date(task.dueDate), now, tzOffsetMinutes);
       if (days < 0) {
         score += 100 + Math.min(-days, 10) * 5;
         reasons.push(`overdue by ${-days} day${-days === 1 ? "" : "s"}`);

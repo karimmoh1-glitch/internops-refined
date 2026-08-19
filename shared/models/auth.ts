@@ -103,6 +103,10 @@ export const projects = pgTable("projects", {
   minimumTotalHours: integer("minimum_total_hours").notNull(),
   status: varchar("status").notNull().default("assigned"),
   githubRepoUrl: text("github_repo_url"),
+  // Set only when an admin rejects a proposed project (status "rejected"),
+  // so the intern still has the explanation the next time they open it —
+  // not just in the one-time notification that announced it.
+  rejectionReason: text("rejection_reason"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

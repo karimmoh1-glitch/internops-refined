@@ -944,8 +944,15 @@ function InternTasksView({ user }: TasksPageProps) {
       {taskList.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-white/[0.08] rounded-xl">
           <ListTodo className="w-8 h-8 text-white/30 mx-auto mb-2" />
-          <p className="text-white/50 font-medium">{statusFilter ? "No tasks match this filter" : "No tasks assigned yet"}</p>
-          <p className="text-sm text-white/40 mt-1">{statusFilter ? "Nice — nothing here right now." : "Your manager hasn't assigned you anything yet."}</p>
+          <p className="text-white/50 font-medium">{statusFilter ? "No tasks match this filter" : "You're all caught up"}</p>
+          <p className="text-sm text-white/40 mt-1">
+            {statusFilter ? "Nice — nothing here right now." : "Nothing's been assigned to you yet — propose a project idea, or check your dashboard for what's next."}
+          </p>
+          {!statusFilter && (
+            <Button size="sm" variant="outline" className="mt-4" onClick={() => setLocation("/")} data-testid="button-go-to-dashboard-empty">
+              Go to Dashboard
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-6">

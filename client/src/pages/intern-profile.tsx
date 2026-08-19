@@ -235,7 +235,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
   });
   const { data: alumniList = [] } = useQuery<AlumniListEntry[]>({ queryKey: ["/api/alumni"] });
   const alumniRecord = alumniList.find((a) => a.id === internId)?.alumniRecord;
-  const { data: workSessions = [] } = useQuery<any[]>({ queryKey: [`/api/interns/${internId}/work-sessions`] });
+  const { data: workSessions = [] } = useQuery<any[]>({ queryKey: [`/api/interns/${internId}/work-sessions`], refetchInterval: 20000 });
   const { data: worktimeSummary } = useQuery<any>({ queryKey: [`/api/interns/${internId}/worktime-summary`] });
 
   const generateNarrativeMutation = useMutation({
@@ -294,6 +294,14 @@ export default function InternProfile({ internId }: InternProfileProps) {
   }, [dashboard, internId]);
 
   const internTasks = useMemo(() => tasks.filter((t: any) => t.assigneeId === internId), [tasks, internId]);
+
+  const activeSession = useMemo(() => workSessions.find((s: any) => s.status === "active"), [workSessions]);
+  const currentTask = useMemo(() => {
+    if (!activeSession) return null;
+    return internTasks
+      .filter((t: any) => t.status === "in_progress")
+      .sort((a: any, b: any) => new Date(b.startedAt || b.updatedAt || 0).getTime() - new Date(a.startedAt || a.updatedAt || 0).getTime())[0] ?? null;
+  }, [activeSession, internTasks]);
 
   const stats = useMemo(() => {
     const total = internTasks.length;
@@ -421,6 +429,21 @@ export default function InternProfile({ internId }: InternProfileProps) {
               <h1 className="text-xl font-bold text-white" data-testid="text-intern-profile-name">{intern.name}</h1>
               <p className="text-sm text-white/50" data-testid="text-intern-profile-email">{intern.email}</p>
             </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2" data-testid="text-intern-work-status">
+            {activeSession ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="text-sm text-emerald-400 font-medium">Working now</span>
+                {currentTask && <span className="text-sm text-white/50 truncate">— on "{currentTask.title}"</span>}
+              </>
+            ) : (
+              <>
+                <span className="w-2 h-2 rounded-full bg-white/20 shrink-0" />
+                <span className="text-sm text-white/40">Not currently working</span>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
