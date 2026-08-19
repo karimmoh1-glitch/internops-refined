@@ -3460,6 +3460,7 @@ export async function registerRoutes(
         noWorkInterns: interns.filter((i) => !allTasks.some((t) => t.assigneeId === i.id && t.status !== "completed")).map((i) => i.name),
         pendingProposals: allProjects.filter((p) => p.status === "pending_approval").map((p) => ({ title: p.title, internName: internNameById.get(p.internId) || "Unknown" })),
         workingNowNames: interns.filter((i) => activeInternIds.has(i.id)).map((i) => i.name),
+        attentionSignals: computeSignals(interns, allTasks, allProjects).map((s) => ({ headline: s.headline, description: s.description })),
       };
 
       const { reply, aiGenerated } = await orgAssistantChat(digest, messages);

@@ -369,6 +369,7 @@ export interface OrgDigest {
   noWorkInterns: string[];
   pendingProposals: { title: string; internName: string }[];
   workingNowNames: string[];
+  attentionSignals: { headline: string; description: string }[];
 }
 
 function hasOpenAiKey(): boolean {
@@ -477,6 +478,27 @@ function fallbackOrgAnswer(digest: OrgDigest, question: string): string {
     return `**${digest.noWorkInterns.length} intern${digest.noWorkInterns.length === 1 ? "" : "s"} with no open tasks:**\n` + digest.noWorkInterns.map((n) => `- ${n}`).join("\n") + FALLBACK_FOOTER;
   }
 
+  if (/needs? attention|falling behind|who.?s behind|overloaded|too much work|inactive/.test(q)) {
+    if (digest.attentionSignals.length === 0) return `Nothing needs attention right now — no overdue, blocked, overloaded, or inactive interns.${FALLBACK_FOOTER}`;
+    return `**${digest.attentionSignals.length} thing${digest.attentionSignals.length === 1 ? "" : "s"} needing attention:**\n` + digest.attentionSignals.map((s) => `- ${s.description}`).join("\n") + FALLBACK_FOOTER;
+  }
+
+  // Checked before the more general "most tasks" pattern below, since
+  // "who completed the most tasks" would otherwise match that one first.
+  if (/completed the most|most completed|top perform/.test(q)) {
+    const ranked = [...digest.interns].sort((a, b) => b.completedTasks - a.completedTasks).filter((i) => i.completedTasks > 0);
+    if (ranked.length === 0) return `No tasks have been completed yet.${FALLBACK_FOOTER}`;
+    const top = ranked[0];
+    return `**${top.name}** has completed the most tasks: ${top.completedTasks}.${FALLBACK_FOOTER}`;
+  }
+
+  if (/most tasks|highest workload|who has the (most|highest)/.test(q)) {
+    const ranked = [...digest.interns].sort((a, b) => b.totalTasks - a.totalTasks).filter((i) => i.totalTasks > 0);
+    if (ranked.length === 0) return `No one has any tasks assigned yet.${FALLBACK_FOOTER}`;
+    const top = ranked[0];
+    return `**${top.name}** has the most tasks: ${top.totalTasks} total (${top.completedTasks} completed).${FALLBACK_FOOTER}`;
+  }
+
   if (/overdue/.test(q)) {
     if (digest.overdueTasks.length === 0) return `No overdue tasks right now.${FALLBACK_FOOTER}`;
     return `**${digest.overdueTasks.length} overdue task${digest.overdueTasks.length === 1 ? "" : "s"}:**\n` + digest.overdueTasks.map((t) => `- "${t.title}" — ${t.internName}, due ${t.dueDate}`).join("\n") + FALLBACK_FOOTER;
@@ -503,7 +525,7 @@ function fallbackOrgAnswer(digest: OrgDigest, question: string): string {
   }
 
   return fallbackOrgBriefing(digest) +
-    `\n\n_I can answer specific questions about: who has no work, overdue tasks, blocked tasks, pending review, project proposals, who's currently working, or ask about a specific intern by name (what they're working on, completed today/yesterday, hours this week, or what's next for them)._` +
+    `\n\n_I can answer specific questions about: who has no work, overdue tasks, blocked tasks, pending review, project proposals, who's currently working, who needs attention, who has the most tasks or completed the most, or ask about a specific intern by name (what they're working on, completed today/yesterday, hours this week, or what's next for them)._` +
     FALLBACK_FOOTER;
 }
 
