@@ -3323,11 +3323,16 @@ export async function registerRoutes(
         return res.status(400).json({ message: "messages is required" });
       }
 
-      const company = await storage.getCompanyById(companyId);
-      const interns = await storage.getInternsByCompany(companyId);
-      const allTasks = await storage.getTasksByCompany(companyId);
+      const [company, interns, allTasks, allProjects, activeSessions] = await Promise.all([
+        storage.getCompanyById(companyId),
+        storage.getInternsByCompany(companyId),
+        storage.getTasksByCompany(companyId),
+        storage.getProjectsByCompany(companyId),
+        storage.getActiveWorkSessionsByCompany(companyId),
+      ]);
       const now = Date.now();
       const internNameById = new Map(interns.map((i) => [i.id, i.name]));
+      const activeInternIds = new Set(activeSessions.map((s) => s.internId));
 
       const toDigestTask = (t: typeof allTasks[number]) => ({
         title: t.title,
@@ -3355,6 +3360,9 @@ export async function registerRoutes(
         inReviewTasks: allTasks.filter((t) => t.status === "in_review").map(toDigestTask),
         totalTasks: allTasks.length,
         completedTasks: allTasks.filter((t) => t.status === "completed").length,
+        noWorkInterns: interns.filter((i) => !allTasks.some((t) => t.assigneeId === i.id && t.status !== "completed")).map((i) => i.name),
+        pendingProposals: allProjects.filter((p) => p.status === "pending_approval").map((p) => ({ title: p.title, internName: internNameById.get(p.internId) || "Unknown" })),
+        workingNowNames: interns.filter((i) => activeInternIds.has(i.id)).map((i) => i.name),
       };
 
       const { reply, aiGenerated } = await orgAssistantChat(digest, messages);

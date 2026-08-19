@@ -361,6 +361,9 @@ export interface OrgDigest {
   inReviewTasks: OrgDigestTask[];
   totalTasks: number;
   completedTasks: number;
+  noWorkInterns: string[];
+  pendingProposals: { title: string; internName: string }[];
+  workingNowNames: string[];
 }
 
 function hasOpenAiKey(): boolean {
@@ -394,10 +397,55 @@ function buildDigestBlock(digest: OrgDigest): string {
   return lines.join("\n");
 }
 
-// Deterministic, non-AI briefing built only from real digest data — used
-// whenever no OpenAI key is configured, or the AI call fails. Never
-// fabricates data; if the digest is empty, it says so plainly.
-function fallbackOrgSummary(digest: OrgDigest): string {
+const FALLBACK_FOOTER = "\n_This is a data lookup, not an AI-generated answer — set OPENAI_API_KEY to enable free-form conversational Q&A._";
+
+// Deterministic, non-AI answers built only from real digest data — used
+// whenever no OpenAI key is configured, or the AI call fails. Rather than
+// always returning the same generic briefing regardless of what was asked
+// (which technically avoids inventing facts, but isn't actually answering
+// the question), this routes on simple keyword matches in the latest
+// message to a targeted, real answer. Falls back to the full briefing only
+// when nothing recognizable was asked — and says plainly what it *can*
+// answer, rather than guessing.
+function fallbackOrgAnswer(digest: OrgDigest, question: string): string {
+  const q = question.toLowerCase();
+
+  if (/no (assigned |open )?work|unassigned|nothing assigned|no open task/.test(q)) {
+    if (digest.noWorkInterns.length === 0) return `Everyone currently has at least one open task assigned.${FALLBACK_FOOTER}`;
+    return `**${digest.noWorkInterns.length} intern${digest.noWorkInterns.length === 1 ? "" : "s"} with no open tasks:**\n` + digest.noWorkInterns.map((n) => `- ${n}`).join("\n") + FALLBACK_FOOTER;
+  }
+
+  if (/overdue/.test(q)) {
+    if (digest.overdueTasks.length === 0) return `No overdue tasks right now.${FALLBACK_FOOTER}`;
+    return `**${digest.overdueTasks.length} overdue task${digest.overdueTasks.length === 1 ? "" : "s"}:**\n` + digest.overdueTasks.map((t) => `- "${t.title}" — ${t.internName}, due ${t.dueDate}`).join("\n") + FALLBACK_FOOTER;
+  }
+
+  if (/blocked/.test(q)) {
+    if (digest.blockedTasks.length === 0) return `Nothing is blocked right now.${FALLBACK_FOOTER}`;
+    return `**${digest.blockedTasks.length} blocked task${digest.blockedTasks.length === 1 ? "" : "s"}:**\n` + digest.blockedTasks.map((t) => `- "${t.title}" — ${t.internName}: ${t.blockedReason || "no reason given"}`).join("\n") + FALLBACK_FOOTER;
+  }
+
+  if (/pending|proposal|approval/.test(q)) {
+    if (digest.pendingProposals.length === 0) return `No project proposals are waiting on a decision.${FALLBACK_FOOTER}`;
+    return `**${digest.pendingProposals.length} proposal${digest.pendingProposals.length === 1 ? "" : "s"} awaiting review:**\n` + digest.pendingProposals.map((p) => `- "${p.title}" — ${p.internName}`).join("\n") + FALLBACK_FOOTER;
+  }
+
+  if (/working now|currently working|active (shift|now)|who'?s working/.test(q)) {
+    if (digest.workingNowNames.length === 0) return `No one is currently working a shift.${FALLBACK_FOOTER}`;
+    return `**${digest.workingNowNames.length} intern${digest.workingNowNames.length === 1 ? "" : "s"} currently working:**\n` + digest.workingNowNames.map((n) => `- ${n}`).join("\n") + FALLBACK_FOOTER;
+  }
+
+  if (/review/.test(q)) {
+    if (digest.inReviewTasks.length === 0) return `Nothing is waiting on your review right now.${FALLBACK_FOOTER}`;
+    return `**${digest.inReviewTasks.length} task${digest.inReviewTasks.length === 1 ? "" : "s"} awaiting your review:**\n` + digest.inReviewTasks.map((t) => `- "${t.title}" — ${t.internName}`).join("\n") + FALLBACK_FOOTER;
+  }
+
+  return fallbackOrgBriefing(digest) +
+    `\n\n_I can answer specific questions about: who has no work, overdue tasks, blocked tasks, pending review, project proposals, or who's currently working._` +
+    FALLBACK_FOOTER;
+}
+
+function fallbackOrgBriefing(digest: OrgDigest): string {
   if (digest.totalTasks === 0) {
     return `No tasks exist yet for ${digest.companyName}. Once tasks are assigned, I can summarize progress, flag blockers, and highlight who needs attention.`;
   }
@@ -423,7 +471,6 @@ function fallbackOrgSummary(digest: OrgDigest): string {
     parts.push(`\n**Below 50% completion:** ` + behind.map((i) => `${i.name} (${i.completedTasks}/${i.totalTasks})`).join(", "));
   }
 
-  parts.push(`\n_This is a data summary, not an AI-generated answer — set OPENAI_API_KEY to enable conversational Q&A._`);
   return parts.join("\n");
 }
 
@@ -432,7 +479,8 @@ export async function orgAssistantChat(
   messages: Array<{ role: "user" | "assistant"; content: string }>,
 ): Promise<{ reply: string; aiGenerated: boolean }> {
   if (!hasOpenAiKey()) {
-    return { reply: fallbackOrgSummary(digest), aiGenerated: false };
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+    return { reply: fallbackOrgAnswer(digest, lastUserMessage), aiGenerated: false };
   }
 
   const contextBlock = buildDigestBlock(digest);
@@ -459,7 +507,8 @@ RULES:
     return { reply, aiGenerated: true };
   } catch (error: any) {
     console.error("Org assistant AI call failed:", error.message);
-    return { reply: fallbackOrgSummary(digest), aiGenerated: false };
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+    return { reply: fallbackOrgAnswer(digest, lastUserMessage), aiGenerated: false };
   }
 }
 
