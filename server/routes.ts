@@ -3407,14 +3407,19 @@ export async function registerRoutes(
         return res.status(400).json({ message: "messages is required" });
       }
 
-      const [company, interns, allTasks, allProjects, activeSessions] = await Promise.all([
+      const now = new Date();
+      const weekStart = startOfWeek(now);
+      const todayStart = startOfToday(now);
+      const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+
+      const [company, interns, allTasks, allProjects, activeSessions, weekSessions] = await Promise.all([
         storage.getCompanyById(companyId),
         storage.getInternsByCompany(companyId),
         storage.getTasksByCompany(companyId),
         storage.getProjectsByCompany(companyId),
         storage.getActiveWorkSessionsByCompany(companyId),
+        storage.getWorkSessionsByCompanySince(companyId, weekStart),
       ]);
-      const now = Date.now();
       const internNameById = new Map(interns.map((i) => [i.id, i.name]));
       const activeInternIds = new Set(activeSessions.map((s) => s.internId));
 
@@ -3431,16 +3436,24 @@ export async function registerRoutes(
         companyName: company?.name || "the organization",
         interns: interns.map((i) => {
           const mine = allTasks.filter((t) => t.assigneeId === i.id);
+          const mySessions = weekSessions.filter((s) => s.internId === i.id);
+          const current = mine.filter((t) => t.status === "in_progress").sort((a, b) => new Date(b.startedAt || b.updatedAt || 0).getTime() - new Date(a.startedAt || a.updatedAt || 0).getTime())[0];
+          const { recommended } = computeNextBestAction(mine, allTasks);
           return {
             name: i.name,
             totalTasks: mine.length,
             completedTasks: mine.filter((t) => t.status === "completed").length,
             blockedTasks: mine.filter((t) => t.status === "blocked").length,
-            overdueTasks: mine.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now).length,
+            overdueTasks: mine.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now.getTime()).length,
+            currentTask: current?.title ?? null,
+            tasksCompletedToday: tasksInWindow(mine, todayStart, now, "completedAt").map((t) => t.title),
+            tasksCompletedYesterday: tasksInWindow(mine, yesterdayStart, todayStart, "completedAt").map((t) => t.title),
+            hoursThisWeek: Math.round((summarizeSessions(mySessions, now).totalSeconds / 3600) * 10) / 10,
+            nextStep: recommended ? recommended.task.title : null,
           };
         }),
         blockedTasks: allTasks.filter((t) => t.status === "blocked").map(toDigestTask),
-        overdueTasks: allTasks.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now).map(toDigestTask),
+        overdueTasks: allTasks.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now.getTime()).map(toDigestTask),
         inReviewTasks: allTasks.filter((t) => t.status === "in_review").map(toDigestTask),
         totalTasks: allTasks.length,
         completedTasks: allTasks.filter((t) => t.status === "completed").length,
@@ -3452,7 +3465,7 @@ export async function registerRoutes(
       const { reply, aiGenerated } = await orgAssistantChat(digest, messages);
       const related = {
         blockedTaskIds: allTasks.filter((t) => t.status === "blocked").map((t) => t.id),
-        overdueTaskIds: allTasks.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now).map((t) => t.id),
+        overdueTaskIds: allTasks.filter((t) => t.dueDate && t.status !== "completed" && new Date(t.dueDate).getTime() < now.getTime()).map((t) => t.id),
         inReviewTaskIds: allTasks.filter((t) => t.status === "in_review").map((t) => t.id),
       };
       res.json({ reply, aiGenerated, related });
