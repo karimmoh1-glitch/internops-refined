@@ -7,6 +7,7 @@ import { computeRiskFlags } from "./services/riskRadar";
 import { computeSignals, computeWorktimeSignals } from "./services/signals";
 import { computeNextBestAction } from "./services/nextBestAction";
 import { summarizeSessions, startOfToday, startOfWeek, tasksInWindow } from "./services/worktime";
+import { categorizeApplication, summarizeActivityByCategory } from "./services/workJournal";
 import { runMorningDigestForCompany } from "./services/morningDigest";
 import {
   sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
@@ -2928,16 +2929,60 @@ export async function registerRoutes(
   app.post("/api/work-sessions/end", requireAuth, requireRole("intern"), async (req, res) => {
     try {
       const userId = (req as any).userId;
+      const companyId = (req as any).companyId;
       const ended = await storage.endWorkSession(userId);
       if (!ended) {
         return res.status(400).json({ message: "You don't have an active shift to end." });
       }
 
-      const myTasks = await storage.getTasksByAssignee(userId);
+      const [myTasks, companyTasks] = await Promise.all([
+        storage.getTasksByAssignee(userId),
+        companyId ? storage.getTasksByCompany(companyId) : Promise.resolve([]),
+      ]);
       const start = new Date(ended.startedAt);
       const end = new Date(ended.endedAt as Date);
       const completed = tasksInWindow(myTasks, start, end, "completedAt");
       const submitted = tasksInWindow(myTasks, start, end, "submittedAt");
+
+      // Shift report generation — every field below is computed from real
+      // stored data (activity samples, task timestamps, the existing
+      // next-best-action engine), never invented. This runs for every
+      // shift, with or without the desktop companion — activityBreakdown
+      // is simply empty when there's no companion data.
+      const activityRows = await storage.getWorkActivityBreakdownBySession(ended.id);
+      const activityBreakdown = summarizeActivityByCategory(activityRows);
+
+      // Primary project: the project most represented in activity samples
+      // that were correlated with a task (an observed, not claimed, signal).
+      // Falls back to whichever task was touched most recently in the
+      // window if there's no companion activity at all.
+      const activities = await storage.getWorkActivitiesBySession(ended.id);
+      const projectSeconds = new Map<string, number>();
+      for (const a of activities) {
+        if (a.projectId) projectSeconds.set(a.projectId, (projectSeconds.get(a.projectId) ?? 0) + a.durationSeconds);
+      }
+      let primaryProjectId: string | null = null;
+      if (projectSeconds.size > 0) {
+        primaryProjectId = Array.from(projectSeconds.entries()).sort((a, b) => b[1] - a[1])[0][0];
+      } else {
+        const touched = [...completed, ...submitted].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0];
+        primaryProjectId = touched?.projectId ?? null;
+      }
+
+      const { recommended } = computeNextBestAction(myTasks, companyTasks);
+      const nextStep = recommended ? `Continue "${recommended.task.title}"` : null;
+
+      const workSummary = await storage.createWorkSummary({
+        sessionId: ended.id,
+        internId: userId,
+        companyId,
+        durationSeconds: ended.durationSeconds ?? 0,
+        primaryProjectId,
+        activityBreakdown,
+        tasksCompleted: completed.length,
+        tasksSubmitted: submitted.length,
+        nextStep,
+      });
 
       res.json({
         session: ended,
@@ -2946,6 +2991,7 @@ export async function registerRoutes(
           tasksCompleted: completed.length,
           tasksSubmitted: submitted.length,
         },
+        report: workSummary,
       });
     } catch (error: any) {
       console.error("Failed to end work session:", error);
@@ -2960,6 +3006,160 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to get active work session:", error);
       res.status(500).json({ message: "Failed to get active work session" });
+    }
+  });
+
+  // Desktop companion posts batched activity samples for the intern's own
+  // active shift — never a client-supplied sessionId/internId, always the
+  // authenticated user's current active session, so one intern's companion
+  // can never write activity onto someone else's shift.
+  app.post("/api/work-sessions/activity", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const companyId = (req as any).companyId;
+      const active = await storage.getActiveWorkSession(userId);
+      if (!active) {
+        return res.status(400).json({ message: "No active shift — start a shift before sending activity." });
+      }
+      const { activities } = req.body || {};
+      if (!Array.isArray(activities) || activities.length === 0) {
+        return res.status(400).json({ message: "activities must be a non-empty array" });
+      }
+      // Best-effort correlation: whichever task this intern currently has
+      // in_progress, if exactly one — an observed fact ("this task was
+      // in progress during this window"), not a claim about what was done.
+      const myTasks = await storage.getTasksByAssignee(userId);
+      const inProgress = myTasks.filter((t) => t.status === "in_progress");
+      const correlatedTask = inProgress.length === 1 ? inProgress[0] : null;
+
+      const rows = activities
+        .filter((a: any) => a?.application && a?.startedAt && a?.endedAt && Number.isFinite(a?.durationSeconds) && a.durationSeconds > 0 && a.durationSeconds < 6 * 60 * 60)
+        .slice(0, 200)
+        .map((a: any) => ({
+          sessionId: active.id,
+          internId: userId,
+          companyId,
+          application: String(a.application).slice(0, 200),
+          category: categorizeApplication(String(a.application)),
+          startedAt: new Date(a.startedAt),
+          endedAt: new Date(a.endedAt),
+          durationSeconds: Math.round(a.durationSeconds),
+          taskId: correlatedTask?.id ?? null,
+          projectId: correlatedTask?.projectId ?? null,
+          source: "desktop_companion",
+        }));
+
+      const created = await storage.createWorkActivities(rows);
+      res.status(201).json({ created: created.length });
+    } catch (error: any) {
+      console.error("Failed to record work activity:", error);
+      res.status(500).json({ message: "Failed to record work activity" });
+    }
+  });
+
+  // Live, aggregated activity for a session — an admin sees "VS Code ·
+  // 1h 12m", never a raw timestamped feed. Intern can view their own;
+  // admin can view any session belonging to their company.
+  app.get("/api/work-sessions/:id/activity-breakdown", requireAuth, async (req, res) => {
+    try {
+      const role = (req as any).userRole;
+      const userId = (req as any).userId;
+      const companyId = (req as any).companyId;
+      const target = await storage.getWorkSessionById(req.params.id as string);
+      if (!target || target.companyId !== companyId || (role !== "admin" && target.internId !== userId)) {
+        return res.status(404).json({ message: "Work session not found" });
+      }
+      const breakdown = await storage.getWorkActivityBreakdownBySession(target.id);
+      res.json(breakdown);
+    } catch (error: any) {
+      console.error("Failed to get activity breakdown:", error);
+      res.status(500).json({ message: "Failed to get activity breakdown" });
+    }
+  });
+
+  app.get("/api/work-sessions/:id/summary", requireAuth, async (req, res) => {
+    try {
+      const role = (req as any).userRole;
+      const userId = (req as any).userId;
+      const summary = await storage.getWorkSummaryBySession(req.params.id as string);
+      if (!summary || (role !== "admin" && summary.internId !== userId)) {
+        return res.status(404).json({ message: "Shift report not found" });
+      }
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Failed to get shift report:", error);
+      res.status(500).json({ message: "Failed to get shift report" });
+    }
+  });
+
+  // Intern reviews the auto-generated report — can add a short note for
+  // context, never required, never silently skipped.
+  app.patch("/api/work-sessions/:id/summary", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const summary = await storage.getWorkSummaryBySession(req.params.id as string);
+      if (!summary || summary.internId !== userId) {
+        return res.status(404).json({ message: "Shift report not found" });
+      }
+      if (summary.submittedAt) {
+        return res.status(400).json({ message: "This report has already been submitted." });
+      }
+      const { internNote } = req.body || {};
+      const updated = await storage.updateWorkSummary(summary.id, {
+        internNote: typeof internNote === "string" ? internNote.trim().slice(0, 1000) : undefined,
+        reviewedAt: new Date(),
+      });
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Failed to update shift report:", error);
+      res.status(500).json({ message: "Failed to update shift report" });
+    }
+  });
+
+  app.post("/api/work-sessions/:id/summary/submit", requireAuth, requireRole("intern"), async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const companyId = (req as any).companyId;
+      const summary = await storage.getWorkSummaryBySession(req.params.id as string);
+      if (!summary || summary.internId !== userId) {
+        return res.status(404).json({ message: "Shift report not found" });
+      }
+      if (summary.submittedAt) {
+        return res.status(400).json({ message: "This report has already been submitted." });
+      }
+      const updated = await storage.updateWorkSummary(summary.id, { submittedAt: new Date(), reviewedAt: summary.reviewedAt ?? new Date() });
+
+      const intern = await storage.getUser(userId);
+      const admins = companyId ? await storage.getAdminsByCompany(companyId) : [];
+      for (const admin of admins) {
+        await storage.createNotification({
+          userId: admin.id,
+          title: "Shift Report Submitted",
+          message: `${intern?.name || "An intern"} submitted a shift report.`,
+          read: false,
+          link: `/interns/${userId}`,
+        });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Failed to submit shift report:", error);
+      res.status(500).json({ message: "Failed to submit shift report" });
+    }
+  });
+
+  app.get("/api/interns/:id/work-summaries", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId) {
+        return res.status(404).json({ message: "Intern not found" });
+      }
+      const summaries = await storage.getWorkSummariesByIntern(intern.id, 100);
+      res.json(summaries);
+    } catch (error: any) {
+      console.error("Failed to get intern shift reports:", error);
+      res.status(500).json({ message: "Failed to get intern shift reports" });
     }
   });
 

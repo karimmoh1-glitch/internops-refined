@@ -315,6 +315,58 @@ export const workSessions = pgTable("work_sessions", {
   uniqueIndex("idx_work_sessions_one_active_per_intern").on(table.internId).where(sql`status = 'active'`),
 ]);
 
+// Desktop-companion activity: high-level, app-name-only samples recorded
+// only while an intern has explicitly enabled Work Mode for an active
+// work_sessions row. Never the content of the work — no keystrokes, no
+// window contents, no browsing history beyond the top-level app name.
+// "category" is derived client-side from a small known-application map
+// (see companion/src/categorize.ts) — never inferred from content — and
+// taskId/projectId is a best-effort correlation with whatever task the
+// intern had in_progress during that window, not a claim of what was done.
+export const workActivities = pgTable("work_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => workSessions.id),
+  internId: varchar("intern_id").notNull().references(() => users.id),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  application: text("application").notNull(),
+  category: varchar("category").notNull().default("other"),
+  startedAt: timestamp("started_at").notNull(),
+  endedAt: timestamp("ended_at").notNull(),
+  durationSeconds: integer("duration_seconds").notNull(),
+  taskId: varchar("task_id").references(() => tasks.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  source: varchar("source").notNull().default("desktop_companion"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_work_activities_session").on(table.sessionId),
+  index("idx_work_activities_intern_started").on(table.internId, table.startedAt),
+]);
+
+// One factual, generated-then-reviewed report per completed work session.
+// Every field is computed from real data at generation time (activity
+// rollups, real task timestamps, the existing next-best-action engine) —
+// nothing here is written by an LLM or invented. internNote is the only
+// free-text field, and it's optional intern-added context, never
+// required and never silently submitted without the intern seeing it.
+export const workSummaries = pgTable("work_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => workSessions.id).unique(),
+  internId: varchar("intern_id").notNull().references(() => users.id),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  durationSeconds: integer("duration_seconds").notNull(),
+  primaryProjectId: varchar("primary_project_id").references(() => projects.id),
+  activityBreakdown: jsonb("activity_breakdown").$type<{ category: string; label: string; seconds: number }[]>().notNull().default(sql`'[]'::jsonb`),
+  tasksCompleted: integer("tasks_completed").notNull().default(0),
+  tasksSubmitted: integer("tasks_submitted").notNull().default(0),
+  nextStep: text("next_step"),
+  internNote: text("intern_note"),
+  generatedAt: timestamp("generated_at").defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+  submittedAt: timestamp("submitted_at"),
+}, (table) => [
+  index("idx_work_summaries_intern_generated").on(table.internId, table.generatedAt),
+]);
+
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   actorUserId: varchar("actor_user_id").references(() => users.id),
@@ -442,6 +494,8 @@ export const insertUserDeviceSchema = createInsertSchema(userDevices).omit({ id:
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z.string()) }).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkSessionSchema = createInsertSchema(workSessions).omit({ id: true, createdAt: true });
+export const insertWorkActivitySchema = createInsertSchema(workActivities).omit({ id: true, createdAt: true });
+export const insertWorkSummarySchema = createInsertSchema(workSummaries, { activityBreakdown: z.array(z.object({ category: z.string(), label: z.string(), seconds: z.number() })) }).omit({ id: true, generatedAt: true });
 export const insertPerformanceNarrativeSchema = createInsertSchema(performanceNarratives).omit({ id: true, createdAt: true });
 export const insertDigestRunSchema = createInsertSchema(digestRuns).omit({ id: true, createdAt: true });
 export const insertAlumniRecordSchema = createInsertSchema(alumniRecords).omit({ id: true, createdAt: true });
@@ -490,6 +544,10 @@ export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type WorkSession = typeof workSessions.$inferSelect;
 export type InsertWorkSession = z.infer<typeof insertWorkSessionSchema>;
+export type WorkActivity = typeof workActivities.$inferSelect;
+export type InsertWorkActivity = z.infer<typeof insertWorkActivitySchema>;
+export type WorkSummary = typeof workSummaries.$inferSelect;
+export type InsertWorkSummary = z.infer<typeof insertWorkSummarySchema>;
 export type PerformanceNarrative = typeof performanceNarratives.$inferSelect;
 export type InsertPerformanceNarrative = z.infer<typeof insertPerformanceNarrativeSchema>;
 export type DigestRun = typeof digestRuns.$inferSelect;

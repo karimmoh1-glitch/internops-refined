@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>InternOps Companion</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <span class="logo">InternOps</span>
+      <span class="sub">Companion</span>
+    </header>
+
+    <!-- Login -->
+    <section id="view-login" class="view">
+      <h1>Sign in</h1>
+      <p class="muted">Use your InternOps intern account.</p>
+      <input id="login-email" type="email" placeholder="you@company.com" autocomplete="username" />
+      <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" />
+      <button id="login-submit" class="primary">Sign In</button>
+      <p id="login-error" class="error hidden"></p>
+    </section>
+
+    <!-- Home / status -->
+    <section id="view-home" class="view hidden">
+      <div class="status-row">
+        <span id="status-dot" class="dot off"></span>
+        <span id="status-label">Not currently working</span>
+      </div>
+      <div id="timer" class="timer hidden">00:00:00</div>
+      <div id="current-task" class="current-task hidden"></div>
+
+      <button id="btn-start" class="primary">Start Work Session</button>
+      <button id="btn-stop" class="danger hidden">End Shift</button>
+
+      <details class="privacy">
+        <summary>What does Work Mode record?</summary>
+        <div class="privacy-body">
+          <p><strong>Records:</strong></p>
+          <ul>
+            <li>Applications used during your shift</li>
+            <li>High-level activity duration</li>
+            <li>Your current InternOps task/project</li>
+          </ul>
+          <p><strong>Never records:</strong></p>
+          <ul>
+            <li>Passwords or keystrokes</li>
+            <li>Microphone or camera</li>
+            <li>Private files or messages</li>
+          </ul>
+          <p class="muted">Only active while Work Mode is on. Stop it anytime.</p>
+        </div>
+      </details>
+
+      <button id="btn-logout" class="link">Sign Out</button>
+    </section>
+
+    <!-- Shift report review -->
+    <section id="view-report" class="view hidden">
+      <h1>Your Shift Report</h1>
+      <div class="report-card">
+        <div class="report-row"><span class="label">Duration</span><span id="r-duration" class="value"></span></div>
+        <div class="report-row" id="r-project-row"><span class="label">Primary work</span><span id="r-project" class="value"></span></div>
+        <div class="report-block">
+          <span class="label">Activity</span>
+          <ul id="r-activity" class="activity-list"></ul>
+        </div>
+        <div class="report-row"><span class="label">Completed</span><span id="r-completed" class="value"></span></div>
+        <div class="report-row"><span class="label">Submitted</span><span id="r-submitted" class="value"></span></div>
+        <div class="report-row" id="r-next-row"><span class="label">Next</span><span id="r-next" class="value"></span></div>
+      </div>
+      <textarea id="r-note" placeholder="Add a short note or correction (optional)…"></textarea>
+      <button id="btn-submit-report" class="primary">Looks Accurate — Submit Report</button>
+      <p id="report-status" class="muted hidden"></p>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -26,6 +26,7 @@ import Alumni from "@/pages/alumni";
 import AlumniCertificate from "@/pages/alumni-certificate";
 import Worktime from "@/pages/worktime";
 import ApplicationsHistory from "@/pages/applications";
+import DownloadPage from "@/pages/download";
 import AppShell from "@/components/app-shell";
 import { useEffect } from "react";
 
@@ -246,6 +247,7 @@ function AppContent() {
       <Route path="/i/:slug">
         {(params) => <PublicInternProfile slug={params.slug} />}
       </Route>
+      <Route path="/download" component={DownloadPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       <Route path="/contact" component={Contact} />

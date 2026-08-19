@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -127,6 +128,13 @@ export default function ShiftControl() {
           </>
         )}
       </div>
+      {!active && (
+        <p className="text-xs text-white/30 -mt-4 mb-6">
+          <Link href="/download" className="hover:text-white/60 transition-colors" data-testid="link-get-companion">
+            Get the InternOps desktop companion →
+          </Link>
+        </p>
+      )}
 
       <Dialog open={!!endSummary} onOpenChange={(v) => { if (!v) setEndSummary(null); }}>
         <DialogContent className="max-w-sm" data-testid="dialog-shift-summary">

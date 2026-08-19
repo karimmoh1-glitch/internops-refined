@@ -6,7 +6,7 @@ import { aggregateSkillTags } from "@shared/skills";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
   channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns, alumniRecords,
-  projectCompletionCriteria, signalDismissals, workSessions,
+  projectCompletionCriteria, signalDismissals, workSessions, workActivities, workSummaries,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -34,6 +34,8 @@ import {
   type ProjectCompletionCriterion,
   type SignalDismissal,
   type WorkSession,
+  type WorkActivity, type InsertWorkActivity,
+  type WorkSummary, type InsertWorkSummary,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -217,6 +219,15 @@ export interface IStorage {
   getActiveWorkSessionsByCompany(companyId: string): Promise<WorkSession[]>;
   getWorkSessionsByCompanySince(companyId: string, since: Date): Promise<WorkSession[]>;
   getWorkSessionAggregateByIntern(internId: string): Promise<{ totalSeconds: number; sessionCount: number }>;
+  getWorkSessionById(id: string): Promise<WorkSession | undefined>;
+  createWorkActivities(data: InsertWorkActivity[]): Promise<WorkActivity[]>;
+  getWorkActivitiesBySession(sessionId: string): Promise<WorkActivity[]>;
+  getWorkActivityBreakdownBySession(sessionId: string): Promise<{ application: string; category: string; totalSeconds: number }[]>;
+  createWorkSummary(data: InsertWorkSummary): Promise<WorkSummary>;
+  getWorkSummaryBySession(sessionId: string): Promise<WorkSummary | undefined>;
+  updateWorkSummary(id: string, data: { internNote?: string; reviewedAt?: Date; submittedAt?: Date }): Promise<WorkSummary | undefined>;
+  getWorkSummariesByIntern(internId: string, limit?: number): Promise<WorkSummary[]>;
+  getRecentSubmittedWorkSummariesByCompany(companyId: string, since: Date): Promise<WorkSummary[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -563,6 +574,11 @@ export class DatabaseStorage implements IStorage {
     for (const p of ownedProjects) {
       await this.deleteProject(p.id);
     }
+    // Must run before the tasks delete below — work_activities.taskId
+    // references tasks(id) with no cascade, so deleting a task first would
+    // leave a dangling reference and fail the FK constraint.
+    await db.delete(workActivities).where(eq(workActivities.internId, id));
+    await db.delete(workSummaries).where(eq(workSummaries.internId, id));
     await db.delete(tasks).where(eq(tasks.assigneeId, id));
     await db.delete(notifications).where(eq(notifications.userId, id));
     await db.delete(teamMessages).where(eq(teamMessages.userId, id));
@@ -1337,6 +1353,11 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getWorkSessionById(id: string): Promise<WorkSession | undefined> {
+    const [found] = await db.select().from(workSessions).where(eq(workSessions.id, id));
+    return found;
+  }
+
   async getWorkSessionsByIntern(internId: string, limit = 50): Promise<WorkSession[]> {
     return db.select().from(workSessions)
       .where(eq(workSessions.internId, internId))
@@ -1370,6 +1391,55 @@ export class DatabaseStorage implements IStorage {
       sessionCount: count(),
     }).from(workSessions).where(and(eq(workSessions.internId, internId), eq(workSessions.status, "completed")));
     return { totalSeconds: row?.totalSeconds ?? 0, sessionCount: row?.sessionCount ?? 0 };
+  }
+
+  // --- Desktop companion: activity + shift reports ---
+
+  async createWorkActivities(data: InsertWorkActivity[]): Promise<WorkActivity[]> {
+    if (data.length === 0) return [];
+    return db.insert(workActivities).values(data).returning();
+  }
+
+  async getWorkActivitiesBySession(sessionId: string): Promise<WorkActivity[]> {
+    return db.select().from(workActivities).where(eq(workActivities.sessionId, sessionId)).orderBy(workActivities.startedAt);
+  }
+
+  // Aggregated by application rather than returning every raw sample — an
+  // admin should see "VS Code · 1h 12m", never a timestamped dump of every
+  // app switch.
+  async getWorkActivityBreakdownBySession(sessionId: string): Promise<{ application: string; category: string; totalSeconds: number }[]> {
+    return db.select({
+      application: workActivities.application,
+      category: workActivities.category,
+      totalSeconds: sql<number>`coalesce(sum(${workActivities.durationSeconds}), 0)::int`,
+    }).from(workActivities).where(eq(workActivities.sessionId, sessionId))
+      .groupBy(workActivities.application, workActivities.category)
+      .orderBy(sql`coalesce(sum(${workActivities.durationSeconds}), 0) desc`);
+  }
+
+  async createWorkSummary(data: InsertWorkSummary): Promise<WorkSummary> {
+    const [created] = await db.insert(workSummaries).values(data).returning();
+    return created;
+  }
+
+  async getWorkSummaryBySession(sessionId: string): Promise<WorkSummary | undefined> {
+    const [found] = await db.select().from(workSummaries).where(eq(workSummaries.sessionId, sessionId));
+    return found;
+  }
+
+  async updateWorkSummary(id: string, data: { internNote?: string; reviewedAt?: Date; submittedAt?: Date }): Promise<WorkSummary | undefined> {
+    const [updated] = await db.update(workSummaries).set(data).where(eq(workSummaries.id, id)).returning();
+    return updated;
+  }
+
+  async getWorkSummariesByIntern(internId: string, limit = 50): Promise<WorkSummary[]> {
+    return db.select().from(workSummaries).where(eq(workSummaries.internId, internId)).orderBy(desc(workSummaries.generatedAt)).limit(limit);
+  }
+
+  async getRecentSubmittedWorkSummariesByCompany(companyId: string, since: Date): Promise<WorkSummary[]> {
+    return db.select().from(workSummaries)
+      .where(and(eq(workSummaries.companyId, companyId), gt(workSummaries.submittedAt, since)))
+      .orderBy(desc(workSummaries.submittedAt));
   }
 }
 

@@ -174,6 +174,7 @@ export default function Landing() {
             InternOps
           </div>
           <div className="flex items-center gap-5 text-xs text-white/40">
+            <Link href="/download" className="hover:text-white/70 transition-colors no-underline" data-testid="link-companion-download">Desktop Companion</Link>
             <Link href="/privacy" className="hover:text-white/70 transition-colors no-underline" data-testid="link-privacy">Privacy</Link>
             <Link href="/terms" className="hover:text-white/70 transition-colors no-underline" data-testid="link-terms">Terms</Link>
             <Link href="/contact" className="hover:text-white/70 transition-colors no-underline" data-testid="link-contact">Contact</Link>
