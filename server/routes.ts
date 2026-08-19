@@ -3412,13 +3412,14 @@ export async function registerRoutes(
       const todayStart = startOfToday(now);
       const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
 
-      const [company, interns, allTasks, allProjects, activeSessions, weekSessions] = await Promise.all([
+      const [company, interns, allTasks, allProjects, activeSessions, weekSessions, recentSessions] = await Promise.all([
         storage.getCompanyById(companyId),
         storage.getInternsByCompany(companyId),
         storage.getTasksByCompany(companyId),
         storage.getProjectsByCompany(companyId),
         storage.getActiveWorkSessionsByCompany(companyId),
         storage.getWorkSessionsByCompanySince(companyId, weekStart),
+        storage.getWorkSessionsByCompanySince(companyId, new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)),
       ]);
       const internNameById = new Map(interns.map((i) => [i.id, i.name]));
       const activeInternIds = new Set(activeSessions.map((s) => s.internId));
@@ -3460,7 +3461,10 @@ export async function registerRoutes(
         noWorkInterns: interns.filter((i) => !allTasks.some((t) => t.assigneeId === i.id && t.status !== "completed")).map((i) => i.name),
         pendingProposals: allProjects.filter((p) => p.status === "pending_approval").map((p) => ({ title: p.title, internName: internNameById.get(p.internId) || "Unknown" })),
         workingNowNames: interns.filter((i) => activeInternIds.has(i.id)).map((i) => i.name),
-        attentionSignals: computeSignals(interns, allTasks, allProjects).map((s) => ({ headline: s.headline, description: s.description })),
+        attentionSignals: [
+          ...computeSignals(interns, allTasks, allProjects),
+          ...computeWorktimeSignals(interns, allTasks, allProjects, recentSessions, now.getTime()),
+        ].map((s) => ({ headline: s.headline, description: s.description })),
       };
 
       const { reply, aiGenerated } = await orgAssistantChat(digest, messages);
