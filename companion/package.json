@@ -1,0 +1,37 @@
+{
+  "name": "internops-companion",
+  "productName": "InternOps Companion",
+  "version": "1.0.0",
+  "description": "Desktop companion for InternOps Work Mode — tracks high-level application activity only while explicitly enabled, and produces a factual shift report at the end of each session.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.internops.companion",
+    "productName": "InternOps Companion",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
+        }
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "InternOps Companion"
+    }
+  }
+}

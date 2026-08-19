@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Loader2, CheckCircle2, Circle,
   FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2, Award, GraduationCap,
-  ListChecks, Plus, X, Timer,
+  ListChecks, Plus, X, Timer, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
 import { SimplePageSkeleton } from "@/components/dashboard-skeleton";
@@ -51,6 +51,54 @@ interface TimelineEvent {
   kind: "task" | "log" | "plan" | "shift";
   title: string;
   detail?: string;
+}
+
+// A factual one-line summary built only from real generated fields —
+// completion/submission counts and the top real activity category, never
+// an invented description of what was actually accomplished.
+function shiftReportHeadline(report: any): string {
+  const parts: string[] = [];
+  if (report.tasksCompleted > 0) parts.push(`${report.tasksCompleted} task${report.tasksCompleted === 1 ? "" : "s"} completed`);
+  if (report.tasksSubmitted > 0) parts.push(`${report.tasksSubmitted} submitted`);
+  const topActivity = report.activityBreakdown?.[0];
+  if (topActivity) parts.push(`mostly ${topActivity.label.toLowerCase()}`);
+  return parts.length > 0 ? parts.join(" · ") : "No task or activity data recorded";
+}
+
+function ShiftReportRow({ report }: { report: any }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div data-testid={`shift-report-${report.id}`}>
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.03] transition-colors">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white">{formatDate(report.generatedAt)} · {formatDuration(report.durationSeconds)}</p>
+          <p className="text-xs text-white/50 mt-0.5 truncate">{shiftReportHeadline(report)}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {!report.submittedAt && <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs">Not submitted</Badge>}
+          {expanded ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
+        </div>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4 space-y-2 text-sm">
+          {report.activityBreakdown?.length > 0 && (
+            <div>
+              <p className="text-xs text-white/40 uppercase tracking-wide mb-1">Activity</p>
+              {report.activityBreakdown.map((a: any, i: number) => (
+                <p key={i} className="text-white/70">{a.label} — ~{formatDuration(a.seconds)}</p>
+              ))}
+            </div>
+          )}
+          {report.nextStep && (
+            <p className="text-white/70"><span className="text-white/40">Next: </span>{report.nextStep}</p>
+          )}
+          {report.internNote && (
+            <p className="text-white/70"><span className="text-white/40">Note: </span>{report.internNote}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface CompletionCriterion {
@@ -237,6 +285,7 @@ export default function InternProfile({ internId }: InternProfileProps) {
   const alumniRecord = alumniList.find((a) => a.id === internId)?.alumniRecord;
   const { data: workSessions = [] } = useQuery<any[]>({ queryKey: [`/api/interns/${internId}/work-sessions`], refetchInterval: 20000 });
   const { data: worktimeSummary } = useQuery<any>({ queryKey: [`/api/interns/${internId}/worktime-summary`] });
+  const { data: workSummaries = [] } = useQuery<any[]>({ queryKey: [`/api/interns/${internId}/work-summaries`] });
 
   const generateNarrativeMutation = useMutation({
     mutationFn: async () => {
@@ -608,6 +657,20 @@ export default function InternProfile({ internId }: InternProfileProps) {
                   </div>
                   <p className="text-xs text-white/50">{bucket.sessionCount} shift{bucket.sessionCount !== 1 ? "s" : ""}{bucket.sessionCount > 0 ? ` · avg ${formatDuration(bucket.avgSessionSeconds)}` : ""}</p>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {workSummaries.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-white/60" />
+              Shift Reports
+            </h2>
+            <div className="bg-card rounded-xl border border-white/[0.08] shadow-sm divide-y divide-white/[0.06]">
+              {workSummaries.map((r: any) => (
+                <ShiftReportRow key={r.id} report={r} />
               ))}
             </div>
           </div>
