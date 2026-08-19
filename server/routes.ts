@@ -1004,6 +1004,20 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/applications/:id/dismiss", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const application = await storage.getApplicationById(req.params.id as string);
+      if (!application || application.companyId !== (req as any).companyId) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+      const updated = await storage.dismissApplication(application.id);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Failed to dismiss application:", error);
+      res.status(500).json({ message: "Failed to dismiss application" });
+    }
+  });
+
   app.post("/api/applications/:id/request-info", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const application = await storage.getApplicationById(req.params.id as string);
@@ -2670,7 +2684,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/tasks/:id/start", requireAuth, requireRole("intern"), async (req, res) => {
+  app.post("/api/tasks/:id/start", requireAuth, requireRole("intern", "admin"), async (req, res) => {
     try {
       const task = await storage.getTaskById(req.params.id as string);
       if (!task || task.companyId !== (req as any).companyId || task.assigneeId !== (req as any).userId) {
@@ -2687,7 +2701,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/tasks/:id/submit", requireAuth, requireRole("intern"), async (req, res) => {
+  app.post("/api/tasks/:id/submit", requireAuth, requireRole("intern", "admin"), async (req, res) => {
     try {
       const task = await storage.getTaskById(req.params.id as string);
       if (!task || task.companyId !== (req as any).companyId || task.assigneeId !== (req as any).userId) {
@@ -2715,7 +2729,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/tasks/:id/block", requireAuth, requireRole("intern"), async (req, res) => {
+  app.post("/api/tasks/:id/block", requireAuth, requireRole("intern", "admin"), async (req, res) => {
     try {
       const task = await storage.getTaskById(req.params.id as string);
       if (!task || task.companyId !== (req as any).companyId || task.assigneeId !== (req as any).userId) {

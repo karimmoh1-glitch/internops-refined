@@ -89,6 +89,10 @@ export const applications = pgTable("applications", {
   reviewerNotes: text("reviewer_notes"),
   reviewedByUserId: varchar("reviewed_by_user_id").references(() => users.id),
   reviewedAt: timestamp("reviewed_at"),
+  // Dismissed = hidden from the main dashboard's Applications panel to
+  // keep it tidy, without deleting the record — full history (including
+  // dismissed ones) stays visible on the dedicated /applications page.
+  dismissedAt: timestamp("dismissed_at"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_applications_company_status").on(table.companyId, table.status),

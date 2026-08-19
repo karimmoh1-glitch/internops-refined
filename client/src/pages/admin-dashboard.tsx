@@ -1401,7 +1401,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           </div>
         )}
 
-        <ApplicationsPanel companyId={user.companyId} />
+        <ApplicationsPanel companyId={user.companyId} onViewHistory={() => setLocation("/applications")} />
 
         <ProjectProposalsPanel />
 
