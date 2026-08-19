@@ -9,11 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Loader2, CheckCircle2, Circle,
   FileText, Briefcase, TrendingUp, Clock, Sparkles, Wand2, Award, GraduationCap,
-  ListChecks, Plus, X, Timer, ChevronDown, ChevronRight,
+  ListChecks, Plus, X, Timer, ChevronDown, ChevronRight, History, Monitor, PlayCircle, Send, Flag,
 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
 import { SimplePageSkeleton } from "@/components/dashboard-skeleton";
 import { formatDuration } from "@/components/shift-control";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface PerformanceNarrative {
   id: string;
@@ -65,27 +66,112 @@ function shiftReportHeadline(report: any): string {
   return parts.length > 0 ? parts.join(" · ") : "No task or activity data recorded";
 }
 
+const TIMELINE_ICONS: Record<string, any> = {
+  shift_started: PlayCircle,
+  shift_ended: Flag,
+  app_active: Monitor,
+  task_started: Circle,
+  task_submitted: Send,
+  task_completed: CheckCircle2,
+  report_generated: FileText,
+};
+
+function timelineTime(ts: string) {
+  return new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+// "Workday Replay" — a chronological reconstruction of one shift from real
+// stored events, not a screen recording. Every row traces back to an
+// actual activity sample or task timestamp.
+function WorkdayReplayDialog({ sessionId, open, onOpenChange }: { sessionId: string; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { data, isLoading } = useQuery<{ events: any[] }>({
+    queryKey: [`/api/work-sessions/${sessionId}/timeline`],
+    enabled: open,
+  });
+  const events = data?.events || [];
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><History className="w-4 h-4 text-[#8B7FF7]" /> Workday Replay</DialogTitle>
+          <DialogDescription>A real timeline of this shift, built from stored activity and task events — not a recording.</DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-white/40" /></div>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-white/40 py-6 text-center">No events recorded for this shift.</p>
+        ) : (
+          <div className="space-y-0.5">
+            {events.map((e: any, i: number) => {
+              const Icon = TIMELINE_ICONS[e.type] || Circle;
+              return (
+                <div key={i} className="flex gap-3 py-2 border-b border-white/[0.06] last:border-0">
+                  <div className="flex flex-col items-center pt-0.5">
+                    <Icon className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm text-white truncate">{e.label}</p>
+                      <span className="text-xs text-white/40 tabular-nums shrink-0">{timelineTime(e.ts)}</span>
+                    </div>
+                    {e.type === "app_active" && (
+                      <p className="text-xs text-white/40">{e.detail} · ~{formatDuration(e.durationSeconds)}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ShiftReportRow({ report }: { report: any }) {
   const [expanded, setExpanded] = useState(false);
+  const [replayOpen, setReplayOpen] = useState(false);
+  const { data: detail } = useQuery<any>({
+    queryKey: [`/api/work-sessions/${report.sessionId}/summary`],
+    enabled: expanded,
+  });
+  const taskActivity = detail?.taskActivity || [];
   return (
     <div data-testid={`shift-report-${report.id}`}>
-      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.03] transition-colors">
-        <div className="min-w-0">
+      <div className="w-full flex items-center justify-between p-4 hover:bg-white/[0.03] transition-colors">
+        <button onClick={() => setExpanded(!expanded)} className="min-w-0 flex-1 text-left">
           <p className="text-sm font-medium text-white">{formatDate(report.generatedAt)} · {formatDuration(report.durationSeconds)}</p>
           <p className="text-xs text-white/50 mt-0.5 truncate">{shiftReportHeadline(report)}</p>
-        </div>
+        </button>
         <div className="flex items-center gap-2 shrink-0">
           {!report.submittedAt && <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs">Not submitted</Badge>}
-          {expanded ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
+          {report.sessionId && (
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => setReplayOpen(true)} data-testid={`button-view-workday-${report.id}`}>
+              <History className="w-3 h-3" /> View Workday
+            </Button>
+          )}
+          <button onClick={() => setExpanded(!expanded)}>
+            {expanded ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
+          </button>
         </div>
-      </button>
+      </div>
       {expanded && (
-        <div className="px-4 pb-4 space-y-2 text-sm">
+        <div className="px-4 pb-4 space-y-3 text-sm">
           {report.activityBreakdown?.length > 0 && (
             <div>
               <p className="text-xs text-white/40 uppercase tracking-wide mb-1">Activity</p>
               {report.activityBreakdown.map((a: any, i: number) => (
                 <p key={i} className="text-white/70">{a.label} — ~{formatDuration(a.seconds)}</p>
+              ))}
+            </div>
+          )}
+          {taskActivity.length > 0 && (
+            <div>
+              <p className="text-xs text-white/40 uppercase tracking-wide mb-1">Likely associated activity by task</p>
+              {taskActivity.map((t: any) => (
+                <p key={t.taskId} className="text-white/70">
+                  "{t.title}" — ~{formatDuration(t.seconds)}{t.topApp ? ` (mostly ${t.topApp})` : ""}
+                </p>
               ))}
             </div>
           )}
@@ -96,6 +182,9 @@ function ShiftReportRow({ report }: { report: any }) {
             <p className="text-white/70"><span className="text-white/40">Note: </span>{report.internNote}</p>
           )}
         </div>
+      )}
+      {report.sessionId && (
+        <WorkdayReplayDialog sessionId={report.sessionId} open={replayOpen} onOpenChange={setReplayOpen} />
       )}
     </div>
   );
