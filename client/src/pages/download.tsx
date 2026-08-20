@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Download, Shield, Monitor, CheckCircle2, XCircle } from "lucide-react";
 
-const RELEASE_BASE = "https://github.com/karimmoh1-glitch/internops-refined/releases/download/companion-v1.2.1";
+const RELEASE_BASE = "https://github.com/karimmoh1-glitch/internops-refined/releases/download/companion-v1.3.0";
 
 export default function DownloadPage() {
   return (
@@ -19,7 +19,7 @@ export default function DownloadPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
           <a
-            href={`${RELEASE_BASE}/InternOps.Companion-1.2.1-arm64.dmg`}
+            href={`${RELEASE_BASE}/InternOps.Companion-1.3.0-arm64.dmg`}
             className="bg-[#6D5EF5] hover:bg-[#5142D6] transition-colors rounded-xl p-5 flex items-center gap-3"
             data-testid="link-download-arm64"
           >
@@ -30,7 +30,7 @@ export default function DownloadPage() {
             </div>
           </a>
           <a
-            href={`${RELEASE_BASE}/InternOps.Companion-1.2.1.dmg`}
+            href={`${RELEASE_BASE}/InternOps.Companion-1.3.0-x64.dmg`}
             className="bg-card border border-white/[0.08] hover:border-white/20 transition-colors rounded-xl p-5 flex items-center gap-3"
             data-testid="link-download-intel"
           >
@@ -41,7 +41,7 @@ export default function DownloadPage() {
             </div>
           </a>
           <a
-            href={`${RELEASE_BASE}/InternOps.Companion-1.2.1-win.zip`}
+            href={`${RELEASE_BASE}/InternOps.Companion-1.3.0-win-x64.zip`}
             className="bg-card border border-white/[0.08] hover:border-white/20 transition-colors rounded-xl p-5 flex items-center gap-3"
             data-testid="link-download-windows"
           >

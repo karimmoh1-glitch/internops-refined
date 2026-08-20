@@ -14,4 +14,6 @@ contextBridge.exposeInMainWorld("internops", {
   submitSummary: (sessionId) => ipcRenderer.invoke("submit-summary", sessionId),
   onSessionRestored: (cb) => ipcRenderer.on("session-restored", (_e, data) => cb(data)),
   onActivityPermissionNeeded: (cb) => ipcRenderer.on("activity-permission-needed", () => cb()),
+  installUpdate: () => ipcRenderer.invoke("install-update"),
+  onUpdateStatus: (cb) => ipcRenderer.on("update-status", (_e, status) => cb(status)),
 });

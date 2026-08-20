@@ -4,13 +4,15 @@ const { ActivityTracker } = require("./activityTracker");
 const authStore = require("./authStore");
 const api = require("./api");
 const { reconcileTrackingState } = require("./reconcile");
-const { SAMPLE_INTERVAL_MS, SYNC_INTERVAL_MS } = require("./config");
+const updater = require("./updater");
+const { SAMPLE_INTERVAL_MS, SYNC_INTERVAL_MS, UPDATE_CHECK_INTERVAL_MS } = require("./config");
 
 let mainWindow = null;
 let tray = null;
 let session = null; // { token, user }
 let tracker = null;
 let workModeActive = false;
+let updateStatus = { state: "idle" };
 
 // Without a single-instance lock, a second launch (double-clicked by
 // accident, or opened again from Spotlight) starts a fully independent
@@ -139,6 +141,13 @@ async function stopTracking() {
     tracker = null;
   }
   updateTrayMenu();
+  // A shift just ended — if an update was deferred because Work Mode was
+  // active when it was found, this is the first safe moment to actually
+  // download it. Never awaited/blocking: this must never delay End Shift
+  // completing for the user.
+  if (updateStatus.state === "deferred" || updateStatus.state === "available") {
+    updater.checkForUpdates().catch(() => {});
+  }
 }
 
 app.whenReady().then(() => {
@@ -157,6 +166,20 @@ app.whenReady().then(() => {
   // activity in whatever app was frontmost beforehand.
   powerMonitor.on("suspend", () => tracker?.breakSegment());
   powerMonitor.on("lock-screen", () => tracker?.breakSegment());
+
+  updater.setup({
+    isWorkModeActiveFn: () => workModeActive,
+    onStatusFn: (status) => {
+      updateStatus = status;
+      send("update-status", status);
+    },
+  });
+  // Once on launch, then periodically — never awaited, never blocking
+  // startup, and any failure (offline, GitHub unreachable, no releases
+  // published yet) is caught inside updater.js and surfaced as a status
+  // rather than thrown.
+  updater.checkForUpdates();
+  setInterval(() => updater.checkForUpdates(), UPDATE_CHECK_INTERVAL_MS);
 });
 
 app.on("window-all-closed", () => {
@@ -186,7 +209,7 @@ ipcMain.handle("logout", async () => {
 });
 
 ipcMain.handle("get-status", async () => {
-  if (!session) return { loggedIn: false };
+  if (!session) return { loggedIn: false, appVersion: app.getVersion(), updateStatus };
   try {
     const active = await api.getActiveSession(session.token);
     const action = reconcileTrackingState(!!active, workModeActive);
@@ -205,6 +228,8 @@ ipcMain.handle("get-status", async () => {
       activeSession: active,
       currentTask: nextBest?.recommended?.task ?? null,
       currentContext: currentContext(),
+      appVersion: app.getVersion(),
+      updateStatus,
     };
   } catch (err) {
     if (err.status === 401) {
@@ -234,6 +259,12 @@ ipcMain.handle("stop-work-mode", async () => {
   await stopTracking();
   const result = await api.endSession(session.token);
   return result;
+});
+
+// User-initiated only — never called automatically. installNow() itself
+// also refuses while Work Mode is active, so this is double-guarded.
+ipcMain.handle("install-update", async () => {
+  updater.installNow();
 });
 
 ipcMain.handle("get-summary", async (_e, sessionId) => {
