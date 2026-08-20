@@ -51,6 +51,11 @@ export function metaImagesPlugin(): Plugin {
         `<meta name="twitter:image" content="${imageUrl}" />`
       );
 
+      html = html.replace(
+        /<link\s+rel="canonical"\s+href="[^"]*"\s*\/>/g,
+        `<link rel="canonical" href="${baseUrl}/" />`
+      );
+
       return html;
     },
   };
