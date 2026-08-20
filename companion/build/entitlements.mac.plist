@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Required for every Electron app under the hardened runtime — the
+       renderer relies on a JIT-compiled V8 heap. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+
+  <!-- Required specifically for this app's real functionality: the
+       AppleScript calls in companion/src/workContext.js that ask System
+       Events for the frontmost app/window title, and ask supported
+       browsers for their active tab's URL (hostname only is ever
+       extracted — see extractDomain in workContext.js). Without this
+       entitlement those calls fail even with the per-app Automation
+       permission the user grants at runtime. -->
+  <key>com.apple.security.automation.apple-events</key>
+  <true/>
+
+  <!-- Network access to reach production and, once Phase 2 ships, the
+       update feed. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>
