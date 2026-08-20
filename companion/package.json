@@ -1,7 +1,7 @@
 {
   "name": "internops-companion",
   "productName": "InternOps Companion",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Desktop companion for InternOps Work Mode — tracks high-level application activity only while explicitly enabled, and produces a factual shift report at the end of each session.",
   "main": "src/main.js",
   "scripts": {
