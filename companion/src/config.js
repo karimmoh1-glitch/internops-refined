@@ -9,4 +9,8 @@ module.exports = {
   SAMPLE_INTERVAL_MS: 15_000,
   // How often to flush accumulated activity to the server.
   SYNC_INTERVAL_MS: 5 * 60_000,
+  // How often to check GitHub Releases for a newer Companion build. Checks
+  // (and any resulting download/install) never happen while Work Mode is
+  // active — see updater.js.
+  UPDATE_CHECK_INTERVAL_MS: 4 * 60 * 60_000,
 };

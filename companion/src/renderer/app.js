@@ -46,6 +46,7 @@ async function refreshStatus() {
   // at that moment.
   if (!views.report.classList.contains("hidden")) return null;
   const status = await window.internops.getStatus();
+  if (status.appVersion) document.getElementById("app-version").textContent = `v${status.appVersion}`;
   if (!status.loggedIn) {
     showView("login");
     return status;
@@ -233,3 +234,49 @@ async function pollStatusLoop() {
 }
 refreshStatus();
 pollStatusLoop();
+
+// Update status arrives as a live push (window.internops.onUpdateStatus)
+// rather than only through the status poll, so "downloading… 40%" moves
+// in near-real-time instead of jumping every 10-30s.
+function renderUpdateStatus(status) {
+  const banner = document.getElementById("update-banner");
+  const message = document.getElementById("update-message");
+  const installBtn = document.getElementById("btn-install-update");
+  if (!status || status.state === "idle" || status.state === "checking" || status.state === "up-to-date") {
+    banner.classList.add("hidden");
+    return;
+  }
+  banner.classList.remove("hidden");
+  installBtn.classList.add("hidden");
+  switch (status.state) {
+    case "available":
+      message.textContent = `Update available (v${status.version}) — downloading…`;
+      break;
+    case "deferred":
+      message.textContent = `Update v${status.version} ready to download once this shift ends.`;
+      break;
+    case "downloading":
+      message.textContent = `Downloading update… ${status.percent}%`;
+      break;
+    case "downloaded":
+      message.textContent = `Update v${status.version} downloaded.`;
+      break;
+    case "ready-to-install":
+      message.textContent = `Update v${status.version} ready to install.`;
+      installBtn.classList.remove("hidden");
+      break;
+    case "error":
+      message.textContent = `Update check failed: ${status.message}`;
+      break;
+    default:
+      banner.classList.add("hidden");
+  }
+}
+document.getElementById("btn-install-update").addEventListener("click", async () => {
+  try {
+    await window.internops.installUpdate();
+  } catch (err) {
+    alert(err.message || "Couldn't install the update.");
+  }
+});
+window.internops.onUpdateStatus(renderUpdateStatus);
