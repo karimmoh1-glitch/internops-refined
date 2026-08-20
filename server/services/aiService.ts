@@ -408,24 +408,37 @@ const FALLBACK_FOOTER = "\n_This is a data lookup, not an AI-generated answer �
 // Finds an intern the question is asking about, by name. Matches on
 // first-name-or-full-name whole-word occurrences (word-boundary, not plain
 // substring — otherwise a name part like "Intern" would false-match inside
-// an unrelated word like "interns"), longest match wins (so "Sarah Chen"
-// beats a coincidental "Sarah" in a two-Sarah org). Returns null rather
-// than guessing when nothing matches.
+// an unrelated word like "interns"). Score is the summed length of every
+// one of the intern's own name-words found in the query, not just the
+// single longest word — this matters whenever two interns share a word
+// (a last name, or in one real test case, both interns happening to share
+// a word like "Sixty"): scoring by single-longest-word previously let a
+// question naming "Alice Sixty" resolve to "Bob Sixty" whenever Bob was
+// iterated first, since "sixty" alone tied Alice's "alice" on length and
+// ties went to whoever came first. Summing rewards the intern whose *whole*
+// name is present, and a genuine tie (e.g. asking about "Sixty" alone,
+// matching both) now returns null — never guess between two people when
+// the query doesn't disambiguate.
 function findMentionedIntern(digest: OrgDigest, q: string): OrgDigestIntern | null {
   let best: OrgDigestIntern | null = null;
-  let bestLen = 0;
+  let bestScore = 0;
+  let tied = false;
   for (const intern of digest.interns) {
-    const nameParts = [intern.name.toLowerCase(), ...intern.name.toLowerCase().split(" ")];
-    for (const part of nameParts) {
-      if (part.length < 3) continue;
-      const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (new RegExp(`\\b${escaped}\\b`).test(q) && part.length > bestLen) {
-        best = intern;
-        bestLen = part.length;
-      }
+    const words = intern.name.toLowerCase().split(" ").filter((w) => w.length >= 3);
+    let score = 0;
+    for (const word of words) {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escaped}\\b`).test(q)) score += word.length;
+    }
+    if (score > 0 && score > bestScore) {
+      best = intern;
+      bestScore = score;
+      tied = false;
+    } else if (score > 0 && score === bestScore) {
+      tied = true;
     }
   }
-  return best;
+  return tied ? null : best;
 }
 
 // Deterministic, non-AI answers built only from real digest data — used
