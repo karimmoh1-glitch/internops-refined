@@ -124,6 +124,8 @@ export interface IStorage {
   getNotificationsByUser(userId: string): Promise<Notification[]>;
   markNotificationRead(id: string, userId: string): Promise<Notification | undefined>;
   markAllNotificationsRead(userId: string): Promise<void>;
+  deleteNotification(id: string, userId: string): Promise<boolean>;
+  deleteAllNotificationsForUser(userId: string): Promise<void>;
   getUnreadNotificationCount(userId: string): Promise<number>;
 
   // Team Chat
@@ -738,6 +740,18 @@ export class DatabaseStorage implements IStorage {
 
   async markAllNotificationsRead(userId: string): Promise<void> {
     await db.update(notifications).set({ read: true }).where(eq(notifications.userId, userId));
+  }
+
+  // Scoped by userId as well as id, same reasoning as markNotificationRead.
+  async deleteNotification(id: string, userId: string): Promise<boolean> {
+    const deleted = await db.delete(notifications)
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+      .returning();
+    return deleted.length > 0;
+  }
+
+  async deleteAllNotificationsForUser(userId: string): Promise<void> {
+    await db.delete(notifications).where(eq(notifications.userId, userId));
   }
 
   async getUnreadNotificationCount(userId: string): Promise<number> {

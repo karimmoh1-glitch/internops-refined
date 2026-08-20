@@ -54,6 +54,13 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
+  const clearAllMutation = useMutation({
+    mutationFn: async () => apiRequest("DELETE", "/api/notifications"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+    },
+  });
 
   const unreadCount = unreadData?.count || 0;
   const chatUnreadCount = chatUnread?.count || 0;
@@ -226,6 +233,15 @@ export default function AppShell({ user, onSignOut, children }: AppShellProps) {
                         >
                           <CheckCheck className="w-3 h-3" />
                           Mark all read
+                        </button>
+                      )}
+                      {notifsList.length > 0 && (
+                        <button
+                          onClick={() => clearAllMutation.mutate()}
+                          className="text-xs text-white/50 hover:text-white/80 px-2 py-1 rounded hover:bg-white/10 flex items-center gap-1"
+                          data-testid="button-clear-all-notifications"
+                        >
+                          Clear all
                         </button>
                       )}
                       <button onClick={() => setShowNotifs(false)} className="p-1 hover:bg-white/10 rounded">
