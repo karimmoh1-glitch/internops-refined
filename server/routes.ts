@@ -7,7 +7,7 @@ import { computeRiskFlags } from "./services/riskRadar";
 import { computeSignals, computeWorktimeSignals } from "./services/signals";
 import { computeNextBestAction } from "./services/nextBestAction";
 import { summarizeSessions, startOfToday, startOfWeek, tasksInWindow } from "./services/worktime";
-import { categorizeApplication, summarizeActivityByCategory, categoryLabel } from "./services/workJournal";
+import { categorizeApplication, summarizeActivityByCategory, categoryLabel, buildActivitySegments, interpretSegment } from "./services/workJournal";
 import { runMorningDigestForCompany } from "./services/morningDigest";
 import {
   sendInternInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
@@ -3126,8 +3126,36 @@ export async function registerRoutes(
       const inProgress = myTasks.filter((t) => t.status === "in_progress");
       const correlatedTask = inProgress.length === 1 ? inProgress[0] : null;
 
+      // Free-text fields the companion legitimately reads from window titles
+      // and browser tabs are still untrusted client input — capped and
+      // string-coerced the same as `application` always was, never trusted
+      // to be well-formed just because they came from a companion process.
+      const cleanString = (v: any, maxLen: number): string | null => {
+        if (typeof v !== "string") return null;
+        const trimmed = v.trim();
+        return trimmed.length > 0 ? trimmed.slice(0, maxLen) : null;
+      };
+
+      // A sample can only be legitimate if it fell inside this shift's own
+      // window — before Start Shift or after "now" is rejected outright,
+      // not just discouraged, so a compromised or buggy companion can never
+      // backdate/postdate activity outside the boundary the server itself
+      // is supposed to guarantee. A few minutes of slack absorbs ordinary
+      // clock skew between the companion's machine and the server.
+      const CLOCK_SKEW_MS = 5 * 60_000;
+      const windowStart = new Date(active.startedAt).getTime() - CLOCK_SKEW_MS;
+      const windowEnd = Date.now() + CLOCK_SKEW_MS;
+
       const rows = activities
-        .filter((a: any) => a?.application && a?.startedAt && a?.endedAt && Number.isFinite(a?.durationSeconds) && a.durationSeconds > 0 && a.durationSeconds < 6 * 60 * 60)
+        .filter((a: any) => {
+          if (!a?.application || !a?.startedAt || !a?.endedAt) return false;
+          if (!Number.isFinite(a?.durationSeconds) || a.durationSeconds <= 0 || a.durationSeconds >= 6 * 60 * 60) return false;
+          const startedMs = new Date(a.startedAt).getTime();
+          const endedMs = new Date(a.endedAt).getTime();
+          if (!Number.isFinite(startedMs) || !Number.isFinite(endedMs)) return false;
+          if (endedMs < startedMs) return false;
+          return startedMs >= windowStart && endedMs <= windowEnd;
+        })
         .slice(0, 200)
         .map((a: any) => ({
           sessionId: active.id,
@@ -3135,11 +3163,17 @@ export async function registerRoutes(
           companyId,
           application: String(a.application).slice(0, 200),
           category: categorizeApplication(String(a.application)),
+          windowTitle: cleanString(a.windowTitle, 300),
+          documentName: cleanString(a.documentName, 200),
+          browserDomain: cleanString(a.browserDomain, 255),
+          idleSeconds: Number.isFinite(a?.idleSeconds) ? Math.max(0, Math.round(a.idleSeconds)) : null,
+          contextSource: a.contextSource === "applescript" || a.contextSource === "win32" ? a.contextSource : null,
           startedAt: new Date(a.startedAt),
           endedAt: new Date(a.endedAt),
           durationSeconds: Math.round(a.durationSeconds),
           taskId: correlatedTask?.id ?? null,
           projectId: correlatedTask?.projectId ?? null,
+          taskCorrelation: correlatedTask ? "single_in_progress" : null,
           source: "desktop_companion",
         }));
 
@@ -3168,6 +3202,27 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to get activity breakdown:", error);
       res.status(500).json({ message: "Failed to get activity breakdown" });
+    }
+  });
+
+  // The raw evidence behind Workday Replay's segments — every field here is
+  // exactly what a work_activities row stores, nothing summarized or
+  // reinterpreted. Lets an admin drill from "VS Code — auth.ts, routes.ts"
+  // back to the individual timestamped samples it was built from.
+  app.get("/api/work-sessions/:id/activities", requireAuth, async (req, res) => {
+    try {
+      const role = (req as any).userRole;
+      const userId = (req as any).userId;
+      const companyId = (req as any).companyId;
+      const target = await storage.getWorkSessionById(req.params.id as string);
+      if (!target || target.companyId !== companyId || (role !== "admin" && target.internId !== userId)) {
+        return res.status(404).json({ message: "Work session not found" });
+      }
+      const activities = await storage.getWorkActivitiesBySession(target.id);
+      res.json(activities);
+    } catch (error: any) {
+      console.error("Failed to get raw activity evidence:", error);
+      res.status(500).json({ message: "Failed to get raw activity evidence" });
     }
   });
 
@@ -3227,23 +3282,41 @@ export async function registerRoutes(
       const start = new Date(session.startedAt);
       const end = session.endedAt ? new Date(session.endedAt) : new Date();
 
-      type Event = { ts: string; type: string; label: string; detail?: string; durationSeconds?: number };
+      type Event = {
+        ts: string; type: string; label: string; detail?: string; durationSeconds?: number;
+        taskId?: string | null; taskCorrelation?: string | null; evidenceIds?: string[];
+        interpretation?: { observed: string; inferred: string | null };
+      };
       const events: Event[] = [
         { ts: session.startedAt as unknown as string, type: "shift_started", label: "Shift started" },
       ];
 
+      const internTasks = await storage.getTasksByAssignee(session.internId);
+      const taskTitleById = new Map(internTasks.map((t) => [t.id, t.title]));
+
+      // Segment-level, not raw-row-level: a continuous span in one app on
+      // one task reads as one entry ("VS Code — auth.ts, routes.ts"), not a
+      // fragmented row per file switch. Every segment still carries the raw
+      // work_activities row ids it was built from (evidenceIds) so an admin
+      // can inspect exactly what was observed behind any one entry, plus an
+      // explicit observed/inferred interpretation rather than one blended
+      // "what happened" line.
       const activities = await storage.getWorkActivitiesBySession(session.id);
-      for (const a of activities) {
+      const segments = buildActivitySegments(activities as any);
+      for (const seg of segments) {
         events.push({
-          ts: a.startedAt as unknown as string,
+          ts: seg.startedAt,
           type: "app_active",
-          label: a.application,
-          detail: categoryLabel(a.category),
-          durationSeconds: a.durationSeconds,
+          label: seg.label,
+          detail: categoryLabel(seg.category),
+          durationSeconds: seg.durationSeconds,
+          taskId: seg.taskId,
+          taskCorrelation: seg.taskCorrelation,
+          evidenceIds: seg.evidenceIds,
+          interpretation: interpretSegment(seg, seg.taskId ? taskTitleById.get(seg.taskId) ?? null : null),
         });
       }
 
-      const internTasks = await storage.getTasksByAssignee(session.internId);
       for (const t of tasksInWindow(internTasks, start, end, "startedAt")) {
         events.push({ ts: t.startedAt as unknown as string, type: "task_started", label: `Started "${t.title}"` });
       }
@@ -3508,7 +3581,22 @@ export async function registerRoutes(
         storage.getWorkSessionsByCompanySince(companyId, new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)),
       ]);
       const internNameById = new Map(interns.map((i) => [i.id, i.name]));
+      const activeSessionByInternId = new Map(activeSessions.map((s) => [s.internId, s]));
       const activeInternIds = new Set(activeSessions.map((s) => s.internId));
+
+      // Live activity is genuinely live — fetched fresh per active session
+      // (not part of the batch above) so "what are they doing right now"
+      // never answers from a stale snapshot. Only the single most recent
+      // activity row is used; everything else about the shift still comes
+      // from the batched data above.
+      const liveActivityByInternId = new Map<string, { application: string; context: string | null; observedAt: string }>();
+      await Promise.all(Array.from(activeSessionByInternId.entries()).map(async ([internId, session]) => {
+        const activities = await storage.getWorkActivitiesBySession(session.id);
+        if (activities.length === 0) return;
+        const latest = activities.reduce((a, b) => (new Date(a.startedAt).getTime() > new Date(b.startedAt).getTime() ? a : b));
+        const context = latest.documentName || latest.browserDomain || null;
+        liveActivityByInternId.set(internId, { application: latest.application, context, observedAt: new Date(latest.endedAt).toISOString() });
+      }));
 
       const toDigestTask = (t: typeof allTasks[number]) => ({
         title: t.title,
@@ -3537,6 +3625,8 @@ export async function registerRoutes(
             tasksCompletedYesterday: tasksInWindow(mine, yesterdayStart, todayStart, "completedAt").map((t) => t.title),
             hoursThisWeek: Math.round((summarizeSessions(mySessions, now).totalSeconds / 3600) * 10) / 10,
             nextStep: recommended ? recommended.task.title : null,
+            onShift: activeSessionByInternId.has(i.id),
+            liveActivity: liveActivityByInternId.get(i.id) ?? null,
           };
         }),
         blockedTasks: allTasks.filter((t) => t.status === "blocked").map(toDigestTask),

@@ -26,10 +26,16 @@
     <section id="view-home" class="view hidden">
       <div class="status-row">
         <span id="status-dot" class="dot off"></span>
-        <span id="status-label">Not currently working</span>
+        <span id="status-label">Not Working</span>
       </div>
+      <div id="tracking-state" class="tracking-state off">Activity tracking is OFF.</div>
       <div id="timer" class="timer hidden">00:00:00</div>
       <div id="current-task" class="current-task hidden"></div>
+      <div id="current-context" class="current-context hidden">
+        <span class="label">Currently</span>
+        <span id="context-app" class="context-line"></span>
+        <span id="context-detail" class="context-line muted"></span>
+      </div>
       <div id="permission-warning" class="permission-warning hidden">
         Work Mode can't see which app you're using — macOS needs permission.
         Go to <strong>System Settings → Privacy &amp; Security → Automation</strong>,
@@ -43,19 +49,22 @@
       <details class="privacy">
         <summary>What does Work Mode record?</summary>
         <div class="privacy-body">
-          <p><strong>Records:</strong></p>
+          <p><strong>Records, only while Work Mode is on:</strong></p>
           <ul>
-            <li>Applications used during your shift</li>
-            <li>High-level activity duration</li>
+            <li>The application in front, and how long you're on it</li>
+            <li>Window title and file/document name, when the OS allows it</li>
+            <li>The domain (not the full page) of the active browser tab, for supported browsers</li>
+            <li>Whether your keyboard/mouse have been idle — never what you typed or clicked</li>
             <li>Your current InternOps task/project</li>
           </ul>
-          <p><strong>Never records:</strong></p>
+          <p><strong>Never records, ever:</strong></p>
           <ul>
-            <li>Passwords or keystrokes</li>
+            <li>Passwords, keystrokes, or clipboard content</li>
+            <li>Screenshots or screen recordings</li>
             <li>Microphone or camera</li>
-            <li>Private files or messages</li>
+            <li>Anything at all before Start or after End Shift</li>
           </ul>
-          <p class="muted">Only active while Work Mode is on. Stop it anytime.</p>
+          <p class="muted">The window-title and browser-domain signals need extra OS permission (Accessibility / per-app Automation) and simply won't appear if you haven't granted it — the shift itself still tracks fine either way.</p>
         </div>
       </details>
 

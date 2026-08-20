@@ -337,14 +337,18 @@ export const workSessions = pgTable("work_sessions", {
   uniqueIndex("idx_work_sessions_one_active_per_intern").on(table.internId).where(sql`status = 'active'`),
 ]);
 
-// Desktop-companion activity: high-level, app-name-only samples recorded
+// Desktop-companion activity: high-level work-context samples recorded
 // only while an intern has explicitly enabled Work Mode for an active
 // work_sessions row. Never the content of the work — no keystrokes, no
-// window contents, no browsing history beyond the top-level app name.
-// "category" is derived client-side from a small known-application map
-// (see companion/src/categorize.ts) — never inferred from content — and
-// taskId/projectId is a best-effort correlation with whatever task the
-// intern had in_progress during that window, not a claim of what was done.
+// screen content, no clipboard, no full URLs (browserDomain is the
+// hostname only, never a full URL or its query string). "category" is
+// derived server-side from a small known-application map, never inferred
+// from content; taskId/projectId is a best-effort correlation with
+// whatever task the intern had in_progress during that window, not a
+// claim of what was done — see taskCorrelation for exactly how sure that
+// correlation is. windowTitle/documentName/browserDomain are all
+// independently nullable: null means the OS didn't expose it (usually an
+// unmet permission), never an empty guess.
 export const workActivities = pgTable("work_activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sessionId: varchar("session_id").notNull().references(() => workSessions.id),
@@ -352,11 +356,22 @@ export const workActivities = pgTable("work_activities", {
   companyId: varchar("company_id").notNull().references(() => companies.id),
   application: text("application").notNull(),
   category: varchar("category").notNull().default("other"),
+  windowTitle: text("window_title"),
+  documentName: text("document_name"),
+  browserDomain: varchar("browser_domain"),
+  idleSeconds: integer("idle_seconds"),
+  contextSource: varchar("context_source"), // "applescript" | "win32" | null
   startedAt: timestamp("started_at").notNull(),
   endedAt: timestamp("ended_at").notNull(),
   durationSeconds: integer("duration_seconds").notNull(),
   taskId: varchar("task_id").references(() => tasks.id),
   projectId: varchar("project_id").references(() => projects.id),
+  // How taskId was decided: "single_in_progress" (exactly one candidate
+  // task, the only case we ever tag) or null (zero or multiple candidates
+  // — taskId is null too in that case). Kept distinct from taskId being
+  // null so a reader never has to guess whether "no task" means "we
+  // checked and there wasn't one" vs. "we didn't bother checking."
+  taskCorrelation: varchar("task_correlation"),
   source: varchar("source").notNull().default("desktop_companion"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
