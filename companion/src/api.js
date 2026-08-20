@@ -8,7 +8,7 @@ class ApiError extends Error {
 }
 
 async function request(path, { method = "GET", token, body } = {}) {
-  const headers = { "User-Agent": "InternOps-Companion/1.0 (macOS)" };
+  const headers = { "User-Agent": `InternOps-Companion/1.2.0 (${process.platform})` };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body) headers["Content-Type"] = "application/json";
 

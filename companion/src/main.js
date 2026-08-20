@@ -3,6 +3,7 @@ const path = require("path");
 const { ActivityTracker } = require("./activityTracker");
 const authStore = require("./authStore");
 const api = require("./api");
+const { reconcileTrackingState } = require("./reconcile");
 const { SAMPLE_INTERVAL_MS, SYNC_INTERVAL_MS } = require("./config");
 
 let mainWindow = null;
@@ -76,6 +77,20 @@ async function flushActivity(activities) {
   await api.postActivity(session.token, activities);
 }
 
+// The Companion UI's live "Currently: VS Code / auth.ts" readout reads
+// straight from the tracker's open bucket — never a separate, potentially
+// stale copy of the same fact.
+function currentContext() {
+  if (!workModeActive || !tracker || !tracker.current) return null;
+  const ctx = tracker.current.lastContext;
+  return {
+    application: ctx.application,
+    documentName: ctx.documentName,
+    browserDomain: ctx.browserDomain,
+    idleSeconds: ctx.idleSeconds,
+  };
+}
+
 function startTracking() {
   workModeActive = true;
   tracker = new ActivityTracker({
@@ -138,8 +153,9 @@ ipcMain.handle("get-status", async () => {
   if (!session) return { loggedIn: false };
   try {
     const active = await api.getActiveSession(session.token);
-    if (active && !workModeActive) startTracking(); // reconnect case: a shift was already active (e.g. app restarted mid-shift)
-    if (!active && workModeActive) await stopTracking();
+    const action = reconcileTrackingState(!!active, workModeActive);
+    if (action === "start") startTracking(); // reconnect case: a shift was already active (e.g. app restarted mid-shift)
+    if (action === "stop") await stopTracking(); // server-side end (admin, another device, or invalidation) the client hadn't heard about yet
     let nextBest = null;
     try {
       nextBest = await api.getNextBest(session.token);
@@ -152,6 +168,7 @@ ipcMain.handle("get-status", async () => {
       workModeActive,
       activeSession: active,
       currentTask: nextBest?.recommended?.task ?? null,
+      currentContext: currentContext(),
     };
   } catch (err) {
     if (err.status === 401) {

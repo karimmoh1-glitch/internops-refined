@@ -356,6 +356,13 @@ export interface OrgDigestIntern {
   tasksCompletedYesterday: string[];
   hoursThisWeek: number;
   nextStep: string | null;
+  onShift: boolean;
+  // Companion-observed, live — the single most recent activity segment
+  // from their currently-active work session, or null when either they're
+  // not on shift or no activity has been observed yet this shift (a
+  // permission gap, or they've simply just started). Never inferred,
+  // never a task-status guess dressed up as "what they're doing."
+  liveActivity: { application: string; context: string | null; observedAt: string } | null;
 }
 
 export interface OrgDigest {
@@ -470,7 +477,21 @@ function personQuestionAnswer(intern: OrgDigestIntern, q: string): string | null
     if (!intern.nextStep) return `${intern.name} has no clear next task recommended right now — check if they have open work assigned.${FALLBACK_FOOTER}`;
     return `**Recommended next for ${intern.name}:** ${intern.nextStep}${FALLBACK_FOOTER}`;
   }
-  if (/working on|currently|right now|today|complete|doing/.test(q)) {
+  // Distinct from the broader "currently/today/doing" branch below: this
+  // one specifically answers "what are they doing *right now*" from live
+  // Companion-observed activity, not task status — genuinely OBSERVED
+  // (an app the OS reported this shift) rather than INFERRED from what
+  // task happens to be marked in_progress.
+  if (/right now|at this moment|what app|on screen|on.?screen/.test(q)) {
+    if (!intern.onShift) return `${intern.name} isn't on shift right now, so there's nothing being observed.${FALLBACK_FOOTER}`;
+    if (!intern.liveActivity) return `${intern.name} is on shift, but no on-screen activity has been observed yet this shift.${FALLBACK_FOOTER}`;
+    const { application, context, observedAt } = intern.liveActivity;
+    const where = context ? `${application} — ${context}` : application;
+    const ago = Math.max(0, Math.round((Date.now() - new Date(observedAt).getTime()) / 60000));
+    const freshness = ago <= 1 ? "just now" : `~${ago}m ago`;
+    return `${intern.name} was last observed in **${where}** (${freshness}). This is what the Companion app directly observed, not a guess.${FALLBACK_FOOTER}`;
+  }
+  if (/working on|currently|today|complete|doing/.test(q)) {
     const parts: string[] = [];
     parts.push(intern.currentTask ? `${intern.name} is currently working on "${intern.currentTask}".` : `${intern.name} has no task in progress right now.`);
     if (intern.tasksCompletedToday.length > 0) {

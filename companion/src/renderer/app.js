@@ -41,33 +41,42 @@ function stopTimer() {
 
 async function refreshStatus() {
   // The report view is a deliberate stop for the intern to review and
-  // submit — the 30s background poll below must never yank them back to
-  // the home screen mid-review just because a status check happened to
-  // land at that moment.
-  if (!views.report.classList.contains("hidden")) return;
+  // submit — the background poll below must never yank them back to the
+  // home screen mid-review just because a status check happened to land
+  // at that moment.
+  if (!views.report.classList.contains("hidden")) return null;
   const status = await window.internops.getStatus();
   if (!status.loggedIn) {
     showView("login");
-    return;
+    return status;
   }
   showView("home");
   const dot = document.getElementById("status-dot");
   const label = document.getElementById("status-label");
+  const trackingState = document.getElementById("tracking-state");
   const btnStart = document.getElementById("btn-start");
   const btnStop = document.getElementById("btn-stop");
   const taskEl = document.getElementById("current-task");
+  const contextEl = document.getElementById("current-context");
 
-  if (status.workModeActive && status.activeSession) {
+  const working = !!(status.workModeActive && status.activeSession);
+  if (working) {
     dot.classList.add("on");
     dot.classList.remove("off");
-    label.textContent = "● Work Mode Active";
+    label.textContent = "Work Mode";
+    trackingState.textContent = "Activity tracking is ON.";
+    trackingState.classList.remove("off");
+    trackingState.classList.add("on");
     btnStart.classList.add("hidden");
     btnStop.classList.remove("hidden");
     startTimer(status.activeSession.startedAt);
   } else {
     dot.classList.remove("on");
     dot.classList.add("off");
-    label.textContent = "Not currently working";
+    label.textContent = "Not Working";
+    trackingState.textContent = "Activity tracking is OFF.";
+    trackingState.classList.remove("on");
+    trackingState.classList.add("off");
     btnStart.classList.remove("hidden");
     btnStop.classList.add("hidden");
     stopTimer();
@@ -79,6 +88,28 @@ async function refreshStatus() {
   } else {
     taskEl.classList.add("hidden");
   }
+
+  renderCurrentContext(contextEl, working ? status.currentContext : null);
+  return status;
+}
+
+// The one place the intern can see, live, exactly what Work Mode currently
+// sees — no field here is ever invented; anything the OS didn't hand back
+// is simply left out rather than shown as a guess.
+function renderCurrentContext(contextEl, ctx) {
+  if (!ctx || !ctx.application) {
+    contextEl.classList.add("hidden");
+    return;
+  }
+  contextEl.classList.remove("hidden");
+  document.getElementById("context-app").textContent = ctx.application;
+  const detailParts = [];
+  if (ctx.browserDomain) detailParts.push(ctx.browserDomain);
+  else if (ctx.documentName) detailParts.push(ctx.documentName);
+  if (typeof ctx.idleSeconds === "number" && ctx.idleSeconds >= 60) {
+    detailParts.push(`idle ${Math.round(ctx.idleSeconds / 60)}m`);
+  }
+  document.getElementById("context-detail").textContent = detailParts.join(" · ");
 }
 
 document.getElementById("login-submit").addEventListener("click", async () => {
@@ -181,5 +212,24 @@ window.internops.onSessionRestored(() => refreshStatus());
 window.internops.onActivityPermissionNeeded(() => {
   document.getElementById("permission-warning").classList.remove("hidden");
 });
+
+// Reconciles local Work Mode state against the server (e.g. an admin
+// force-ending a shift, or another device ending it) — polled tighter
+// while a shift is active than while idle, since that's the state where a
+// stale local belief means the tracker keeps sampling longer than it
+// should. This is still a poll, not a push, so reconciliation is bounded
+// by this interval, not instant — a known, deliberate limitation of not
+// running a persistent connection for a desktop companion this size.
+let statusPollTimer = null;
+async function pollStatusLoop() {
+  let activeShift = false;
+  try {
+    const status = await refreshStatus();
+    activeShift = !!(status && status.workModeActive && status.activeSession);
+  } catch {
+    // refreshStatus already surfaces errors where relevant; keep polling regardless.
+  }
+  statusPollTimer = setTimeout(pollStatusLoop, activeShift ? 10_000 : 30_000);
+}
 refreshStatus();
-setInterval(refreshStatus, 30_000);
+pollStatusLoop();
