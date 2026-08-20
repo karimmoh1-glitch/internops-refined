@@ -12,6 +12,34 @@ let session = null; // { token, user }
 let tracker = null;
 let workModeActive = false;
 
+// Without a single-instance lock, a second launch (double-clicked by
+// accident, or opened again from Spotlight) starts a fully independent
+// process that loads the same persisted session and — because the server
+// already has an active session — reconnects and starts its OWN tracker
+// too. Both would then genuinely observe the same real machine over the
+// same real window and could each write overlapping rows for it: not a
+// privacy leak (nothing false is reported), but real double-counted
+// duration once two trackers are running is a real accuracy problem an
+// admin would have no way to detect from the data alone. The standard fix
+// is to let only the first instance run; any later launch hands off to it
+// and quits immediately.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+  return; // module-level return is valid — each Node/CommonJS file is itself wrapped in a function
+}
+
+app.on("second-instance", () => {
+  // Someone tried to open a second copy — surface the one real instance
+  // instead of silently doing nothing (or, worse, letting a second
+  // tracker start).
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 380,
