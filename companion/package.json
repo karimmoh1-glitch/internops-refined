@@ -6,7 +6,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --mac",
+    "dist": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win zip --x64 --publish never",
     "test": "node --test"
   },
   "devDependencies": {
@@ -28,11 +29,25 @@
           "arch": ["arm64", "x64"]
         }
       ],
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "gatekeeperAssess": false
     },
     "dmg": {
       "title": "InternOps Companion"
+    },
+    "win": {
+      "target": [
+        { "target": "zip", "arch": ["x64"] }
+      ]
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "karimmoh1-glitch",
+      "repo": "internops-refined",
+      "vPrefixedTagName": false,
+      "channel": "latest"
     }
   }
 }
