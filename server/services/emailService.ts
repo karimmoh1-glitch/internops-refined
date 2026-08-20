@@ -105,21 +105,33 @@ export function sendCredentialsEmail(email: string, name: string, role: string, 
   });
 }
 
-export function sendManagerVerificationEmail(email: string, verifyLink: string, companyName: string): Promise<void> {
+export function sendVerificationEmail(email: string, verifyLink: string): Promise<void> {
   return sendEmail({
     to: email,
-    subject: "Verify your InternOps account — " + companyName,
-    body: "Complete your registration: " + verifyLink,
-    html: emailWrapper("Complete registration for " + companyName, "<p>Click below to complete your setup:</p><a href=\"" + verifyLink + "\">Complete Registration</a>"),
+    subject: "Verify your InternOps email address",
+    body: "Verify your email: " + verifyLink + "\n\nThis link expires in 24 hours. If you didn't create an InternOps account, you can ignore this email.",
+    html: emailWrapper("Verify your email",
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Click the button below to confirm this is your email address. This link expires in 24 hours.</p>" +
+      "<div style=\"text-align:center;margin:24px 0\">" +
+        "<a href=\"" + verifyLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Verify Email</a>" +
+      "</div>" +
+      "<p style=\"color:#a1a1aa;font-size:13px;line-height:1.5\">If you didn't create an InternOps account, you can safely ignore this email.</p>"
+    ),
   });
 }
 
-export function sendInviteEmail(email: string, inviteLink: string, companyName: string, inviterName?: string): Promise<void> {
+export function sendInternInviteEmail(email: string, inviteLink: string, companyName: string, inviterName?: string): Promise<void> {
   return sendEmail({
     to: email,
     subject: "Invitation to join " + companyName + " on InternOps",
-    body: "Accept invitation: " + inviteLink,
-    html: emailWrapper("Join " + companyName, "<p>Accept your invitation to join as an intern:</p><a href=\"" + inviteLink + "\">Accept Invitation</a>"),
+    body: (inviterName ? inviterName + " invited you" : "You've been invited") + " to join " + companyName + " on InternOps: " + inviteLink + "\n\nThis link expires in 48 hours.",
+    html: emailWrapper("Join " + companyName,
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">" + (inviterName ? "<strong>" + inviterName + "</strong> invited you" : "You've been invited") + " to join <strong>" + companyName + "</strong> as an intern on InternOps.</p>" +
+      "<div style=\"text-align:center;margin:24px 0\">" +
+        "<a href=\"" + inviteLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Accept Invitation</a>" +
+      "</div>" +
+      "<p style=\"color:#a1a1aa;font-size:13px;line-height:1.5\">This invitation expires in 48 hours.</p>"
+    ),
   });
 }
 

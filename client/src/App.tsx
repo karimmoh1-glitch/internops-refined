@@ -16,6 +16,7 @@ import Terms from "@/pages/terms";
 import Contact from "@/pages/contact";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
+import VerifyEmail from "@/pages/verify-email";
 import InternDashboard from "@/pages/intern-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ChatPage from "@/pages/chat";
@@ -243,6 +244,9 @@ function AppContent() {
       </Route>
       <Route path="/reset-password/:token">
         {(params) => <ResetPassword token={params.token} />}
+      </Route>
+      <Route path="/verify-email/:token">
+        {(params) => <VerifyEmail token={params.token} />}
       </Route>
       <Route path="/i/:slug">
         {(params) => <PublicInternProfile slug={params.slug} />}
