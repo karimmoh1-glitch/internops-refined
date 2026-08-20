@@ -3598,6 +3598,34 @@ export async function registerRoutes(
         liveActivityByInternId.set(internId, { application: latest.application, context, observedAt: new Date(latest.endedAt).toISOString() });
       }));
 
+      // Today's Companion-observed activity, aggregated by application —
+      // the evidence side of "what did X work on" (kept strictly separate
+      // from task assignment/status, which come from the tasks table, not
+      // from anything the Companion observed).
+      const todaySessions = recentSessions.filter((s) => new Date(s.startedAt) >= todayStart);
+      const todayActivityByInternId = new Map<string, { application: string; context: string | null; seconds: number }[]>();
+      await Promise.all(todaySessions.map(async (s) => {
+        const activities = await storage.getWorkActivitiesBySession(s.id);
+        if (activities.length === 0) return;
+        const byApp = new Map<string, { seconds: number; contexts: Set<string> }>();
+        for (const a of activities) {
+          const entry = byApp.get(a.application) ?? { seconds: 0, contexts: new Set() };
+          entry.seconds += a.durationSeconds;
+          const ctx = a.documentName || a.browserDomain;
+          if (ctx) entry.contexts.add(ctx);
+          byApp.set(a.application, entry);
+        }
+        const existing = todayActivityByInternId.get(s.internId) ?? [];
+        for (const [application, v] of Array.from(byApp.entries())) {
+          existing.push({ application, context: v.contexts.size > 0 ? Array.from(v.contexts).join(", ") : null, seconds: v.seconds });
+        }
+        todayActivityByInternId.set(s.internId, existing);
+      }));
+      for (const [internId, list] of Array.from(todayActivityByInternId.entries())) {
+        list.sort((a: { seconds: number }, b: { seconds: number }) => b.seconds - a.seconds);
+        todayActivityByInternId.set(internId, list.slice(0, 5));
+      }
+
       const toDigestTask = (t: typeof allTasks[number]) => ({
         title: t.title,
         internName: internNameById.get(t.assigneeId) || "Unknown",
@@ -3627,6 +3655,7 @@ export async function registerRoutes(
             nextStep: recommended ? recommended.task.title : null,
             onShift: activeSessionByInternId.has(i.id),
             liveActivity: liveActivityByInternId.get(i.id) ?? null,
+            todayActivity: todayActivityByInternId.get(i.id) ?? [],
           };
         }),
         blockedTasks: allTasks.filter((t) => t.status === "blocked").map(toDigestTask),

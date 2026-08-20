@@ -363,6 +363,10 @@ export interface OrgDigestIntern {
   // permission gap, or they've simply just started). Never inferred,
   // never a task-status guess dressed up as "what they're doing."
   liveActivity: { application: string; context: string | null; observedAt: string } | null;
+  // Today's Companion-observed activity, aggregated by application, top 5
+  // by duration. Deliberately kept separate from currentTask/nextStep —
+  // this is evidence of computer activity, not a claim about task work.
+  todayActivity: { application: string; context: string | null; seconds: number }[];
 }
 
 export interface OrgDigest {
@@ -491,9 +495,32 @@ function personQuestionAnswer(intern: OrgDigestIntern, q: string): string | null
     const freshness = ago <= 1 ? "just now" : `~${ago}m ago`;
     return `${intern.name} was last observed in **${where}** (${freshness}). This is what the Companion app directly observed, not a guess.${FALLBACK_FOOTER}`;
   }
+  // "What did X work on" deliberately never blends into one claim.
+  // Observed computer activity, task assignment, and task status are three
+  // separate facts from three separate sources (Companion samples, the
+  // tasks table's assigneeId, the tasks table's status) — stating them
+  // together as "worked on" would claim more than any of them individually
+  // proves.
+  if (/work(ed)? on|what.*(did|has).*do/.test(q)) {
+    const lines: string[] = [];
+    if (intern.todayActivity.length > 0) {
+      const observed = intern.todayActivity
+        .map((a) => `${a.application}${a.context ? `, ${a.context}` : ""}, ${Math.round(a.seconds / 60)} min`)
+        .join("; ");
+      lines.push(`Observed activity: ${observed}.`);
+    } else {
+      lines.push(`Observed activity: none recorded today — either no shift today, or the Companion has no permission to observe activity.`);
+    }
+    lines.push(`Assigned task: ${intern.currentTask ?? "none currently in progress"}.`);
+    lines.push(`Task status: ${intern.currentTask ? "in progress" : "no task in progress"}.`);
+    if (intern.todayActivity.length > 0 && intern.currentTask) {
+      lines.push(`The activity is consistent with having an assigned task, but the Companion cannot prove the exact work performed.`);
+    }
+    return lines.join("\n") + FALLBACK_FOOTER;
+  }
   if (/working on|currently|today|complete|doing/.test(q)) {
     const parts: string[] = [];
-    parts.push(intern.currentTask ? `${intern.name} is currently working on "${intern.currentTask}".` : `${intern.name} has no task in progress right now.`);
+    parts.push(intern.currentTask ? `Assigned task: "${intern.currentTask}" (status: in progress).` : `${intern.name} has no task in progress right now.`);
     if (intern.tasksCompletedToday.length > 0) {
       parts.push(`Completed today: ` + intern.tasksCompletedToday.map((t) => `"${t}"`).join(", ") + ".");
     }
@@ -503,7 +530,7 @@ function personQuestionAnswer(intern: OrgDigestIntern, q: string): string | null
   // general per-intern summary rather than falling through to the org-wide
   // briefing, which would ignore that a specific person was asked about.
   return `**${intern.name}:** ${intern.completedTasks}/${intern.totalTasks} tasks completed, ${intern.blockedTasks} blocked, ${intern.overdueTasks} overdue. ` +
-    (intern.currentTask ? `Currently working on "${intern.currentTask}".` : `No task currently in progress.`) + FALLBACK_FOOTER;
+    (intern.currentTask ? `Assigned task: "${intern.currentTask}" (status: in progress).` : `No task currently in progress.`) + FALLBACK_FOOTER;
 }
 
 function fallbackOrgAnswer(digest: OrgDigest, question: string): string {

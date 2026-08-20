@@ -84,6 +84,16 @@ export interface RawActivityRow {
   durationSeconds: number;
 }
 
+// Categories where a window title reliably resolves to a single
+// meaningful document or browser tab — used only to decide whether a
+// missing documentName/browserDomain means UNKNOWN (should have been
+// there, wasn't) or UNAVAILABLE (this kind of app doesn't have one, e.g.
+// Slack — the ground-truth spec's own example labels this case
+// explicitly rather than pretending it's the same as a permission gap).
+const CONTEXT_EXPECTED_CATEGORIES = new Set(["development", "design", "research"]);
+
+export type ContextStatus = "observed" | "unknown" | "unavailable";
+
 export interface ActivitySegment {
   startedAt: string;
   endedAt: string;
@@ -93,6 +103,7 @@ export interface ActivitySegment {
   label: string; // e.g. "VS Code — auth.ts, routes.ts" — built only from observed document/domain names, nothing invented
   documentNames: string[];
   browserDomains: string[];
+  contextStatus: ContextStatus; // whether documentNames/browserDomains being empty means "unknown" (expected but missing) or "unavailable" (this app doesn't expose one)
   taskId: string | null;
   taskCorrelation: string | null; // "single_in_progress" | null — same meaning as on the raw row; lets a reader distinguish "no task, we checked" from "no task, ambiguous"
   maxIdleSeconds: number | null; // the longest single idle reading observed anywhere in this segment — never a fabricated active/idle verdict
@@ -132,6 +143,7 @@ export function buildActivitySegments(rows: RawActivityRow[]): ActivitySegment[]
         label: row.application,
         documentNames: row.documentName ? [row.documentName] : [],
         browserDomains: row.browserDomain ? [row.browserDomain] : [],
+        contextStatus: "observed", // placeholder — computed for real in the pass below, once all rows in the segment are merged
         taskId: row.taskId ?? null,
         taskCorrelation: row.taskCorrelation ?? null,
         maxIdleSeconds: row.idleSeconds ?? null,
@@ -142,7 +154,16 @@ export function buildActivitySegments(rows: RawActivityRow[]): ActivitySegment[]
 
   for (const seg of segments) {
     const context = seg.documentNames.length > 0 ? seg.documentNames : seg.browserDomains;
-    seg.label = context.length > 0 ? `${seg.application} — ${context.join(", ")}` : seg.application;
+    if (context.length > 0) {
+      seg.label = `${seg.application} — ${context.join(", ")}`;
+      seg.contextStatus = "observed";
+    } else if (CONTEXT_EXPECTED_CATEGORIES.has(seg.category)) {
+      seg.contextStatus = "unknown";
+      seg.label = `${seg.application} — document/domain: unknown`;
+    } else {
+      seg.contextStatus = "unavailable";
+      seg.label = `${seg.application} — document/domain: unavailable`;
+    }
   }
 
   return segments;

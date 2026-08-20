@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, powerMonitor } = require("electron");
 const path = require("path");
 const { ActivityTracker } = require("./activityTracker");
 const authStore = require("./authStore");
@@ -121,6 +121,14 @@ app.whenReady().then(() => {
     session = saved;
     send("session-restored", { user: saved.user });
   }
+
+  // Sleep and screen-lock are real activity boundaries even though Work
+  // Mode itself stays on across them (the shift the intern started is
+  // still genuinely running) — without this, a bucket left open when the
+  // lid closes would misreport the whole sleep/lock duration as continuous
+  // activity in whatever app was frontmost beforehand.
+  powerMonitor.on("suspend", () => tracker?.breakSegment());
+  powerMonitor.on("lock-screen", () => tracker?.breakSegment());
 });
 
 app.on("window-all-closed", () => {
@@ -172,6 +180,12 @@ ipcMain.handle("get-status", async () => {
     };
   } catch (err) {
     if (err.status === 401) {
+      // Revoked device, deactivated account, or expired token — losing the
+      // session must also stop the tracker. Clearing `session` alone left
+      // the collector running: flushActivity() no-ops on a null session,
+      // so nothing gets *uploaded*, but the OS was still being queried
+      // indefinitely after the app had already detected it should stop.
+      if (workModeActive) await stopTracking();
       session = null;
       authStore.clearSession();
       return { loggedIn: false, sessionExpired: true };
