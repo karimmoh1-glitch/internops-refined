@@ -3,11 +3,12 @@ import { db } from "./db";
 import { lt } from "drizzle-orm";
 import crypto from "crypto";
 import { aggregateSkillTags } from "@shared/skills";
+import { hashToken } from "./services/tokenService";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
   channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns, alumniRecords,
   projectCompletionCriteria, signalDismissals, workSessions, workActivities, workSummaries,
-  passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable,
+  passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable, emailVerificationTokens as verifyTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Invitation, type InsertInvitation,
@@ -25,6 +26,7 @@ import {
   type ChannelMessage, type InsertChannelMessage,
   type PasswordResetToken, type InsertPasswordResetToken,
   type SignupToken, type InsertSignupToken,
+  type EmailVerificationToken, type InsertEmailVerificationToken,
   type UserDevice, type InsertUserDevice,
   type AuditLog, type InsertAuditLog,
   type Task, type InsertTask,
@@ -72,7 +74,7 @@ export interface IStorage {
 
   createInvitation(data: InsertInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
-  markInvitationUsed(id: string): Promise<void>;
+  consumeInvitation(token: string): Promise<Invitation | undefined>;
   getInvitationsByCompany(companyId: string): Promise<Invitation[]>;
 
   createProject(data: InsertProject): Promise<Project>;
@@ -156,11 +158,16 @@ export interface IStorage {
 
   createPasswordResetToken(data: InsertPasswordResetToken): Promise<PasswordResetToken>;
   getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
-  markPasswordResetTokenUsed(token: string): Promise<void>;
+  consumePasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
 
   createSignupToken(data: InsertSignupToken): Promise<SignupToken>;
   getSignupToken(token: string): Promise<SignupToken | undefined>;
   markSignupTokenUsed(token: string): Promise<void>;
+
+  createEmailVerificationToken(data: InsertEmailVerificationToken): Promise<EmailVerificationToken>;
+  getEmailVerificationToken(token: string): Promise<EmailVerificationToken | undefined>;
+  consumeEmailVerificationToken(token: string): Promise<EmailVerificationToken | undefined>;
+  markUserEmailVerified(userId: string): Promise<void>;
 
   // Devices
   createUserDevice(data: InsertUserDevice): Promise<UserDevice>;
@@ -484,13 +491,25 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  // Read-only — for the "is this link still good?" check before the intern
+  // has even filled out the accept-invite form. Never marks used; only
+  // consumeInvitation does that.
   async getInvitationByToken(token: string): Promise<Invitation | undefined> {
-    const [inv] = await db.select().from(invitations).where(eq(invitations.token, token));
+    const [inv] = await db.select().from(invitations).where(eq(invitations.tokenHash, hashToken(token)));
     return inv;
   }
 
-  async markInvitationUsed(id: string): Promise<void> {
-    await db.update(invitations).set({ used: true }).where(eq(invitations.id, id));
+  // Atomically claims the invitation: the UPDATE's WHERE clause re-checks
+  // used/expiry at the exact moment of the write, so two concurrent accept
+  // requests for the same token can never both succeed — only the first
+  // gets a row back, closing the check-then-act race the old
+  // getInvitationByToken-then-markInvitationUsed pattern had.
+  async consumeInvitation(token: string): Promise<Invitation | undefined> {
+    const [claimed] = await db.update(invitations)
+      .set({ used: true })
+      .where(and(eq(invitations.tokenHash, hashToken(token)), eq(invitations.used, false), gt(invitations.expiresAt, new Date())))
+      .returning();
+    return claimed;
   }
 
   async getInvitationsByCompany(companyId: string): Promise<Invitation[]> {
@@ -1084,13 +1103,21 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  // Read-only validity check, used by the client before it even shows the
+  // "set a new password" form. Never marks used.
   async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
-    const [found] = await db.select().from(resetTokensTable).where(eq(resetTokensTable.token, token));
+    const [found] = await db.select().from(resetTokensTable).where(eq(resetTokensTable.tokenHash, hashToken(token)));
     return found;
   }
 
-  async markPasswordResetTokenUsed(token: string): Promise<void> {
-    await db.update(resetTokensTable).set({ used: true }).where(eq(resetTokensTable.token, token));
+  // Atomic claim — see consumeInvitation for why this can't be a separate
+  // check-then-mark-used pair.
+  async consumePasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [claimed] = await db.update(resetTokensTable)
+      .set({ used: true })
+      .where(and(eq(resetTokensTable.tokenHash, hashToken(token)), eq(resetTokensTable.used, false), gt(resetTokensTable.expiresAt, new Date())))
+      .returning();
+    return claimed;
   }
 
   async createSignupToken(data: InsertSignupToken): Promise<SignupToken> {
@@ -1105,6 +1132,28 @@ export class DatabaseStorage implements IStorage {
 
   async markSignupTokenUsed(token: string): Promise<void> {
     await db.update(signupTokensTable).set({ used: true }).where(eq(signupTokensTable.token, token));
+  }
+
+  async createEmailVerificationToken(data: InsertEmailVerificationToken): Promise<EmailVerificationToken> {
+    const [created] = await db.insert(verifyTokensTable).values(data).returning();
+    return created;
+  }
+
+  async getEmailVerificationToken(token: string): Promise<EmailVerificationToken | undefined> {
+    const [found] = await db.select().from(verifyTokensTable).where(eq(verifyTokensTable.tokenHash, hashToken(token)));
+    return found;
+  }
+
+  async consumeEmailVerificationToken(token: string): Promise<EmailVerificationToken | undefined> {
+    const [claimed] = await db.update(verifyTokensTable)
+      .set({ used: true })
+      .where(and(eq(verifyTokensTable.tokenHash, hashToken(token)), eq(verifyTokensTable.used, false), gt(verifyTokensTable.expiresAt, new Date())))
+      .returning();
+    return claimed;
+  }
+
+  async markUserEmailVerified(userId: string): Promise<void> {
+    await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, userId));
   }
 
   async createUserDevice(data: InsertUserDevice): Promise<UserDevice> {

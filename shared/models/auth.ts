@@ -58,13 +58,21 @@ export const users = pgTable("users", {
   // alumniAutoTransition.ts moves the intern to alumni automatically using
   // this date as the recorded internshipEndedAt.
   expectedEndDate: timestamp("expected_end_date"),
+  // Null = unverified. Non-blocking: an unverified user can still log in
+  // and use the app (invite/approval-created accounts are already
+  // admin-vouched-for), this just tracks whether the address itself has
+  // been confirmed reachable. Set only via a consumed emailVerificationTokens row.
+  emailVerifiedAt: timestamp("email_verified_at"),
 });
 
 export const invitations = pgTable("invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").notNull(),
   companyId: varchar("company_id").notNull().references(() => companies.id),
-  token: varchar("token").notNull().unique(),
+  // SHA-256 hex digest of the raw token — the raw value only ever exists
+  // in the email link itself, never at rest. Lookups hash the incoming
+  // token and compare against this column.
+  tokenHash: varchar("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   used: boolean("used").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
@@ -163,7 +171,21 @@ export const notifications = pgTable("notifications", {
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").notNull(),
-  token: varchar("token").notNull().unique(),
+  // See invitations.tokenHash above — same hash-at-rest convention.
+  tokenHash: varchar("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Purpose-dedicated (not a shared/generic token table with a "purpose"
+// column) — same architecture as passwordResetTokens/invitations, so a
+// verification token is structurally incapable of being accepted by the
+// password-reset or invite-accept endpoints, and vice versa.
+export const emailVerificationTokens = pgTable("email_verification_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  tokenHash: varchar("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   used: boolean("used").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
@@ -484,6 +506,7 @@ export const insertWeeklyLogSchema = createInsertSchema(weeklyLogs).omit({ id: t
 export const insertLogCommentSchema = createInsertSchema(logComments).omit({ id: true, createdAt: true });
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true, createdAt: true });
+export const insertEmailVerificationTokenSchema = createInsertSchema(emailVerificationTokens).omit({ id: true, createdAt: true });
 export const insertSignupTokenSchema = createInsertSchema(signupTokens).omit({ id: true, createdAt: true });
 export const insertTeamMessageSchema = createInsertSchema(teamMessages).omit({ id: true, createdAt: true });
 export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
@@ -524,6 +547,8 @@ export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect;
+export type InsertEmailVerificationToken = z.infer<typeof insertEmailVerificationTokenSchema>;
 export type SignupToken = typeof signupTokens.$inferSelect;
 export type InsertSignupToken = z.infer<typeof insertSignupTokenSchema>;
 export type TeamMessage = typeof teamMessages.$inferSelect;

@@ -10,13 +10,14 @@ import { summarizeSessions, startOfToday, startOfWeek, tasksInWindow } from "./s
 import { categorizeApplication, summarizeActivityByCategory, categoryLabel } from "./services/workJournal";
 import { runMorningDigestForCompany } from "./services/morningDigest";
 import {
-  sendInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
+  sendInternInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
-  sendPasswordResetEmail,
+  sendPasswordResetEmail, sendVerificationEmail,
   sendApplicationReceivedEmail, sendNewApplicationAdminEmail,
   sendApplicationApprovedEmail, sendApplicationRejectedEmail,
   getAdminNotificationEmails,
 } from "./services/emailService";
+import { generateSecureToken } from "./services/tokenService";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -107,11 +108,23 @@ function signToken(userId: string, role: string, companyId: string | null, devic
   return jwt.sign({ userId, role, companyId, deviceId }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 }
 
+let warnedMissingAppUrl = false;
+
 function getBaseUrl(): string {
-  // Defaults to production, same convention as companion/src/config.js —
-  // override with APP_URL for local development. Without this, password
-  // reset, intern invite, and application emails would link to localhost.
-  return (process.env.APP_URL || "https://internops-refined-1.onrender.com").replace(/\/$/, "");
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  if (process.env.NODE_ENV === "production") {
+    // Hard safety net: a production deploy must never construct a
+    // localhost link (password reset / invite / verification emails would
+    // be silently unusable), even if APP_URL itself is misconfigured or
+    // gets removed later. Warn loudly exactly once per process so it's
+    // visible in logs without spamming them.
+    if (!warnedMissingAppUrl) {
+      warnedMissingAppUrl = true;
+      console.error("[CONFIG] APP_URL is not set in production. Set it in the environment — falling back to the known production URL for now.");
+    }
+    return "https://internops-refined-1.onrender.com";
+  }
+  return "http://localhost:3000";
 }
 
 // Generates a URL-safe slug for a company's public application page,
@@ -362,6 +375,26 @@ export async function registerRoutes(
           targetId: user.id,
         });
 
+        // Non-blocking: verification is informational (an "unverified"
+        // signal), not a login gate — every other account-creation path in
+        // this app (invite, application approval) is already admin-vouched
+        // for, so this is the one place a self-asserted, unconfirmed email
+        // address enters the system.
+        const { token: verifyToken, tokenHash: verifyTokenHash } = generateSecureToken();
+        await storage.createEmailVerificationToken({
+          userId: user.id,
+          tokenHash: verifyTokenHash,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          used: false,
+        });
+        const verifyLink = `${getBaseUrl()}/verify-email/${verifyToken}`;
+        console.log(`\n========================================`);
+        console.log(`✉️  EMAIL VERIFICATION LINK`);
+        console.log(`   Email: ${user.email}`);
+        console.log(`   Link: ${verifyLink}`);
+        console.log(`========================================\n`);
+        sendVerificationEmail(user.email, verifyLink).catch(() => {});
+
         const deviceId = await createDeviceForLogin(user.id, req);
         const jwtToken = signToken(user.id, user.role, user.companyId, deviceId);
         return res.status(201).json({
@@ -583,12 +616,12 @@ export async function registerRoutes(
         return res.status(200).json({ message: "If an account with that email exists, a reset link has been sent." });
       }
 
-      const token = crypto.randomBytes(32).toString("hex");
+      const { token, tokenHash } = generateSecureToken();
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
       await storage.createPasswordResetToken({
         email: user.email,
-        token,
+        tokenHash,
         expiresAt,
         used: false,
       });
@@ -635,18 +668,16 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Password must be at least 6 characters" });
       }
 
-      const resetToken = await storage.getPasswordResetToken(req.params.token);
-      if (!resetToken) return res.status(404).json({ message: "Invalid or expired reset link" });
-      if (resetToken.used) return res.status(400).json({ message: "This reset link has already been used" });
-      if (new Date() > resetToken.expiresAt) return res.status(400).json({ message: "This reset link has expired" });
+      // Atomic claim first — if this returns nothing, the token was never
+      // valid, already used, or has expired, and nothing else runs.
+      const resetToken = await storage.consumePasswordResetToken(req.params.token);
+      if (!resetToken) return res.status(400).json({ message: "This reset link is invalid, expired, or has already been used." });
 
       const user = await storage.getUserByEmail(resetToken.email);
       if (!user) return res.status(404).json({ message: "User not found" });
 
       const passwordHash = await bcrypt.hash(password, 10);
       await storage.updateUserPassword(user.id, passwordHash);
-
-      await storage.markPasswordResetTokenUsed(req.params.token);
 
       res.json({ message: "Password reset successfully. You can now log in with your new password." });
     } catch (error: any) {
@@ -655,7 +686,41 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/invitations", requireAuth, requireRole("admin"), async (req, res) => {
+  // Validate an email-verification link — read-only, shown before the
+  // intern/admin clicks the confirm button.
+  app.get("/api/auth/verify-email/:token", async (req, res) => {
+    try {
+      const verifyToken = await storage.getEmailVerificationToken(req.params.token);
+      if (!verifyToken) return res.status(404).json({ message: "Invalid or expired verification link" });
+      if (verifyToken.used) return res.status(400).json({ message: "This verification link has already been used" });
+      if (new Date() > verifyToken.expiresAt) return res.status(400).json({ message: "This verification link has expired" });
+
+      const user = await storage.getUser(verifyToken.userId);
+      if (!user) return res.status(404).json({ message: "Account not found" });
+
+      res.json({ valid: true, email: user.email });
+    } catch (error: any) {
+      console.error("Verification validation failed:", error);
+      res.status(500).json({ message: "Validation failed" });
+    }
+  });
+
+  // Confirm the email — atomic claim, then flips emailVerifiedAt.
+  app.post("/api/auth/verify-email/:token", authLimiter, async (req, res) => {
+    try {
+      const verifyToken = await storage.consumeEmailVerificationToken(req.params.token);
+      if (!verifyToken) return res.status(400).json({ message: "This verification link is invalid, expired, or has already been used." });
+
+      await storage.markUserEmailVerified(verifyToken.userId);
+
+      res.json({ message: "Email verified successfully." });
+    } catch (error: any) {
+      console.error("Email verification failed:", error);
+      res.status(500).json({ message: "Email verification failed" });
+    }
+  });
+
+  app.post("/api/invitations", authLimiter, requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const { name, email } = req.body;
       const companyId = (req as any).companyId;
@@ -672,13 +737,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: "A user with this email already exists" });
       }
 
-      const token = crypto.randomBytes(32).toString("hex");
+      const { token, tokenHash } = generateSecureToken();
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
       const invitation = await storage.createInvitation({
         email: email.toLowerCase().trim(),
         companyId,
-        token,
+        tokenHash,
         expiresAt,
         used: false,
       });
@@ -694,7 +759,7 @@ export async function registerRoutes(
       // Fire-and-forget email
       const company = await storage.getCompanyById(companyId);
       const adminUser = await storage.getUser((req as any).userId);
-      sendInviteEmail(email.toLowerCase().trim(), inviteLink, company?.name || "your company", adminUser?.name).catch(() => {});
+      sendInternInviteEmail(email.toLowerCase().trim(), inviteLink, company?.name || "your company", adminUser?.name).catch(() => {});
 
       res.status(201).json({
         message: "Invitation sent successfully",
@@ -749,10 +814,9 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Name and password are required" });
       }
 
-      const invitation = await storage.getInvitationByToken(req.params.token);
-      if (!invitation) return res.status(404).json({ message: "Invalid invitation link" });
-      if (invitation.used) return res.status(400).json({ message: "This invitation has already been used" });
-      if (new Date() > invitation.expiresAt) return res.status(400).json({ message: "This invitation has expired" });
+      // Atomic claim first, same reasoning as reset-password above.
+      const invitation = await storage.consumeInvitation(req.params.token);
+      if (!invitation) return res.status(400).json({ message: "This invitation is invalid, expired, or has already been used." });
 
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await storage.createUser({
@@ -762,8 +826,6 @@ export async function registerRoutes(
         role: "intern",
         companyId: invitation.companyId,
       });
-
-      await storage.markInvitationUsed(invitation.id);
 
       // Add intern to #general channel
       const generalChannel = await storage.ensureGeneralChannel(invitation.companyId);
