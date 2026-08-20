@@ -419,10 +419,17 @@ const FALLBACK_FOOTER = "\n_This is a data lookup, not an AI-generated answer �
 // name is present, and a genuine tie (e.g. asking about "Sixty" alone,
 // matching both) now returns null — never guess between two people when
 // the query doesn't disambiguate.
-function findMentionedIntern(digest: OrgDigest, q: string): OrgDigestIntern | null {
-  let best: OrgDigestIntern | null = null;
+// Returns either a single confidently-matched intern, or — when two or
+// more interns tie for the best match (e.g. "Alice" naming both an Alice
+// Sixty and an Alice Johnson) — the list of tied candidates, so the caller
+// can say plainly "which one did you mean" instead of silently falling
+// through to an unrelated org-wide answer that never even acknowledges the
+// question named someone.
+type InternMatch = { intern: OrgDigestIntern } | { ambiguous: OrgDigestIntern[] } | null;
+
+function findMentionedIntern(digest: OrgDigest, q: string): InternMatch {
   let bestScore = 0;
-  let tied = false;
+  let candidates: OrgDigestIntern[] = [];
   for (const intern of digest.interns) {
     const words = intern.name.toLowerCase().split(" ").filter((w) => w.length >= 3);
     let score = 0;
@@ -431,14 +438,15 @@ function findMentionedIntern(digest: OrgDigest, q: string): OrgDigestIntern | nu
       if (new RegExp(`\\b${escaped}\\b`).test(q)) score += word.length;
     }
     if (score > 0 && score > bestScore) {
-      best = intern;
+      candidates = [intern];
       bestScore = score;
-      tied = false;
     } else if (score > 0 && score === bestScore) {
-      tied = true;
+      candidates.push(intern);
     }
   }
-  return tied ? null : best;
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return { intern: candidates[0] };
+  return { ambiguous: candidates };
 }
 
 // Deterministic, non-AI answers built only from real digest data — used
@@ -481,8 +489,12 @@ function fallbackOrgAnswer(digest: OrgDigest, question: string): string {
   const q = question.toLowerCase();
 
   const mentioned = findMentionedIntern(digest, q);
-  if (mentioned) {
-    const answer = personQuestionAnswer(mentioned, q);
+  if (mentioned && "ambiguous" in mentioned) {
+    const names = mentioned.ambiguous.map((i) => i.name).join(", ");
+    return `I couldn't determine which intern you meant — ${names} all match. Could you use their full name?${FALLBACK_FOOTER}`;
+  }
+  if (mentioned && "intern" in mentioned) {
+    const answer = personQuestionAnswer(mentioned.intern, q);
     if (answer) return answer;
   }
 
