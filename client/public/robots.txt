@@ -12,4 +12,4 @@ Disallow: /invite/
 Disallow: /verify-signup/
 Disallow: /reset-password/
 
-Sitemap: https://APP_DOMAIN/sitemap.xml
+Sitemap: https://internops-refined-1.onrender.com/sitemap.xml
