@@ -176,3 +176,30 @@ test("a context change (different document, same app) closes one bucket and open
   assert.equal(tracker.buckets.length, 2);
   assert.equal(tracker.buckets[1].documentName, "routes.ts");
 });
+
+test("breakSegment() closes the open bucket without stopping the tracker (sleep/lock boundary)", async () => {
+  const tracker = new ActivityTracker({
+    sampleIntervalMs: 10_000,
+    flushIntervalMs: 10_000,
+    minBucketSeconds: 0,
+    onFlush: async () => {},
+    getContext: async () => makeContext(),
+  });
+
+  tracker.start();
+  await sleep(5);
+  assert.ok(tracker.current, "expected an open bucket before the break");
+
+  tracker.breakSegment();
+  assert.equal(tracker.buckets.length, 1, "the pre-sleep bucket should be closed out, not discarded");
+  assert.equal(tracker.current, null, "no bucket should span the sleep/lock gap");
+  assert.equal(tracker.running, true, "breakSegment() must not stop the tracker itself — Work Mode is still on");
+
+  // The next sample after waking opens a fresh bucket, not a continuation
+  // of the pre-sleep one — proving the sleep gap can never be silently
+  // absorbed into a bucket's reported duration.
+  await tracker._sample(tracker.generation);
+  assert.ok(tracker.current, "a new bucket should open on the next sample after the break");
+
+  tracker.stop();
+});

@@ -115,7 +115,12 @@ function WorkdayReplayDialog({ sessionId, open, onOpenChange }: { sessionId: str
                       <span className="text-xs text-white/40 tabular-nums shrink-0">{timelineTime(e.ts)}</span>
                     </div>
                     {e.type === "app_active" && (
-                      <p className="text-xs text-white/40">{e.detail} · ~{formatDuration(e.durationSeconds)}</p>
+                      <>
+                        <p className="text-xs text-white/40">{e.detail} · ~{formatDuration(e.durationSeconds)}</p>
+                        {e.interpretation?.inferred && (
+                          <p className="text-xs text-white/30 italic mt-0.5">{e.interpretation.inferred}</p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
