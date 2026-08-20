@@ -108,7 +108,10 @@ function signToken(userId: string, role: string, companyId: string | null, devic
 }
 
 function getBaseUrl(): string {
-  return (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  // Defaults to production, same convention as companion/src/config.js —
+  // override with APP_URL for local development. Without this, password
+  // reset, intern invite, and application emails would link to localhost.
+  return (process.env.APP_URL || "https://internops-refined-1.onrender.com").replace(/\/$/, "");
 }
 
 // Generates a URL-safe slug for a company's public application page,
