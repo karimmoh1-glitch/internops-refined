@@ -2507,6 +2507,27 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/notifications/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const deleted = await storage.deleteNotification(req.params.id as string, (req as any).userId);
+      if (!deleted) return res.status(404).json({ message: "Notification not found" });
+      res.json({ message: "Notification deleted" });
+    } catch (error: any) {
+      console.error("Failed to delete notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+
+  app.delete("/api/notifications", requireAuth, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteAllNotificationsForUser((req as any).userId);
+      res.json({ message: "All notifications deleted" });
+    } catch (error: any) {
+      console.error("Failed to delete all notifications:", error);
+      res.status(500).json({ message: "Failed to delete all notifications" });
+    }
+  });
+
   // --- Tasks ---
   // Generic assigned work item, distinct from the AI-planned project/log
   // flow above. Status transitions are exposed as dedicated action
