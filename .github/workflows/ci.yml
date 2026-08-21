@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  web:
+    name: Web app (typecheck + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit -p .
+      - name: Build
+        run: npx vite build
+        env:
+          # Deliberately unset in CI — a real APP_URL should never be
+          # required to produce a build; if the build ever starts assuming
+          # one is present, this is what would catch it.
+          APP_URL: ""
+      - name: Fail on localhost/placeholder domains reaching the build output
+        run: |
+          if grep -RIl "APP_DOMAIN" dist/public/ 2>/dev/null; then
+            echo "::error::Unreplaced APP_DOMAIN placeholder found in build output"
+            exit 1
+          fi
+          if grep -RIlE "http://localhost" dist/public/ 2>/dev/null; then
+            echo "::error::A localhost URL was baked into the production build output"
+            exit 1
+          fi
+
+  companion:
+    name: Companion (tests)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: companion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: companion/package-lock.json
+      - run: npm ci
+      - name: Typecheck-adjacent sanity — main.js and updater.js at least parse
+        run: |
+          node --check src/main.js
+          node --check src/updater.js
+          node --check src/activityTracker.js
+          node --check src/workContext.js
+          node --check src/reconcile.js
+      - run: npm test

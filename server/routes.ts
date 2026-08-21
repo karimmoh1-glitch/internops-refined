@@ -61,6 +61,20 @@ const strictAuthLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: "Too many attempts. Please try again later." },
 });
+
+// The Companion flushes activity roughly every 5 minutes plus occasional
+// immediate flushes around Start/End Shift — legitimate traffic is a
+// handful of requests per 15 minutes at most. A generous cap here is
+// defense-in-depth against a compromised or buggy token hammering the
+// ingestion endpoint, not something a real Companion should ever brush
+// up against.
+const activityIngestionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many activity submissions. Please try again later." },
+});
 // InternOps runs as a single fixed workspace for EDAI — nobody creates or
 // names a company at signup. Every manager who signs up joins this same
 // company record, created lazily on first use.
@@ -3120,7 +3134,7 @@ export async function registerRoutes(
   // active shift — never a client-supplied sessionId/internId, always the
   // authenticated user's current active session, so one intern's companion
   // can never write activity onto someone else's shift.
-  app.post("/api/work-sessions/activity", requireAuth, requireRole("intern"), async (req, res) => {
+  app.post("/api/work-sessions/activity", requireAuth, requireRole("intern"), activityIngestionLimiter, async (req, res) => {
     try {
       const userId = (req as any).userId;
       const companyId = (req as any).companyId;
