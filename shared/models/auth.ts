@@ -313,6 +313,26 @@ export const tasks = pgTable("tasks", {
   index("idx_tasks_depends_on").on(table.dependsOnTaskId),
 ]);
 
+// Append-only log of every submission a task ever receives — tasks.submittedAt
+// is a single mutable column (deliberately, for "is this the latest
+// submission" queries), so a task resubmitted after Request Changes
+// overwrites its own history there. Workday Replay needs the ORIGINAL
+// submission to still show up in the shift it actually happened in, even
+// after a later resubmission in a different shift overwrote tasks.submittedAt
+// — this table exists to give it that, without changing what
+// tasks.submittedAt itself means anywhere else it's already used.
+export const taskSubmissions = pgTable("task_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull().references(() => tasks.id),
+  internId: varchar("intern_id").notNull().references(() => users.id),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  submission: text("submission").notNull(),
+  submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_task_submissions_task").on(table.taskId),
+  index("idx_task_submissions_intern_submitted").on(table.internId, table.submittedAt),
+]);
+
 // A "shift" — deliberately just start/end/duration, not invasive activity
 // tracking. What the intern *did* during a session is derived on read by
 // correlating task timestamps (startedAt/submittedAt/completedAt) that
@@ -533,6 +553,7 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: tru
 export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z.string()) }).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkSessionSchema = createInsertSchema(workSessions).omit({ id: true, createdAt: true });
 export const insertWorkActivitySchema = createInsertSchema(workActivities).omit({ id: true, createdAt: true });
+export const insertTaskSubmissionSchema = createInsertSchema(taskSubmissions).omit({ id: true });
 export const insertWorkSummarySchema = createInsertSchema(workSummaries, { activityBreakdown: z.array(z.object({ category: z.string(), label: z.string(), seconds: z.number() })) }).omit({ id: true, generatedAt: true });
 export const insertPerformanceNarrativeSchema = createInsertSchema(performanceNarratives).omit({ id: true, createdAt: true });
 export const insertDigestRunSchema = createInsertSchema(digestRuns).omit({ id: true, createdAt: true });
@@ -586,6 +607,8 @@ export type WorkSession = typeof workSessions.$inferSelect;
 export type InsertWorkSession = z.infer<typeof insertWorkSessionSchema>;
 export type WorkActivity = typeof workActivities.$inferSelect;
 export type InsertWorkActivity = z.infer<typeof insertWorkActivitySchema>;
+export type TaskSubmission = typeof taskSubmissions.$inferSelect;
+export type InsertTaskSubmission = z.infer<typeof insertTaskSubmissionSchema>;
 export type WorkSummary = typeof workSummaries.$inferSelect;
 export type InsertWorkSummary = z.infer<typeof insertWorkSummarySchema>;
 export type PerformanceNarrative = typeof performanceNarratives.$inferSelect;

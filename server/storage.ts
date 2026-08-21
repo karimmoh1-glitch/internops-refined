@@ -1,4 +1,4 @@
-import { eq, desc, and, count, inArray, gt, isNull, sql, or } from "drizzle-orm";
+import { eq, desc, and, count, inArray, gt, isNull, sql, or, gte, lte } from "drizzle-orm";
 import { db } from "./db";
 import { lt } from "drizzle-orm";
 import crypto from "crypto";
@@ -7,7 +7,7 @@ import { hashToken } from "./services/tokenService";
 import {
   users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
   channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns, alumniRecords,
-  projectCompletionCriteria, signalDismissals, workSessions, workActivities, workSummaries,
+  projectCompletionCriteria, signalDismissals, workSessions, workActivities, workSummaries, taskSubmissions,
   passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable, emailVerificationTokens as verifyTokensTable,
   type User, type InsertUser,
   type Company, type InsertCompany,
@@ -38,6 +38,7 @@ import {
   type WorkSession,
   type WorkActivity, type InsertWorkActivity,
   type WorkSummary, type InsertWorkSummary,
+  type TaskSubmission, type InsertTaskSubmission,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -231,6 +232,8 @@ export interface IStorage {
   getWorkSessionById(id: string): Promise<WorkSession | undefined>;
   createWorkActivities(data: InsertWorkActivity[]): Promise<WorkActivity[]>;
   getWorkActivitiesBySession(sessionId: string): Promise<WorkActivity[]>;
+  createTaskSubmission(data: InsertTaskSubmission): Promise<TaskSubmission>;
+  getTaskSubmissionsByInternInWindow(internId: string, start: Date, end: Date): Promise<TaskSubmission[]>;
   getWorkActivityBreakdownBySession(sessionId: string): Promise<{ application: string; category: string; totalSeconds: number }[]>;
   createWorkSummary(data: InsertWorkSummary): Promise<WorkSummary>;
   getWorkSummaryBySession(sessionId: string): Promise<WorkSummary | undefined>;
@@ -1465,6 +1468,17 @@ export class DatabaseStorage implements IStorage {
 
   async getWorkActivitiesBySession(sessionId: string): Promise<WorkActivity[]> {
     return db.select().from(workActivities).where(eq(workActivities.sessionId, sessionId)).orderBy(workActivities.startedAt);
+  }
+
+  async createTaskSubmission(data: InsertTaskSubmission): Promise<TaskSubmission> {
+    const [created] = await db.insert(taskSubmissions).values(data).returning();
+    return created;
+  }
+
+  async getTaskSubmissionsByInternInWindow(internId: string, start: Date, end: Date): Promise<TaskSubmission[]> {
+    return db.select().from(taskSubmissions).where(
+      and(eq(taskSubmissions.internId, internId), gte(taskSubmissions.submittedAt, start), lte(taskSubmissions.submittedAt, end))
+    );
   }
 
   // Aggregated by application rather than returning every raw sample — an
