@@ -582,6 +582,12 @@ export class DatabaseStorage implements IStorage {
     if (projectTasks.length > 0) {
       const taskIds = projectTasks.map((t) => t.id);
       await db.update(projectCompletionCriteria).set({ taskId: null }).where(inArray(projectCompletionCriteria.taskId, taskIds));
+      // Same no-cascade FK situation as deleteTask() above — work_activities
+      // survives with the reference nulled (it's real observed activity,
+      // independent of task correlation); task_submissions rows are deleted
+      // since a submission is inherently about the specific task.
+      await db.update(workActivities).set({ taskId: null }).where(inArray(workActivities.taskId, taskIds));
+      await db.delete(taskSubmissions).where(inArray(taskSubmissions.taskId, taskIds));
     }
     await db.delete(tasks).where(eq(tasks.projectId, id));
 
@@ -598,10 +604,12 @@ export class DatabaseStorage implements IStorage {
     for (const p of ownedProjects) {
       await this.deleteProject(p.id);
     }
-    // Must run before the tasks delete below — work_activities.taskId
-    // references tasks(id) with no cascade, so deleting a task first would
-    // leave a dangling reference and fail the FK constraint.
+    // Must run before the tasks delete below — work_activities.taskId and
+    // task_submissions.taskId both reference tasks(id) with no cascade, so
+    // deleting a task first would leave a dangling reference and fail the
+    // FK constraint.
     await db.delete(workActivities).where(eq(workActivities.internId, id));
+    await db.delete(taskSubmissions).where(eq(taskSubmissions.internId, id));
     await db.delete(workSummaries).where(eq(workSummaries.internId, id));
     await db.delete(tasks).where(eq(tasks.assigneeId, id));
     await db.delete(notifications).where(eq(notifications.userId, id));
@@ -1326,6 +1334,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTask(id: string): Promise<void> {
+    // work_activities.taskId and task_submissions.taskId both reference
+    // tasks(id) with no cascade — deleting the task first would fail the FK
+    // constraint. work_activities.taskId is nullable and gets set null:
+    // it's genuine OS-observed activity independent of task correlation,
+    // which should survive the task itself being removed (Workday Replay
+    // already falls back to "Unknown task" for a null reference).
+    // task_submissions.taskId is NOT NULL — a submission record is
+    // inherently about a specific task, so those rows are deleted along
+    // with the task they were submitted to, same as deleting a task
+    // already discards its own submission/feedback fields.
+    await db.update(workActivities).set({ taskId: null }).where(eq(workActivities.taskId, id));
+    await db.delete(taskSubmissions).where(eq(taskSubmissions.taskId, id));
     await db.delete(tasks).where(eq(tasks.id, id));
   }
 
