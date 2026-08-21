@@ -2801,10 +2801,23 @@ export async function registerRoutes(
       if (!submission?.trim()) {
         return res.status(400).json({ message: "Submission text is required" });
       }
+      const submittedAt = new Date();
       const updated = await storage.updateTaskStatus(task.id, "in_review", {
         submission: submission.trim(),
-        submittedAt: new Date(),
+        submittedAt,
         blockedReason: null,
+      });
+      // tasks.submittedAt is a single mutable column that a resubmission
+      // overwrites — this append-only row is what lets Workday Replay find
+      // an EARLIER submission that happened in an earlier, already-ended
+      // shift, even after a later resubmission overwrote the task's own
+      // submittedAt field.
+      await storage.createTaskSubmission({
+        taskId: task.id,
+        internId: task.assigneeId, // == (req as any).userId, per the ownership check above — using the task's own field is self-documenting
+        companyId: task.companyId,
+        submission: submission.trim(),
+        submittedAt,
       });
 
       await notifyAdmins(task.companyId, "Task Submitted for Review", `A task was submitted for review: "${task.title}"`, "/?view=tasks&taskId=" + task.id);
@@ -3320,8 +3333,15 @@ export async function registerRoutes(
       for (const t of tasksInWindow(internTasks, start, end, "startedAt")) {
         events.push({ ts: t.startedAt as unknown as string, type: "task_started", label: `Started "${t.title}"` });
       }
-      for (const t of tasksInWindow(internTasks, start, end, "submittedAt")) {
-        events.push({ ts: t.submittedAt as unknown as string, type: "task_submitted", label: `Submitted "${t.title}" for review` });
+      // Reads the append-only submission log, not tasks.submittedAt — a
+      // task resubmitted after Request Changes overwrites that single
+      // mutable column, which would silently drop the ORIGINAL submission
+      // event from the replay of the shift it actually happened in. Every
+      // submission this intern ever made in this window shows up here,
+      // not just whichever one happens to be the task's current value.
+      const submissionsInWindow = await storage.getTaskSubmissionsByInternInWindow(session.internId, start, end);
+      for (const s of submissionsInWindow) {
+        events.push({ ts: s.submittedAt as unknown as string, type: "task_submitted", label: `Submitted "${taskTitleById.get(s.taskId) ?? "Unknown task"}" for review` });
       }
       for (const t of tasksInWindow(internTasks, start, end, "completedAt")) {
         events.push({ ts: t.completedAt as unknown as string, type: "task_completed", label: `Completed "${t.title}"` });
