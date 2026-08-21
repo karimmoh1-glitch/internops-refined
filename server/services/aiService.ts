@@ -458,7 +458,13 @@ function findMentionedIntern(digest: OrgDigest, q: string): InternMatch {
   let bestScore = 0;
   let candidates: OrgDigestIntern[] = [];
   for (const intern of digest.interns) {
-    const words = intern.name.toLowerCase().split(" ").filter((w) => w.length >= 3);
+    // >= 2, not >= 3: found live that a genuinely short real first name
+    // (e.g. "Jo") was being filtered out of *every* intern's word list
+    // entirely, meaning a query naming them by that name alone matched
+    // no one and silently fell through to the generic org-wide answer —
+    // not ambiguity, just invisibility. A 2-letter minimum still filters
+    // single-letter noise ("a", "I") while no longer erasing real names.
+    const words = intern.name.toLowerCase().split(" ").filter((w) => w.length >= 2);
     let score = 0;
     for (const word of words) {
       const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
