@@ -62,6 +62,24 @@ const strictAuthLimiter = rateLimit({
   message: { message: "Too many attempts. Please try again later." },
 });
 
+// Login is routine, high-frequency, multi-person traffic in a way signup
+// and password reset aren't — found live via a local load test simulating
+// 30 interns logging in at once: they all shared one IP (as any real
+// office/campus NAT or VPN would put many different real interns behind
+// one address), and strictAuthLimiter's 8-per-15-min cap is *per IP*, so
+// legitimate logins started getting 429'd well before all 30 succeeded.
+// A brute-force attempt against one specific password still needs far
+// more than 100 tries regardless of this number; this limiter exists to
+// bound automated abuse, not to survive real multi-person shared-IP
+// traffic at 8 requests.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts. Please try again later." },
+});
+
 // The Companion flushes activity roughly every 5 minutes plus occasional
 // immediate flushes around Start/End Shift — legitimate traffic is a
 // handful of requests per 15 minutes at most. A generous cap here is
@@ -461,7 +479,7 @@ export async function registerRoutes(
   // on the response comes entirely from the database, never from anything
   // the client asserts, so the client just routes to the right dashboard
   // after the fact rather than picking a login mode beforehand.
-  app.post("/api/auth/login", strictAuthLimiter, async (req, res) => {
+  app.post("/api/auth/login", loginLimiter, async (req, res) => {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
