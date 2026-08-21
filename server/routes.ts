@@ -159,6 +159,23 @@ function getBaseUrl(): string {
   return "http://localhost:3000";
 }
 
+// Local-dev convenience only: password-reset, email-verification, and
+// invitation links all carry a raw, usable secret token (not the hash
+// that's actually stored) — the only way to test these flows without a
+// configured email provider. Printing that to production logs would let
+// anyone with log access hijack the account within the token's validity
+// window, so this must never fire outside a real developer's own
+// terminal, regardless of whether RESEND_API_KEY happens to be unset in
+// production too.
+function logDevOnlyLink(label: string, email: string, link: string): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.log(`\n========================================`);
+  console.log(label);
+  console.log(`   Email: ${email}`);
+  console.log(`   Link: ${link}`);
+  console.log(`========================================\n`);
+}
+
 // Generates a URL-safe slug for a company's public application page,
 // appending a short random suffix on collision rather than failing signup
 // over a cosmetic URL detail.
@@ -420,11 +437,7 @@ export async function registerRoutes(
           used: false,
         });
         const verifyLink = `${getBaseUrl()}/verify-email/${verifyToken}`;
-        console.log(`\n========================================`);
-        console.log(`✉️  EMAIL VERIFICATION LINK`);
-        console.log(`   Email: ${user.email}`);
-        console.log(`   Link: ${verifyLink}`);
-        console.log(`========================================\n`);
+        logDevOnlyLink(`✉️  EMAIL VERIFICATION LINK`, user.email, verifyLink);
         sendVerificationEmail(user.email, verifyLink).catch(() => {});
 
         const deviceId = await createDeviceForLogin(user.id, req);
@@ -660,11 +673,7 @@ export async function registerRoutes(
 
       const baseUrl = getBaseUrl();
       const resetLink = `${baseUrl}/reset-password/${token}`;
-      console.log(`\n========================================`);
-      console.log(`🔑 PASSWORD RESET LINK`);
-      console.log(`   Email: ${user.email}`);
-      console.log(`   Link: ${resetLink}`);
-      console.log(`========================================\n`);
+      logDevOnlyLink(`🔑 PASSWORD RESET LINK`, user.email, resetLink);
       sendPasswordResetEmail(user.email, resetLink).catch(() => {});
 
       res.status(200).json({ message: "If an account with that email exists, a reset link has been sent." });
@@ -782,11 +791,11 @@ export async function registerRoutes(
 
       const baseUrl = getBaseUrl();
       const inviteLink = `${baseUrl}/invite/${token}`;
-      console.log(`\n========================================`);
-      console.log(`📧 INTERN INVITE LINK`);
-      console.log(`   Email: ${email.toLowerCase().trim()}`);
-      console.log(`   Link: ${inviteLink}`);
-      console.log(`========================================\n`);
+      // Already returned directly to the requesting admin in the response
+      // below (a deliberate, authorized exposure — they created this
+      // invitation) — logging it too would additionally expose it to
+      // anyone with server log access, not just that admin.
+      logDevOnlyLink(`📧 INTERN INVITE LINK`, email.toLowerCase().trim(), inviteLink);
 
       // Fire-and-forget email
       const company = await storage.getCompanyById(companyId);
