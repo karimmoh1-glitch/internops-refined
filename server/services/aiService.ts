@@ -439,6 +439,22 @@ const FALLBACK_FOOTER = "\n_This is a data lookup, not an AI-generated answer â€
 type InternMatch = { intern: OrgDigestIntern } | { ambiguous: OrgDigestIntern[] } | null;
 
 function findMentionedIntern(digest: OrgDigest, q: string): InternMatch {
+  // A literal match on someone's exact full name is unambiguous on its
+  // own, checked before the word-scoring below â€” that scoring only
+  // counts words of length >= 3 (to avoid noise from short common
+  // words), which has a real side effect: two interns whose names are
+  // identical except for a single-letter suffix or initial (e.g. "ZZTEST
+  // Pilot A" / "ZZTEST Pilot B") have that one distinguishing token
+  // filtered out and score as an exact tie, even when the query spells
+  // out one of their full names letter for letter. Checked live: this
+  // was a real, reproducible false ambiguity, not a hypothetical.
+  const escapedFullNames = digest.interns.map((i) => ({
+    intern: i,
+    pattern: i.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+  }));
+  const exactNameMatches = escapedFullNames.filter(({ pattern }) => new RegExp(`\\b${pattern}\\b`).test(q));
+  if (exactNameMatches.length === 1) return { intern: exactNameMatches[0].intern };
+
   let bestScore = 0;
   let candidates: OrgDigestIntern[] = [];
   for (const intern of digest.interns) {
