@@ -17,6 +17,40 @@ export default function Privacy() {
         <li><strong>Usage data</strong>: basic request logs (timestamps, endpoints, response codes) for debugging and security purposes.</li>
       </ul>
 
+      <h2>Work Mode activity (Companion app)</h2>
+      <p>
+        The InternOps Companion is a separate desktop app interns can optionally install. It has exactly two
+        states, and the boundary between them is enforced by our servers, not just the app's interface:
+      </p>
+      <ul>
+        <li>
+          <strong>Off work: nothing is collected.</strong> Before you start a shift, and immediately once you
+          end one, the Companion collects and uploads nothing — no application, no window, no browser activity,
+          no idle time. Our servers independently reject any activity data that isn't tied to a shift you
+          currently have open, so this isn't just a promise the app's interface makes.
+        </li>
+        <li>
+          <strong>On work: only what your operating system actually reports.</strong> While a shift is active,
+          the Companion may record the foreground application, its window title, the active document or file
+          name, the domain (never the full web address, and never page content) of an open browser tab, and
+          coarse idle time — each only when your operating system's own permissions allow it. When something
+          can't be determined, we record it as unknown rather than guessing. We never invent what you were
+          doing from your assigned task, and we never claim more than what was actually observed.
+        </li>
+        <li>
+          The Companion never captures keystrokes, mouse movement, clipboard contents, screenshots, screen
+          recordings, microphone or camera input, or the content of what you're writing — in any state.
+        </li>
+        <li>
+          This activity is visible to your company's admins, through the shift reports and activity timeline
+          the product generates from it — never to anyone outside your company.
+        </li>
+        <li>
+          Using the Companion at all is optional. Shifts can be tracked from the web app without it, which
+          records time only, with no activity detail.
+        </li>
+      </ul>
+
       <h2>How we use it</h2>
       <p>
         Information is used to operate the product: authenticating you, running the application-review and
