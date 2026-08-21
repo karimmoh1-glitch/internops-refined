@@ -19,21 +19,22 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit -p .
-      - name: Build
+      - name: Build (with a real-shaped APP_URL, matching how production actually builds)
         run: npx vite build
         env:
-          # Deliberately unset in CI — a real APP_URL should never be
-          # required to produce a build; if the build ever starts assuming
-          # one is present, this is what would catch it.
-          APP_URL: ""
+          APP_URL: "https://ci-build-check.internops.invalid"
       - name: Fail on localhost/placeholder domains reaching the build output
         run: |
           if grep -RIl "APP_DOMAIN" dist/public/ 2>/dev/null; then
-            echo "::error::Unreplaced APP_DOMAIN placeholder found in build output"
+            echo "::error::Unreplaced APP_DOMAIN placeholder found in build output — APP_URL was set for this build, so the meta-images plugin should have replaced it"
             exit 1
           fi
           if grep -RIlE "http://localhost" dist/public/ 2>/dev/null; then
             echo "::error::A localhost URL was baked into the production build output"
+            exit 1
+          fi
+          if ! grep -RIq "ci-build-check.internops.invalid" dist/public/index.html; then
+            echo "::error::Expected the CI-supplied APP_URL to appear in the built canonical tag — the replacement path isn't running at all"
             exit 1
           fi
 

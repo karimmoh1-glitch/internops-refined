@@ -13,6 +13,15 @@ export function metaImagesPlugin(): Plugin {
     transformIndexHtml(html) {
       const baseUrl = getDeploymentUrl();
       if (!baseUrl) {
+        // vite build always sets process.env.NODE_ENV = "production"
+        // internally regardless of caller, so that can't be used here to
+        // distinguish a real deploy from a local/CI build — there's no
+        // reliable signal in this hook for "this specific build is the one
+        // that's about to go live." Left as a loud log rather than a hard
+        // failure; the real regression guard for this lives in CI, which
+        // greps the actual build output for the placeholder with a realistic
+        // APP_URL set, and separately with it unset to prove this exact
+        // code path is reachable and correctly leaves the marker in place.
         log('[meta-images] no APP_URL configured, skipping meta tag updates');
         return html;
       }
