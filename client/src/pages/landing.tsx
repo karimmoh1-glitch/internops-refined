@@ -8,8 +8,8 @@ import { useParallax } from "@/hooks/use-parallax";
 const STEPS = [
   {
     n: "01",
-    title: "Sign up & invite",
-    desc: "Create your workspace and send secure invite links. Interns set their own password — nobody shares a login.",
+    title: "Get set up, then invite",
+    desc: "Once your admin account is active, send secure invite links to interns. They set their own password — nobody shares a login.",
   },
   {
     n: "02",
