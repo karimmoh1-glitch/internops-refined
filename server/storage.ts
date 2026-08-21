@@ -600,6 +600,21 @@ export class DatabaseStorage implements IStorage {
   // get nulled out instead of deleted, to preserve the surrounding
   // history/data rather than erase it.
   async deleteUserPermanently(id: string): Promise<void> {
+    // email_verification_tokens.userId is a hard FK with no cascade —
+    // deleting a user with an unconsumed (or even already-used) row there
+    // fails outright, same bug class as work_activities/task_submissions
+    // above. password_reset_tokens/invitations/signup_tokens are keyed by
+    // email, not userId, so they can't cause a delete failure, but leaving
+    // them behind is still real orphaned data tied to a now-deleted
+    // account — cleaned up here too, not just the tables that would crash.
+    const [target] = await db.select({ email: users.email }).from(users).where(eq(users.id, id));
+    await db.delete(verifyTokensTable).where(eq(verifyTokensTable.userId, id));
+    if (target?.email) {
+      await db.delete(resetTokensTable).where(eq(resetTokensTable.email, target.email));
+      await db.delete(invitations).where(eq(invitations.email, target.email));
+      await db.delete(signupTokensTable).where(eq(signupTokensTable.email, target.email));
+    }
+
     const ownedProjects = await db.select({ id: projects.id }).from(projects).where(eq(projects.internId, id));
     for (const p of ownedProjects) {
       await this.deleteProject(p.id);
