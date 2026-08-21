@@ -63,8 +63,13 @@ async function getFrontmostApplicationMacOS() {
 // Requires the user to have granted System Events (i.e. this app) the
 // Accessibility permission — without it, this AppleScript call throws and
 // we correctly report UNKNOWN rather than a stale/wrong title.
-async function getWindowTitleMacOS(appName) {
-  const escaped = appName.replace(/"/g, '\\"');
+async function getWindowTitleMacOS() {
+  // Deliberately doesn't target by name — asks AppleScript for whichever
+  // process is frontmost right now, the same live lookup
+  // getFrontmostApplicationMacOS() already used a moment earlier, rather
+  // than re-embedding that result as a string here (which would need
+  // escaping, for no benefit — the two calls already have to agree on
+  // "frontmost" within the same sampling tick regardless).
   const { stdout } = await execAsync(
     `osascript -e 'tell application "System Events" to tell (first process whose frontmost is true) to get title of front window'`,
     { timeout: EXEC_TIMEOUT_MS }
@@ -166,7 +171,7 @@ async function getCurrentWorkContext() {
     if (!application) return { application: null, windowTitle: null, documentName: null, browserDomain: null, idleSeconds, platform, contextSource: null };
 
     let windowTitle = null;
-    try { windowTitle = await getWindowTitleMacOS(application); } catch { /* Accessibility permission not granted — UNKNOWN */ }
+    try { windowTitle = await getWindowTitleMacOS(); } catch { /* Accessibility permission not granted — UNKNOWN */ }
 
     let browserDomain = null;
     try { browserDomain = await getBrowserDomainMacOS(application); } catch { /* Automation permission not granted for this app — UNKNOWN */ }
