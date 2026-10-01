@@ -8,7 +8,7 @@ on:
 
 jobs:
   web:
-    name: Web app (typecheck, tests, build)
+    name: Web app (typecheck + build)
     runs-on: ubuntu-latest
     services:
       postgres:
