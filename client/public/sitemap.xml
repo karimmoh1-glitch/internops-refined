@@ -1,43 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Company-specific public application pages (/apply/:slug) aren't listed
-  here since their slugs don't exist until a company signs up — they're
-  still crawlable via normal link discovery, just not enumerated statically.
--->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://internops-refined-1.onrender.com/</loc>
+    <loc>https://APP_DOMAIN/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://internops-refined-1.onrender.com/signup</loc>
+    <loc>https://APP_DOMAIN/login</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://internops-refined-1.onrender.com/manager-login</loc>
+    <loc>https://APP_DOMAIN/signup</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://internops-refined-1.onrender.com/intern-login</loc>
+    <loc>https://APP_DOMAIN/download</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://internops-refined-1.onrender.com/privacy</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.2</priority>
+    <loc>https://APP_DOMAIN/privacy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://internops-refined-1.onrender.com/terms</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.2</priority>
+    <loc>https://APP_DOMAIN/terms</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://internops-refined-1.onrender.com/contact</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
+    <loc>https://APP_DOMAIN/contact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
   </url>
 </urlset>

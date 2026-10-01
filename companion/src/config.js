@@ -4,7 +4,7 @@
 //
 // Plain http:// is refused unless the host is a loopback address — a
 // mistyped env var must never silently send a session token in the clear.
-const DEFAULT_API_URL = "https://internops-refined-1.onrender.com";
+const DEFAULT_API_URL = "https://internops.vercel.app";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 

@@ -3,21 +3,21 @@
 ## Artifacts
 
 `npm run dist` (macOS) and `npm run dist:win` (Windows) write to `dist/`.
-With `"version": "1.4.0"` in `package.json` the files are:
+With `"version": "1.4.1"` in `package.json` the files are:
 
 | File | Purpose |
 |---|---|
-| `InternOps.Companion-1.4.0-arm64.dmg` | Apple Silicon installer |
-| `InternOps.Companion-1.4.0-x64.dmg` | Intel installer |
-| `InternOps.Companion-1.4.0-arm64.zip` | Apple Silicon — **required by the updater** |
-| `InternOps.Companion-1.4.0-x64.zip` | Intel — **required by the updater** |
+| `InternOps.Companion-1.4.1-arm64.dmg` | Apple Silicon installer |
+| `InternOps.Companion-1.4.1-x64.dmg` | Intel installer |
+| `InternOps.Companion-1.4.1-arm64.zip` | Apple Silicon — **required by the updater** |
+| `InternOps.Companion-1.4.1-x64.zip` | Intel — **required by the updater** |
 | `latest-mac.yml` | macOS update manifest (electron-updater reads this) |
-| `InternOps.Companion-1.4.0-win-x64.zip` | Windows portable zip |
+| `InternOps.Companion-1.4.1-win-x64.zip` | Windows portable zip |
 | `latest.yml` | Windows update manifest |
 | `*.blockmap` | Differential-download metadata; upload alongside |
 
 Upload every one of them to a GitHub Release on
-`karimmoh1-glitch/internops-refined` tagged exactly `1.4.0` (no `v`
+`karimmoh1-glitch/internops-refined` tagged exactly `1.4.1` (no `v`
 prefix — `vPrefixedTagName: false` in `package.json`). The updater
 (`publish.provider: github`) looks for `latest-mac.yml` / `latest.yml` on
 the newest non-draft, non-prerelease release; the zip is what it actually
@@ -81,7 +81,7 @@ electron-builder behavior, not something built for this project.
 Don't trust the build log alone — confirm Gatekeeper agrees:
 
 ```bash
-spctl -a -t open --context context:primary-signature -v "dist/InternOps.Companion-1.4.0-arm64.dmg"
+spctl -a -t open --context context:primary-signature -v "dist/InternOps.Companion-1.4.1-arm64.dmg"
 # must print: accepted
 # source=Notarized Developer ID
 ```
@@ -102,5 +102,5 @@ npm run dist:win
 No Windows-specific code changes are needed for this either — the `win`
 target block already exists in `package.json`. The Windows foreground
 probe (`src/winProbe.js`, a single persistent PowerShell helper) has not
-been exercised on real Windows hardware as part of the 1.4.0 rebuild;
+been exercised on real Windows hardware as part of the 1.4.1 rebuild;
 test a shift end-to-end there before announcing a Windows release.

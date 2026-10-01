@@ -1,15 +1,13 @@
-# InternOps is a client-rendered app: authenticated pages (dashboard, chat,
-# settings) render at the same URLs for both logged-in and logged-out users,
-# but a crawler — which is never authenticated — only ever sees the public
-# landing/marketing content at those URLs. Nothing extra to disallow there.
+# InternOps is a client-rendered app: authenticated pages render at the
+# same URLs for signed-in and signed-out visitors, but a crawler only ever
+# sees the public landing content there.
 #
-# Token-bearing URLs (invite/signup-verification/password-reset links) are
-# disallowed explicitly: they're single-use and meant to arrive only via a
-# direct email link, never via search or a shared/cached page.
+# Token-bearing URLs (invite, verification, password-reset links) are
+# single-use and arrive only by email — never via search.
 
 User-agent: *
 Disallow: /invite/
-Disallow: /verify-signup/
+Disallow: /verify-email/
 Disallow: /reset-password/
 
-Sitemap: https://internops-refined-1.onrender.com/sitemap.xml
+Sitemap: https://APP_DOMAIN/sitemap.xml

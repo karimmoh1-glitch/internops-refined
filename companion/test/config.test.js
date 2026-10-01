@@ -4,7 +4,7 @@ const { validateApiUrl } = require("../src/config");
 const api = require("../src/api");
 
 test("validateApiUrl accepts https and loopback http only", () => {
-  assert.deepEqual(validateApiUrl("https://internops-refined-1.onrender.com"), { ok: true, url: "https://internops-refined-1.onrender.com" });
+  assert.deepEqual(validateApiUrl("https://internops.vercel.app"), { ok: true, url: "https://internops.vercel.app" });
   assert.deepEqual(validateApiUrl("https://example.com/api/"), { ok: true, url: "https://example.com/api" });
   assert.equal(validateApiUrl("http://localhost:5001").ok, true);
   assert.equal(validateApiUrl("http://127.0.0.1:5001").ok, true);

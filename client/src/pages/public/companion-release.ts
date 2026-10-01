@@ -1,6 +1,6 @@
 // Current InternOps Companion release. Imported by the download page and
 // by Settings so the version and links never drift apart.
-export const COMPANION_VERSION = "1.4.0";
+export const COMPANION_VERSION = "1.4.1";
 
 const BASE = `https://github.com/karimmoh1-glitch/internops-refined/releases/download/companion-v${COMPANION_VERSION}`;
 

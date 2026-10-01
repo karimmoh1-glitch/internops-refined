@@ -10,6 +10,19 @@ import path from 'path';
 export function metaImagesPlugin(): Plugin {
   return {
     name: 'vite-plugin-meta-images',
+    // robots.txt and sitemap.xml are copied verbatim from client/public;
+    // their APP_DOMAIN placeholder is replaced here, after the copy.
+    closeBundle() {
+      const baseUrl = getDeploymentUrl();
+      if (!baseUrl) return;
+      const host = baseUrl.replace(/^https?:\/\//, '');
+      const outDir = path.resolve(process.cwd(), 'dist', 'public');
+      for (const file of ['robots.txt', 'sitemap.xml']) {
+        const target = path.join(outDir, file);
+        if (!fs.existsSync(target)) continue;
+        fs.writeFileSync(target, fs.readFileSync(target, 'utf-8').replace(/APP_DOMAIN/g, host));
+      }
+    },
     transformIndexHtml(html) {
       const baseUrl = getDeploymentUrl();
       if (!baseUrl) {

@@ -140,7 +140,7 @@ function getBaseUrl(): string {
       warnedMissingAppUrl = true;
       console.error("[CONFIG] APP_URL is not set in production. Set it in the environment — falling back to the known production URL for now.");
     }
-    return "https://internops-refined-1.onrender.com";
+    return "https://internops.vercel.app";
   }
   return "http://localhost:3000";
 }

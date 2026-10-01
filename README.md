@@ -88,46 +88,37 @@ See [`.env.example`](.env.example) for the full list with descriptions. Summary:
 
 ## Deployment
 
-The app is a single Express server that serves both the API and the built frontend (`server/static.ts` in production, Vite middleware in development) — it doesn't require separate frontend/backend hosting, though it works fine split across two services too.
+Production runs on **Vercel** (project `internops`, https://internops.vercel.app) with a **Neon** Postgres database. The Render service that used to host the app is retired.
 
-A straightforward, low-maintenance architecture for a small-to-mid-size deployment:
+How it fits together:
 
-| Concern | Suggested service | Why |
-| --- | --- | --- |
-| App hosting | Railway, Render, or Fly.io | All three run a long-lived Node process (this app needs one — it's not a serverless-function shape), handle HTTPS termination automatically, and support health checks + rollbacks out of the box |
-| Database | Neon or Supabase (managed Postgres) | Managed backups, point-in-time restore, and a connection string that drops straight into `DATABASE_URL` |
-| Email | Resend | Already the integrated provider — just add `RESEND_API_KEY` |
-| Error monitoring | Sentry | Add `@sentry/node` (server) and `@sentry/react` (client) if you want this; not included by default to avoid a dependency nobody asked for yet |
+- `vercel.json` builds the client to `dist/public` (served from the CDN) and bundles the whole Express app into one serverless function at `api/index.js` (`server/vercel.ts`). `/api/*` and `/i/:slug` are rewritten to the function; everything else falls back to `index.html`.
+- The build command is `npm run build && npm run db:migrate`, so pending migrations in `migrations/` are applied to the database on every deploy.
+- Scheduled work (morning digest, alumni auto-transition, abandoned-shift sweep) runs through `/api/cron/*`, called by Vercel Cron with `Authorization: Bearer $CRON_SECRET`. On Vercel's Hobby plan crons are daily, so the shift sweep also runs lazily from the requests that read live session state.
+- Pulse Chat streams over Server-Sent Events; the function's `maxDuration` is 60s.
+- Rate limiting is per function instance (in memory). It still bounds abuse, but counts are not shared across instances.
 
-Vercel is a reasonable alternative for the frontend specifically, but since this app is a single Express server (not separated into a static frontend + serverless API), deploying it on a platform built for long-running Node processes (Railway/Render/Fly) is simpler than adapting it to Vercel's serverless model.
+Environment variables (set in the Vercel project, Production): `DATABASE_URL`, `JWT_SECRET`, `CRON_SECRET`, `APP_URL`, and optionally `OPENAI_API_KEY`, `PULSE_MODEL`, `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_NOTIFICATION_EMAILS`, `MORNING_DIGEST_HOUR_UTC`.
 
 ### Deploying
 
-1. Provision a Postgres database, get its connection string.
-2. Set environment variables on your platform: at minimum `DATABASE_URL`, `JWT_SECRET`, `APP_URL`, `NODE_ENV=production`. Add `RESEND_API_KEY`/`EMAIL_FROM`/`ADMIN_NOTIFICATION_EMAILS` and `OPENAI_API_KEY` for email and AI.
-3. Build (`npm run build`) and start (`npm start`). `npm start` applies any pending migrations from `migrations/` before the server boots, so schema changes ship with the code. Never run `drizzle-kit push` against production.
-5. Point your domain at the platform (see below).
-6. Go to `/signup` and create the first account. `npm run db:seed` refuses to run in production, so this is how you get your first manager: the very first signup on an instance with zero managers is automatically granted the manager role and logged straight in. Every signup after that goes through the normal pending-approval queue, reviewed from the manager dashboard.
+```bash
+npx vercel --prod
+```
+
+The first account that signs up on an empty database becomes the manager; every later signup is a pending request a manager approves.
+
+### Running it anywhere else
+
+The app is still a single long-lived Express server (`npm run build && npm start`): `npm start` applies migrations and boots `dist/index.cjs`, which serves the API and the built client and runs the schedulers in-process. Any host that runs a Node process works.
 
 ### Custom domain
 
-No production domain has been configured — `APP_URL` should be set to whatever you actually control. Once you have one:
-
-1. **DNS**: add the A/CNAME record your hosting platform's dashboard gives you for the domain (each platform's instructions differ slightly; Railway/Render/Fly all provide one directly).
-2. **HTTPS**: Railway/Render/Fly all provision and renew TLS certificates automatically once DNS is pointed at them — no separate step.
-3. **WWW redirect**: decide whether the canonical URL is `https://APP_DOMAIN` or `https://www.APP_DOMAIN`, and set up a redirect from the other. Most platforms support this in their domain settings directly.
-4. **Update `APP_URL`** to the final domain — this feeds every email link and the OG image meta tags.
+Add the domain in the Vercel project settings, point DNS at Vercel, then set `APP_URL` to the final domain — it feeds every email link and the canonical/OpenGraph tags.
 
 ### Email domain (SPF / DKIM / DMARC)
 
-For production email to land in inboxes instead of spam, the sending domain needs to be verified with your email provider:
-
-1. In Resend (or whichever provider you use), add and verify your sending domain.
-2. Add the DNS records Resend gives you — typically a DKIM TXT record and an SPF-contributing entry (Resend documents the exact records at verification time; they vary by provider and aren't safe to guess here).
-3. Add a DMARC TXT record at `_dmarc.APP_DOMAIN`, e.g. `v=DMARC1; p=none; rua=mailto:you@APP_DOMAIN` to start (monitoring-only), tightening to `p=quarantine` or `p=reject` once you've confirmed legitimate mail passes.
-4. Set `EMAIL_FROM` to an address on the verified domain, e.g. `InternOps <noreply@APP_DOMAIN>`.
-
-None of this is configured in this repository — it requires an actual domain and provider account, which only you can provision.
+For production email to land in inboxes instead of spam, verify the sending domain with Resend, add the DKIM/SPF records it gives you plus a DMARC record at `_dmarc.<domain>`, and set `EMAIL_FROM` to an address on that domain. None of this is in the repository — it requires a domain and provider account only you can provision.
 
 ## What's intentionally not included
 
