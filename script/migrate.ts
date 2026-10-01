@@ -21,7 +21,7 @@ async function main() {
       name text PRIMARY KEY,
       applied_at timestamptz NOT NULL DEFAULT now()
     )`);
-    const dir = path.resolve(process.cwd(), "migrations");
+    const dir = process.env.MIGRATIONS_DIR || path.resolve(process.cwd(), "migrations");
     const files = (await readdir(dir)).filter((f) => f.endsWith(".sql")).sort();
     const { rows } = await client.query<{ name: string }>("SELECT name FROM schema_migrations");
     const applied = new Set(rows.map((r) => r.name));

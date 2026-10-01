@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "start": "NODE_ENV=production node dist/index.cjs",
+    "start": "node dist/migrate.cjs && NODE_ENV=production node dist/index.cjs",
     "build": "tsx script/build.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
@@ -12,7 +12,8 @@
     "db:migrate": "tsx script/migrate.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "test:companion": "npm --prefix companion test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

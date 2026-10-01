@@ -173,7 +173,7 @@ export default function TasksPage() {
           {isAdmin && <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" />New task<Kbd className="ml-1 hidden md:inline-flex bg-accent-hover/40 border-accent-hover text-accent-ink/80">N</Kbd></Button>}
         </>}>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div className="overflow-x-auto max-w-full -mx-1 px-1"><Segmented value={view} onChange={(v) => { setView(v); setFocusIdx(-1); }} options={viewOptions} /></div>
+          <div className="overflow-x-auto scroll-thin max-w-full -mx-1 px-1 pb-1"><Segmented value={view} onChange={(v) => { setView(v); setFocusIdx(-1); }} options={viewOptions} /></div>
           <div className="flex-1" />
           {isAdmin && (
             <Select value={assignee} onValueChange={setAssignee}>

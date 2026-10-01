@@ -4,7 +4,8 @@ import { Hash, FolderKanban, ChevronDown, ChevronRight, PenSquare, Plus, Message
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, ErrorState, Skeleton } from "@/components/kit";
-import { type Channel, type ChannelType, channelHref } from "./types";
+import { type Channel, type ChannelType, channelHref, dmDisplayName } from "./types";
+import { useAuth } from "@/lib/auth";
 
 const GROUPS: { key: ChannelType; label: string; hideWhenEmpty: boolean }[] = [
   { key: "general", label: "General", hideWhenEmpty: true },
@@ -107,18 +108,20 @@ function UnreadPill({ n, className }: { n: number; className?: string }) {
 
 function ChannelItem({ channel, active }: { channel: Channel; active: boolean }) {
   const unread = channel.unreadCount > 0;
+  const { user } = useAuth();
+  const displayName = channel.type === "dm" ? dmDisplayName(channel.name, user?.name) : channel.name;
   return (
     <Link href={channelHref(channel.id)} aria-current={active ? "page" : undefined}
       className={cn("group flex h-9 items-center gap-2 rounded-md border px-2 text-[13px] transition-colors md:h-8",
         active ? "border-line bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]" : "border-transparent text-ink-2 hover:bg-surface/70 hover:text-ink")}>
       {channel.type === "dm" ? (
-        <Avatar name={channel.name} size="xs" />
+        <Avatar name={displayName} size="xs" />
       ) : channel.type === "project" ? (
         <FolderKanban className={cn("h-4 w-4 shrink-0", active ? "text-accent" : "text-ink-4 group-hover:text-ink-3")} />
       ) : (
         <Hash className={cn("h-4 w-4 shrink-0", active ? "text-accent" : "text-ink-4 group-hover:text-ink-3")} />
       )}
-      <span className={cn("min-w-0 flex-1 truncate", unread && !active && "font-semibold text-ink")}>{channel.name}</span>
+      <span className={cn("min-w-0 flex-1 truncate", unread && !active && "font-semibold text-ink")}>{displayName}</span>
       {unread && <UnreadPill n={channel.unreadCount} />}
     </Link>
   );

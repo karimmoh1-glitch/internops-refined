@@ -9,28 +9,26 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog, ErrorState, Pill } from "@/components/kit";
 import { Field, Group, LinkBox, Row, RowsSkeleton, SectionHeader, Toggle, Value } from "./primitives";
 
-interface Company { id: string; name: string; slug: string | null; acceptingApplications: boolean }
-interface Dashboard { company: Company | null }
-const DASHBOARD_KEY = ["/api/dashboard"] as const;
+interface Company { id: string; name: string; slug: string | null; acceptingApplications: boolean; githubConnected: boolean }
+const COMPANY_KEY = ["/api/company"] as const;
 
-// The workspace record is only exposed through /api/dashboard (admin). The
-// GitHub token is write-only on the server; we learn "connected" only from
-// the githubConnected flag the accepting-applications PUT returns, or from
-// our own save in this session.
+// The GitHub token is write-only on the server; /api/company only says
+// whether one is set.
 export function WorkspaceSection() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const company = useQuery<Dashboard, Error, Company | null>({ queryKey: DASHBOARD_KEY, select: (d) => d.company, staleTime: 30_000 });
+  const company = useQuery<Company>({ queryKey: COMPANY_KEY, staleTime: 30_000 });
 
-  const [github, setGithub] = useState<boolean | null>(null);
+  const [githubOverride, setGithub] = useState<boolean | null>(null);
+  const github = githubOverride ?? (company.data ? company.data.githubConnected : null);
   const [token, setToken] = useState("");
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   const accepting = useMutation({
     mutationFn: (accepting: boolean) => api<Company & { githubConnected: boolean }>("PUT", "/api/company/accepting-applications", { accepting }),
     onSuccess: (data) => {
-      qc.setQueryData<Dashboard>(DASHBOARD_KEY, (prev) => (prev ? { ...prev, company: { ...(prev.company ?? { id: data.id }), id: data.id, name: data.name, slug: data.slug, acceptingApplications: data.acceptingApplications } } : prev));
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      qc.setQueryData<Company>(COMPANY_KEY, data);
+      qc.invalidateQueries({ queryKey: COMPANY_KEY });
       setGithub(!!data.githubConnected);
       toast({ title: data.acceptingApplications ? "Public applications are open" : "Public applications are closed" });
     },
@@ -41,6 +39,7 @@ export function WorkspaceSection() {
     mutationFn: (githubToken: string) => api<{ message: string }>("PUT", "/api/company/github-token", { githubToken }),
     onSuccess: (data, githubToken) => {
       setGithub(!!githubToken);
+      qc.invalidateQueries({ queryKey: COMPANY_KEY });
       setToken("");
       setConfirmRemove(false);
       toast({ title: data?.message ?? (githubToken ? "GitHub token saved" : "GitHub token removed") });

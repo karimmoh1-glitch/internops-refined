@@ -50,7 +50,7 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
     <div className={cn("inline-flex items-center gap-0.5 rounded-md bg-bg-sunken p-0.5 border border-line", className)} role="tablist">
       {options.map((o) => (
         <button key={o.value} role="tab" aria-selected={value === o.value} onClick={() => onChange(o.value)}
-          className={cn("inline-flex items-center gap-1.5 rounded-[5px] px-2.5 font-medium transition-colors", size === "sm" ? "h-7 text-xs" : "h-8 text-[13px]", value === o.value ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-ink-3 hover:text-ink")}>
+          className={cn("inline-flex items-center gap-1.5 rounded-[5px] px-2.5 font-medium transition-colors whitespace-nowrap", size === "sm" ? "h-7 text-xs" : "h-8 text-[13px]", value === o.value ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-ink-3 hover:text-ink")}>
           {o.label}
           {o.count !== undefined && <span className={cn("t-num text-[10.5px]", value === o.value ? "text-ink-3" : "text-ink-4")}>{o.count}</span>}
         </button>

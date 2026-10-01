@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, ConfirmDialog, EmptyState, ErrorState, Pill, Skeleton } from "@/components/kit";
-import { type Channel, type ChannelMember, type ChannelMessage, type CompanyUser, CHANNELS_KEY, UNREAD_KEY, channelKindLabel, membersKey, messagesKey, roleLabel, usePageVisible } from "./types";
+import { type Channel, type ChannelMember, type ChannelMessage, type CompanyUser, CHANNELS_KEY, UNREAD_KEY, channelKindLabel, membersKey, messagesKey, roleLabel, usePageVisible, dmDisplayName } from "./types";
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const BOTTOM_THRESHOLD_PX = 48;
@@ -145,7 +145,8 @@ export function Conversation({ channel, user, onBack, onDeleted }: {
   }, [list]);
 
   const Icon = channel.type === "project" ? FolderKanban : Hash;
-  const placeholder = channel.type === "dm" ? `Message ${channel.name}` : `Message #${channel.name}`;
+  const displayName = channel.type === "dm" ? dmDisplayName(channel.name, user?.name) : channel.name;
+  const placeholder = channel.type === "dm" ? `Message ${displayName}` : `Message #${displayName}`;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
@@ -154,9 +155,9 @@ export function Conversation({ channel, user, onBack, onDeleted }: {
         {onBack && (
           <Button variant="ghost" size="icon-sm" className="md:hidden" aria-label="Back to conversations" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button>
         )}
-        {channel.type === "dm" ? <Avatar name={channel.name} size="sm" /> : <Icon className="h-4 w-4 shrink-0 text-ink-3" />}
+        {channel.type === "dm" ? <Avatar name={displayName} size="sm" /> : <Icon className="h-4 w-4 shrink-0 text-ink-3" />}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[14px] font-semibold leading-tight text-ink">{channel.name}</h2>
+          <h2 className="truncate text-[14px] font-semibold leading-tight text-ink">{displayName}</h2>
           <p className="hidden truncate text-[11px] leading-tight text-ink-3 sm:block">{channelKindLabel(channel.type)}</p>
         </div>
         <MembersPopover channel={channel} isAdmin={isAdmin} currentUserId={user.id} />
@@ -170,7 +171,7 @@ export function Conversation({ channel, user, onBack, onDeleted }: {
 
       {/* Messages */}
       <div className="relative min-h-0 flex-1">
-        <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto scroll-thin px-1 py-3 md:px-2" role="log" aria-live="polite" aria-label={`Messages in ${channel.name}`}>
+        <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto scroll-thin px-1 py-3 md:px-2" role="log" aria-live="polite" aria-label={`Messages in ${displayName}`}>
           {messages.isLoading ? (
             <MessageSkeleton />
           ) : messages.error ? (
@@ -178,7 +179,7 @@ export function Conversation({ channel, user, onBack, onDeleted }: {
           ) : list.length === 0 ? (
             <EmptyState
               icon={channel.type === "dm" ? <Users /> : <Icon />}
-              title={channel.type === "dm" ? `This is the start of your conversation with ${channel.name}` : `Welcome to #${channel.name}`}
+              title={channel.type === "dm" ? `This is the start of your conversation with ${displayName}` : `Welcome to #${channel.name}`}
               description={channel.type === "general" ? "Everyone in the workspace is here. Say hello, share links, ask questions." : channel.type === "project" ? "Project updates and questions live here. Only people on the project can see it." : channel.type === "dm" ? "Messages here are private to the two of you." : "Only the members of this channel can see what's posted here."}
             />
           ) : (
@@ -213,7 +214,7 @@ export function Conversation({ channel, user, onBack, onDeleted }: {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={channel.type === "dm" ? "Delete this conversation?" : `Delete #${channel.name}?`}
-        description={channel.type === "dm" ? `Every message between you and ${channel.name} is permanently removed for both of you.` : "The channel and every message in it are permanently removed for all members."}
+        description={channel.type === "dm" ? `Every message between you and ${displayName} is permanently removed for both of you.` : "The channel and every message in it are permanently removed for all members."}
         confirmLabel="Delete"
         destructive
         pending={del.isPending}

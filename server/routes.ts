@@ -197,6 +197,11 @@ function escapeHtml(s: string): string {
 // Device identity/trust is entirely the server-generated deviceId below.
 function parseUserAgent(ua: string | undefined): { platform: string; browser: string } {
   const s = ua || "";
+  // The desktop Companion identifies itself as "InternOps-Companion/<ver> (<os>)".
+  if (/InternOps-Companion/i.test(s)) {
+    const os = /mac|darwin/i.test(s) ? "macOS" : /win/i.test(s) ? "Windows" : /linux/i.test(s) ? "Linux" : "Unknown";
+    return { platform: os, browser: "Companion" };
+  }
   let platform = "Unknown";
   if (/iPhone|iPad|iPod/.test(s)) platform = "iOS";
   else if (/Android/.test(s)) platform = "Android";
@@ -640,6 +645,22 @@ export async function registerRoutes(
   // Self-service — any role can opt their own account in/out of having a
   // public profile page. Distinct from the completion badge, which is
   // admin-awarded only.
+  // Self-service display name. Email stays fixed: it's the login identity
+  // and the address invitations/notifications are tied to.
+  app.put("/api/settings/profile", requireAuth, async (req, res) => {
+    try {
+      const name = typeof req.body?.name === "string" ? req.body.name.trim().replace(/\s+/g, " ") : "";
+      if (name.length < 2 || name.length > 80) return res.status(400).json({ message: "Name must be between 2 and 80 characters." });
+      const updated = await storage.updateUserName((req as any).userId, name);
+      if (!updated) return res.status(404).json({ message: "User not found" });
+      await logAudit({ actorUserId: updated.id, companyId: updated.companyId, action: "user.renamed", targetType: "user", targetId: updated.id });
+      res.json({ id: updated.id, name: updated.name, email: updated.email, role: updated.role, companyId: updated.companyId });
+    } catch (error: any) {
+      console.error("Failed to update profile:", error);
+      res.status(500).json({ message: "Couldn't update your profile." });
+    }
+  });
+
   app.put("/api/settings/public-profile", requireAuth, async (req, res) => {
     try {
       const { enabled } = req.body;
@@ -1210,6 +1231,21 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to update application:", error);
       res.status(500).json({ message: "Failed to update application" });
+    }
+  });
+
+  // Lightweight workspace record for Settings — never the GitHub token
+  // itself, only whether one is set.
+  app.get("/api/company", requireAuth, async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const company = companyId ? await storage.getCompanyById(companyId) : undefined;
+      if (!company) return res.status(404).json({ message: "No workspace" });
+      const { githubToken, ...safe } = company;
+      res.json({ ...safe, githubConnected: !!githubToken });
+    } catch (error: any) {
+      console.error("Failed to load company:", error);
+      res.status(500).json({ message: "Couldn't load the workspace." });
     }
   });
 
@@ -3338,6 +3374,16 @@ export async function registerRoutes(
           if (Math.abs(spanSeconds - a.durationSeconds) > 2) return false;
           return startedMs >= windowStart && endedMs <= windowEnd;
         })
+        .map((a: any) => {
+          // Clock skew is tolerated for acceptance, but nothing is ever
+          // RECORDED before the shift started: clip the sample to the
+          // session start so Replay can't show observation ahead of it.
+          const sessionStartMs = new Date(active.startedAt).getTime();
+          const startedMs = Math.max(new Date(a.startedAt).getTime(), sessionStartMs);
+          const endedMs = Math.min(new Date(a.endedAt).getTime(), Date.now());
+          return { ...a, startedAt: new Date(startedMs).toISOString(), endedAt: new Date(endedMs).toISOString(), durationSeconds: Math.round((endedMs - startedMs) / 1000) };
+        })
+        .filter((a: any) => a.durationSeconds > 0)
         .map((a: any) => ({
           sessionId: active.id,
           internId: userId,
@@ -3531,7 +3577,9 @@ export async function registerRoutes(
       // showing — as UNKNOWN, never as "idle" or "away".
       if (segments.length > 0) {
         const GAP_MS = 10 * 60_000;
-        let cursor = new Date(segments[0].startedAt).getTime();
+        // Measured from the shift's start, so time before the first sample
+        // is an honest gap too — the Companion may have been opened late.
+        let cursor = start.getTime();
         for (const seg of segments) {
           const segStart = new Date(seg.startedAt).getTime();
           if (segStart - cursor >= GAP_MS) {

@@ -22,7 +22,7 @@ interface RosterRow {
   hasMetrics: boolean;
 }
 
-const GRID = "md:grid-cols-[minmax(0,1.5fr)_128px_76px_minmax(120px,1fr)_60px_60px_84px_36px]";
+const GRID = "md:grid-cols-[minmax(0,1.5fr)_116px_64px_minmax(90px,1fr)_56px_36px] xl:grid-cols-[minmax(0,1.5fr)_128px_76px_minmax(120px,1fr)_60px_60px_84px_36px]";
 
 export function InternsTab({ onInvite, onAdd }: { onInvite: () => void; onAdd: () => void }) {
   const interns = useQuery<InternRow[]>({ queryKey: ["/api/interns"] });
@@ -171,9 +171,9 @@ export function InternsTab({ onInvite, onAdd }: { onInvite: () => void; onAdd: (
               <div>{status(r)}</div>
               <div>{today(r)}</div>
               <div>{taskCell(r)}</div>
-              <div>{num(r.inReview)}</div>
+              <div className="hidden xl:block">{num(r.inReview)}</div>
               <div>{num(r.signals, "warn")}</div>
-              <div className="text-xs text-ink-3">{r.lastActivity ? <RelativeTime value={r.lastActivity} /> : <span className="text-ink-4" title="Nothing in the recent activity feed">—</span>}</div>
+              <div className="hidden xl:block text-xs text-ink-3">{r.lastActivity ? <RelativeTime value={r.lastActivity} /> : <span className="text-ink-4" title="Nothing in the recent activity feed">—</span>}</div>
               <div className="flex justify-end">{menuFor(r)}</div>
             </div>
             {/* Mobile */}
@@ -224,7 +224,7 @@ export function InternsTab({ onInvite, onAdd }: { onInvite: () => void; onAdd: (
       )}
       {!interns.isLoading && !interns.error && visible.length > 0 && (
         <div className={cn("hidden md:grid gap-3 px-4 py-2 hairline-b t-label", GRID)} aria-hidden>
-          <span>Person</span><span>Status</span><span>Today</span><span>Open tasks</span><span>Review</span><span>Signals</span><span>Last activity</span><span />
+          <span>Person</span><span>Status</span><span>Today</span><span>Open tasks</span><span className="hidden xl:block">Review</span><span>Signals</span><span className="hidden xl:block">Last activity</span><span />
         </div>
       )}
       {body()}

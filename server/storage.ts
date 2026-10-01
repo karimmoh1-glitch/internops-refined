@@ -55,6 +55,7 @@ export interface IStorage {
   getAdminsByCompany(companyId: string): Promise<User[]>;
   anyAdminExists(): Promise<boolean>;
   updateUserPassword(id: string, passwordHash: string): Promise<void>;
+  updateUserName(id: string, name: string): Promise<User | undefined>;
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
   setUserPublicProfile(id: string, enabled: boolean): Promise<User | undefined>;
   setUserCompletionBadge(id: string, awarded: boolean, awardedByUserId: string | null): Promise<User | undefined>;
@@ -340,6 +341,11 @@ export class DatabaseStorage implements IStorage {
     return !!row;
   }
 
+  async updateUserName(id: string, name: string): Promise<User | undefined> {
+    const [updated] = await db.update(users).set({ name }).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
   async updateUserPassword(id: string, passwordHash: string): Promise<void> {
     await db.update(users).set({ passwordHash }).where(eq(users.id, id));
   }
@@ -459,7 +465,9 @@ export class DatabaseStorage implements IStorage {
   async getAlumniByCompany(companyId: string): Promise<(User & { alumniRecord: AlumniRecord })[]> {
     const rows = await db.select({ user: users, alumniRecord: alumniRecords }).from(users)
       .innerJoin(alumniRecords, eq(users.id, alumniRecords.userId))
-      .where(eq(users.companyId, companyId))
+      // A reactivated alumnus keeps their snapshot row but is an active
+      // intern again — only people whose alumniAt is still set are alumni.
+      .where(and(eq(users.companyId, companyId), isNotNull(users.alumniAt)))
       .orderBy(desc(alumniRecords.internshipEndedAt));
     return rows.map((r) => ({ ...r.user, alumniRecord: r.alumniRecord }));
   }

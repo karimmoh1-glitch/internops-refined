@@ -48,9 +48,13 @@ describe("Work Mode sessions and activity boundary", () => {
 
   it("accepts in-window activity, rejects future and pre-shift samples, never trusts client ids", async () => {
     const app = await getApp();
+    // The shift began milliseconds ago in this file; backdate it so a
+    // realistic multi-second sample fits inside it.
+    await pool.query("update work_sessions set started_at = started_at - interval '5 minutes' where id=$1", [sessionId]);
     const now = Date.now();
     const res = await request(app).post("/api/work-sessions/activity").set(auth(ws.internToken)).send({
       activities: [
+        // Starts inside the shift (it began moments ago in this file).
         { application: "Visual Studio Code", documentName: "routes.ts", startedAt: new Date(now - 120000).toISOString(), endedAt: new Date(now - 60000).toISOString(), durationSeconds: 60, sessionId: "spoofed", internId: ws.intern2.id },
         { application: "Google Chrome", browserDomain: "github.com", startedAt: new Date(now + 3600000).toISOString(), endedAt: new Date(now + 3660000).toISOString(), durationSeconds: 60 },
         { application: "Slack", startedAt: new Date(now - 86400000).toISOString(), endedAt: new Date(now - 86400000 + 60000).toISOString(), durationSeconds: 60 },
@@ -65,6 +69,21 @@ describe("Work Mode sessions and activity boundary", () => {
     expect(rows.rows.length).toBe(1);
     expect(rows.rows[0].intern_id).toBe(ws.intern.id);
     expect(rows.rows[0].category).toBe("development");
+  });
+
+  it("clips a sample that straddles the shift start instead of recording time before it", async () => {
+    const app = await getApp();
+    const active = await request(app).get("/api/work-sessions/active").set(auth(ws.internToken));
+    const startMs = new Date(active.body.startedAt).getTime();
+    const res = await request(app).post("/api/work-sessions/activity").set(auth(ws.internToken)).send({
+      activities: [{ application: "Figma", startedAt: new Date(startMs - 90_000).toISOString(), endedAt: new Date(startMs + 30_000).toISOString(), durationSeconds: 120 }],
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.created).toBe(1);
+    const rows = await pool.query("select started_at, duration_seconds from work_activities where session_id=$1 and application='Figma'", [sessionId]);
+    expect(new Date(rows.rows[0].started_at).getTime()).toBeGreaterThanOrEqual(startMs - 1000);
+    expect(rows.rows[0].duration_seconds).toBeLessThanOrEqual(31);
+    await pool.query("delete from work_activities where session_id=$1 and application='Figma'", [sessionId]);
   });
 
   it("rejects malformed payloads", async () => {

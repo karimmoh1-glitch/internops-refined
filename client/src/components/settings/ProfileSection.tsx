@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Award } from "lucide-react";
 import { api } from "@/lib/api";
@@ -7,7 +10,7 @@ import { Avatar, ErrorState } from "@/components/kit";
 import { type Me, ME_KEY, Group, Row, SectionHeader, Toggle, Value, LinkBox, RowsSkeleton } from "./primitives";
 
 export function ProfileSection() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const qc = useQueryClient();
   const { toast } = useToast();
   const me = useQuery<Me>({ queryKey: ME_KEY });
@@ -28,7 +31,7 @@ export function ProfileSection() {
     <div className="space-y-5">
       <SectionHeader title="Profile" description="Who you are in this workspace, and whether anyone outside it can see your work." />
 
-      <Group footer="Name and email are fixed for now — there's no self-service rename yet. A workspace manager can change them for you.">
+      <Group footer="Your email is your sign-in identity and can't be changed here.">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <Avatar name={user.name} size="xl" />
           <div className="min-w-0">
@@ -36,7 +39,7 @@ export function ProfileSection() {
             <p className="truncate text-[12.5px] text-ink-3">{roleLabel}</p>
           </div>
         </div>
-        <Row label="Name" control={<Value>{user.name}</Value>} />
+        <Row label="Name" control={<NameEditor name={user.name} onSaved={() => void refresh()} />} />
         <Row label="Email" control={<Value>{user.email}</Value>} />
         <Row label="Role" description={user.role === "admin" ? "Managers see every intern, project and signal in the workspace." : "Interns see their own tasks, projects and shifts."} control={<Value>{roleLabel}</Value>} />
       </Group>
@@ -69,5 +72,26 @@ export function ProfileSection() {
         )}
       </Group>
     </div>
+  );
+}
+
+
+function NameEditor({ name, onSaved }: { name: string; onSaved: () => void }) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const save = useMutation({
+    mutationFn: () => api("PUT", "/api/settings/profile", { name: value.trim() }),
+    onSuccess: () => { setEditing(false); onSaved(); toast({ title: "Name updated" }); },
+    onError: (err: Error) => toast({ title: "Couldn't update your name", description: err.message, variant: "destructive" }),
+  });
+  if (!editing) return <span className="inline-flex items-center gap-2"><Value>{name}</Value><Button variant="ghost" size="xs" onClick={() => { setValue(name); setEditing(true); }}>Edit</Button></span>;
+  return (
+    <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (value.trim().length >= 2) save.mutate(); }}>
+      <label htmlFor="profile-name" className="sr-only">Name</label>
+      <Input id="profile-name" autoFocus value={value} onChange={(e) => setValue(e.target.value)} maxLength={80} className="h-8 w-48 text-[13px]" />
+      <Button type="submit" size="xs" disabled={save.isPending || value.trim().length < 2}>{save.isPending ? "Saving…" : "Save"}</Button>
+      <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(false)} disabled={save.isPending}>Cancel</Button>
+    </form>
   );
 }

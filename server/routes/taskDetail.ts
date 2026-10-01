@@ -28,6 +28,12 @@ export function registerTaskDetailRoutes(app: Express) {
         storage.getTasksDependingOn(task.id),
         task.dependsOnTaskId ? storage.getTaskById(task.dependsOnTaskId) : Promise.resolve(undefined),
       ]);
+      // Tasks submitted before the append-only submission log existed only
+      // have tasks.submission/submittedAt — surface that as the one entry
+      // rather than showing "no submission" on a task that is in review.
+      if (submissions.length === 0 && task.submission && task.submittedAt) {
+        submissions.push({ id: `legacy-${task.id}`, taskId: task.id, internId: task.assigneeId, companyId: task.companyId, submission: task.submission, submittedAt: task.submittedAt } as any);
+      }
       const segments = buildActivitySegments(activities as any);
       const sessionIds = Array.from(new Set(activities.map((a) => a.sessionId)));
       const sessions = await Promise.all(sessionIds.map((id) => storage.getWorkSessionById(id)));

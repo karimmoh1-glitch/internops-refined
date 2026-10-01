@@ -16,7 +16,10 @@ export function Reveal({ children, className, delay = 0 }: { children: ReactNode
     if (typeof IntersectionObserver === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setShown(true); return; }
     const io = new IntersectionObserver(([entry]) => { if (entry?.isIntersecting) { setShown(true); io.disconnect(); } }, { rootMargin: "0px 0px -6% 0px", threshold: 0 });
     io.observe(el);
-    return () => io.disconnect();
+    // Fail open: if the observer never fires (some embedded browsers,
+    // print, odd scroll containers) the content must still appear.
+    const fallback = window.setTimeout(() => { setShown(true); io.disconnect(); }, 1500);
+    return () => { io.disconnect(); window.clearTimeout(fallback); };
   }, []);
 
   return (

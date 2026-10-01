@@ -71,3 +71,11 @@ export function usePageVisible(): boolean {
   }, []);
   return visible;
 }
+
+// DM channels are stored as "Name A, Name B". Show the other participant.
+export function dmDisplayName(channelName: string, selfName: string | undefined): string {
+  if (!selfName) return channelName;
+  const parts = channelName.split(",").map((p) => p.trim()).filter(Boolean);
+  const others = parts.filter((p) => p !== selfName);
+  return others.length > 0 ? others.join(", ") : channelName;
+}
