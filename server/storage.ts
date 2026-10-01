@@ -1,14 +1,15 @@
-import { eq, desc, and, count, inArray, gt, isNull, sql, or, gte, lte } from "drizzle-orm";
+import { eq, desc, and, count, inArray, gt, isNull, isNotNull, sql, or, gte, lte, ilike, ne } from "drizzle-orm";
 import { db } from "./db";
 import { lt } from "drizzle-orm";
 import crypto from "crypto";
 import { aggregateSkillTags } from "@shared/skills";
 import { hashToken } from "./services/tokenService";
 import {
-  users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, teamMessages, chatMessages,
+  users, companies, invitations, projects, planVersions, comments, weeklyLogs, logComments, notifications, chatMessages,
   channels, channelMembers, channelMessages, userDevices, auditLogs, applications, tasks, performanceNarratives, digestRuns, alumniRecords,
   projectCompletionCriteria, signalDismissals, workSessions, workActivities, workSummaries, taskSubmissions,
-  passwordResetTokens as resetTokensTable, signupTokens as signupTokensTable, emailVerificationTokens as verifyTokensTable,
+  passwordResetTokens as resetTokensTable, emailVerificationTokens as verifyTokensTable,
+  taskComments, assistantMessages,
   type User, type InsertUser,
   type Company, type InsertCompany,
   type Invitation, type InsertInvitation,
@@ -19,16 +20,16 @@ import {
   type WeeklyLog, type InsertWeeklyLog,
   type LogComment, type InsertLogComment,
   type Notification, type InsertNotification,
-  type TeamMessage, type InsertTeamMessage,
   type ChatMessage, type InsertChatMessage,
   type Channel, type InsertChannel,
   type ChannelMember, type InsertChannelMember,
   type ChannelMessage, type InsertChannelMessage,
   type PasswordResetToken, type InsertPasswordResetToken,
-  type SignupToken, type InsertSignupToken,
   type EmailVerificationToken, type InsertEmailVerificationToken,
   type UserDevice, type InsertUserDevice,
   type AuditLog, type InsertAuditLog,
+  type TaskComment, type InsertTaskComment,
+  type AssistantMessage, type InsertAssistantMessage,
   type Task, type InsertTask,
   type PerformanceNarrative, type InsertPerformanceNarrative,
   type DigestRun,
@@ -54,6 +55,7 @@ export interface IStorage {
   getAdminsByCompany(companyId: string): Promise<User[]>;
   anyAdminExists(): Promise<boolean>;
   updateUserPassword(id: string, passwordHash: string): Promise<void>;
+  updateUserName(id: string, name: string): Promise<User | undefined>;
   setUserDeactivated(id: string, deactivated: boolean): Promise<User | undefined>;
   setUserPublicProfile(id: string, enabled: boolean): Promise<User | undefined>;
   setUserCompletionBadge(id: string, awarded: boolean, awardedByUserId: string | null): Promise<User | undefined>;
@@ -122,7 +124,7 @@ export interface IStorage {
   getLogActivityByCompany(companyId: string): Promise<{ week: string; logs: number }[]>;
 
   createNotification(data: InsertNotification): Promise<Notification>;
-  getNotificationsByUser(userId: string): Promise<Notification[]>;
+  getNotificationsByUser(userId: string, limit?: number): Promise<Notification[]>;
   markNotificationRead(id: string, userId: string): Promise<Notification | undefined>;
   markAllNotificationsRead(userId: string): Promise<void>;
   deleteNotification(id: string, userId: string): Promise<boolean>;
@@ -130,8 +132,6 @@ export interface IStorage {
   getUnreadNotificationCount(userId: string): Promise<number>;
 
   // Team Chat
-  getTeamMessages(companyId: string, limit?: number): Promise<(TeamMessage & { userName: string })[]>;
-  createTeamMessage(data: InsertTeamMessage): Promise<TeamMessage>;
 
   // AI Chat History
   getChatMessages(projectId: string, mode: string): Promise<ChatMessage[]>;
@@ -163,9 +163,6 @@ export interface IStorage {
   getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
   consumePasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
 
-  createSignupToken(data: InsertSignupToken): Promise<SignupToken>;
-  getSignupToken(token: string): Promise<SignupToken | undefined>;
-  markSignupTokenUsed(token: string): Promise<void>;
 
   createEmailVerificationToken(data: InsertEmailVerificationToken): Promise<EmailVerificationToken>;
   getEmailVerificationToken(token: string): Promise<EmailVerificationToken | undefined>;
@@ -179,6 +176,29 @@ export interface IStorage {
   touchUserDevice(deviceId: string): Promise<void>;
   renameUserDevice(id: string, userId: string, name: string): Promise<UserDevice | undefined>;
   revokeUserDevice(id: string, userId: string): Promise<UserDevice | undefined>;
+  revokeOtherUserDevices(userId: string, keepDeviceId: string | null): Promise<number>;
+  getTasksByIds(ids: string[]): Promise<Task[]>;
+  createTaskComment(data: InsertTaskComment): Promise<TaskComment>;
+  getTaskComments(taskId: string): Promise<(TaskComment & { authorName: string | null; authorRole: string | null })[]>;
+  getTaskSubmissionsByTask(taskId: string): Promise<TaskSubmission[]>;
+  getWorkActivitiesByTask(taskId: string): Promise<WorkActivity[]>;
+  getRecentTaskSubmissionsByCompany(companyId: string, limit?: number): Promise<TaskSubmission[]>;
+  createAssistantMessage(data: InsertAssistantMessage): Promise<AssistantMessage>;
+  getAssistantMessages(userId: string, limit?: number): Promise<AssistantMessage[]>;
+  clearAssistantMessages(userId: string): Promise<void>;
+  searchTasks(companyId: string, q: string, assigneeId: string | null, limit?: number): Promise<Task[]>;
+  searchProjects(companyId: string, q: string, internId: string | null, limit?: number): Promise<Project[]>;
+  searchUsers(companyId: string, q: string, limit?: number): Promise<User[]>;
+  searchChannelMessages(userId: string, q: string, limit?: number): Promise<(ChannelMessage & { channelName: string; channelType: string; userName: string })[]>;
+  searchApplications(companyId: string, q: string, limit?: number): Promise<Application[]>;
+  searchAlumni(companyId: string, q: string, limit?: number): Promise<User[]>;
+  setCompanyOnboardingDismissed(companyId: string, dismissed: boolean): Promise<void>;
+  endWorkSessionById(sessionId: string, endReason: string, endedByUserId: string | null, endedAt?: Date): Promise<WorkSession | undefined>;
+  getActiveWorkSessionsOlderThan(cutoff: Date): Promise<WorkSession[]>;
+  createWorkActivitiesForActiveSession(sessionId: string, rows: InsertWorkActivity[]): Promise<WorkActivity[] | null>;
+  getLatestWorkActivityForSession(sessionId: string): Promise<WorkActivity | undefined>;
+  getWorkActivitiesBySessions(sessionIds: string[]): Promise<WorkActivity[]>;
+  getLatestWorkActivitiesForSessions(sessionIds: string[]): Promise<Map<string, WorkActivity>>;
 
   // Audit log
   createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
@@ -204,7 +224,7 @@ export interface IStorage {
   getTasksByAssignee(assigneeId: string): Promise<Task[]>;
   getTasksByProjectIds(projectIds: string[]): Promise<Task[]>;
   updateTaskDetails(id: string, data: { title?: string; description?: string | null; assigneeId?: string; projectId?: string | null; priority?: string; dueDate?: Date | null; skillTags?: string[]; dependsOnTaskId?: string | null }): Promise<Task | undefined>;
-  updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null }): Promise<Task | undefined>;
+  updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null; startedAt?: Date | null; assigneeId?: string }, expectedStatuses?: string[]): Promise<Task | undefined>;
   deleteTask(id: string): Promise<void>;
   getTasksDependingOn(taskId: string): Promise<Task[]>;
 
@@ -223,7 +243,7 @@ export interface IStorage {
   // Work sessions ("shifts")
   getActiveWorkSession(internId: string): Promise<WorkSession | undefined>;
   startWorkSession(internId: string, companyId: string): Promise<WorkSession>;
-  endWorkSession(internId: string): Promise<WorkSession | undefined>;
+  endWorkSession(internId: string, endReason?: string, endedByUserId?: string | null, endedAt?: Date): Promise<WorkSession | undefined>;
   getWorkSessionsByIntern(internId: string, limit?: number): Promise<WorkSession[]>;
   getWorkSessionsByInternSince(internId: string, since: Date): Promise<WorkSession[]>;
   getActiveWorkSessionsByCompany(companyId: string): Promise<WorkSession[]>;
@@ -319,6 +339,11 @@ export class DatabaseStorage implements IStorage {
   async anyAdminExists(): Promise<boolean> {
     const [row] = await db.select({ id: users.id }).from(users).where(eq(users.role, "admin")).limit(1);
     return !!row;
+  }
+
+  async updateUserName(id: string, name: string): Promise<User | undefined> {
+    const [updated] = await db.update(users).set({ name }).where(eq(users.id, id)).returning();
+    return updated;
   }
 
   async updateUserPassword(id: string, passwordHash: string): Promise<void> {
@@ -440,7 +465,9 @@ export class DatabaseStorage implements IStorage {
   async getAlumniByCompany(companyId: string): Promise<(User & { alumniRecord: AlumniRecord })[]> {
     const rows = await db.select({ user: users, alumniRecord: alumniRecords }).from(users)
       .innerJoin(alumniRecords, eq(users.id, alumniRecords.userId))
-      .where(eq(users.companyId, companyId))
+      // A reactivated alumnus keeps their snapshot row but is an active
+      // intern again — only people whose alumniAt is still set are alumni.
+      .where(and(eq(users.companyId, companyId), isNotNull(users.alumniAt)))
       .orderBy(desc(alumniRecords.internshipEndedAt));
     return rows.map((r) => ({ ...r.user, alumniRecord: r.alumniRecord }));
   }
@@ -555,43 +582,40 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  // Removes a project and everything that only makes sense inside it, in
+  // one transaction so a failure part-way can never leave a half-deleted
+  // project behind. Observed work evidence (work_activities, work
+  // summaries) is kept with its project reference nulled — it's a record
+  // of real time, independent of the project it was correlated with.
   async deleteProject(id: string): Promise<void> {
-    const versions = await this.getPlanVersionsByProject(id);
-    for (const v of versions) {
-      await db.delete(comments).where(eq(comments.versionId, v.id));
-    }
-    await db.delete(planVersions).where(eq(planVersions.projectId, id));
-    const logs = await db.select({ id: weeklyLogs.id }).from(weeklyLogs).where(eq(weeklyLogs.projectId, id));
-    if (logs.length > 0) {
-      const logIds = logs.map(l => l.id);
-      await db.delete(logComments).where(inArray(logComments.logId, logIds));
-    }
-    await db.delete(weeklyLogs).where(eq(weeklyLogs.projectId, id));
-    await db.delete(chatMessages).where(eq(chatMessages.projectId, id));
-    // The project's dedicated channel (members/messages cascade via the
-    // channel's own FK) — without this, deleting a project left a channel
-    // in the sidebar pointing at a project that no longer exists.
-    await db.delete(channels).where(eq(channels.projectId, id));
+    await db.transaction(async (tx) => {
+      const versions = await tx.select({ id: planVersions.id }).from(planVersions).where(eq(planVersions.projectId, id));
+      if (versions.length > 0) {
+        await tx.delete(comments).where(inArray(comments.versionId, versions.map((v) => v.id)));
+      }
+      await tx.delete(planVersions).where(eq(planVersions.projectId, id));
+      const logs = await tx.select({ id: weeklyLogs.id }).from(weeklyLogs).where(eq(weeklyLogs.projectId, id));
+      if (logs.length > 0) {
+        await tx.delete(logComments).where(inArray(logComments.logId, logs.map((l) => l.id)));
+      }
+      await tx.delete(weeklyLogs).where(eq(weeklyLogs.projectId, id));
+      await tx.delete(chatMessages).where(eq(chatMessages.projectId, id));
+      await tx.delete(channels).where(eq(channels.projectId, id));
 
-    // Tasks reference this project but aren't cascade-deleted at the DB
-    // level. A completion criterion can optionally point at one of this
-    // project's tasks (also no cascade) — null that reference first (the
-    // criteria rows themselves cascade-delete with the project below) so
-    // deleting the tasks doesn't hit a foreign-key violation.
-    const projectTasks = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
-    if (projectTasks.length > 0) {
-      const taskIds = projectTasks.map((t) => t.id);
-      await db.update(projectCompletionCriteria).set({ taskId: null }).where(inArray(projectCompletionCriteria.taskId, taskIds));
-      // Same no-cascade FK situation as deleteTask() above — work_activities
-      // survives with the reference nulled (it's real observed activity,
-      // independent of task correlation); task_submissions rows are deleted
-      // since a submission is inherently about the specific task.
-      await db.update(workActivities).set({ taskId: null }).where(inArray(workActivities.taskId, taskIds));
-      await db.delete(taskSubmissions).where(inArray(taskSubmissions.taskId, taskIds));
-    }
-    await db.delete(tasks).where(eq(tasks.projectId, id));
-
-    await db.delete(projects).where(eq(projects.id, id));
+      const projectTasks = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
+      if (projectTasks.length > 0) {
+        const taskIds = projectTasks.map((t) => t.id);
+        await tx.update(projectCompletionCriteria).set({ taskId: null }).where(inArray(projectCompletionCriteria.taskId, taskIds));
+        await tx.update(tasks).set({ dependsOnTaskId: null }).where(inArray(tasks.dependsOnTaskId, taskIds));
+        await tx.update(workActivities).set({ taskId: null, taskCorrelation: null }).where(inArray(workActivities.taskId, taskIds));
+        await tx.delete(taskSubmissions).where(inArray(taskSubmissions.taskId, taskIds));
+        await tx.delete(taskComments).where(inArray(taskComments.taskId, taskIds));
+        await tx.delete(tasks).where(inArray(tasks.id, taskIds));
+      }
+      await tx.update(workActivities).set({ projectId: null }).where(eq(workActivities.projectId, id));
+      await tx.update(workSummaries).set({ primaryProjectId: null }).where(eq(workSummaries.primaryProjectId, id));
+      await tx.delete(projects).where(eq(projects.id, id));
+    });
   }
 
   // Full, irreversible removal of a user and everything that references
@@ -600,44 +624,88 @@ export class DatabaseStorage implements IStorage {
   // get nulled out instead of deleted, to preserve the surrounding
   // history/data rather than erase it.
   async deleteUserPermanently(id: string): Promise<void> {
-    // email_verification_tokens.userId is a hard FK with no cascade —
-    // deleting a user with an unconsumed (or even already-used) row there
-    // fails outright, same bug class as work_activities/task_submissions
-    // above. password_reset_tokens/invitations/signup_tokens are keyed by
-    // email, not userId, so they can't cause a delete failure, but leaving
-    // them behind is still real orphaned data tied to a now-deleted
-    // account — cleaned up here too, not just the tables that would crash.
-    const [target] = await db.select({ email: users.email }).from(users).where(eq(users.id, id));
-    await db.delete(verifyTokensTable).where(eq(verifyTokensTable.userId, id));
-    if (target?.email) {
-      await db.delete(resetTokensTable).where(eq(resetTokensTable.email, target.email));
-      await db.delete(invitations).where(eq(invitations.email, target.email));
-      await db.delete(signupTokensTable).where(eq(signupTokensTable.email, target.email));
-    }
+    await db.transaction(async (tx) => {
+      const [target] = await tx.select({ email: users.email }).from(users).where(eq(users.id, id));
+      await tx.delete(verifyTokensTable).where(eq(verifyTokensTable.userId, id));
+      if (target?.email) {
+        await tx.delete(resetTokensTable).where(eq(resetTokensTable.email, target.email));
+        await tx.delete(invitations).where(eq(invitations.email, target.email));
+      }
 
-    const ownedProjects = await db.select({ id: projects.id }).from(projects).where(eq(projects.internId, id));
-    for (const p of ownedProjects) {
-      await this.deleteProject(p.id);
-    }
-    // Must run before the tasks delete below — work_activities.taskId and
-    // task_submissions.taskId both reference tasks(id) with no cascade, so
-    // deleting a task first would leave a dangling reference and fail the
-    // FK constraint.
-    await db.delete(workActivities).where(eq(workActivities.internId, id));
-    await db.delete(taskSubmissions).where(eq(taskSubmissions.internId, id));
-    await db.delete(workSummaries).where(eq(workSummaries.internId, id));
-    await db.delete(tasks).where(eq(tasks.assigneeId, id));
-    await db.delete(notifications).where(eq(notifications.userId, id));
-    await db.delete(teamMessages).where(eq(teamMessages.userId, id));
-    await db.delete(chatMessages).where(eq(chatMessages.userId, id));
-    await db.delete(channelMessages).where(eq(channelMessages.userId, id));
-    await db.delete(channelMembers).where(eq(channelMembers.userId, id));
-    await db.delete(alumniRecords).where(eq(alumniRecords.userId, id));
-    await db.delete(workSessions).where(eq(workSessions.internId, id));
-    await db.update(channels).set({ createdById: null }).where(eq(channels.createdById, id));
-    await db.delete(userDevices).where(eq(userDevices.userId, id));
-    await db.update(auditLogs).set({ actorUserId: null }).where(eq(auditLogs.actorUserId, id));
-    await db.delete(users).where(eq(users.id, id));
+      // Projects this person owned, with everything inside them.
+      const ownedProjects = await tx.select({ id: projects.id }).from(projects).where(eq(projects.internId, id));
+      for (const p of ownedProjects) {
+        const versions = await tx.select({ id: planVersions.id }).from(planVersions).where(eq(planVersions.projectId, p.id));
+        if (versions.length > 0) await tx.delete(comments).where(inArray(comments.versionId, versions.map((v) => v.id)));
+        await tx.delete(planVersions).where(eq(planVersions.projectId, p.id));
+        const logs = await tx.select({ id: weeklyLogs.id }).from(weeklyLogs).where(eq(weeklyLogs.projectId, p.id));
+        if (logs.length > 0) await tx.delete(logComments).where(inArray(logComments.logId, logs.map((l) => l.id)));
+        await tx.delete(weeklyLogs).where(eq(weeklyLogs.projectId, p.id));
+        await tx.delete(chatMessages).where(eq(chatMessages.projectId, p.id));
+        await tx.delete(channels).where(eq(channels.projectId, p.id));
+        const projectTasks = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, p.id));
+        if (projectTasks.length > 0) {
+          const taskIds = projectTasks.map((t) => t.id);
+          await tx.update(projectCompletionCriteria).set({ taskId: null }).where(inArray(projectCompletionCriteria.taskId, taskIds));
+          await tx.update(tasks).set({ dependsOnTaskId: null }).where(inArray(tasks.dependsOnTaskId, taskIds));
+          await tx.update(workActivities).set({ taskId: null, taskCorrelation: null }).where(inArray(workActivities.taskId, taskIds));
+          await tx.delete(taskSubmissions).where(inArray(taskSubmissions.taskId, taskIds));
+          await tx.delete(taskComments).where(inArray(taskComments.taskId, taskIds));
+          await tx.delete(tasks).where(inArray(tasks.id, taskIds));
+        }
+        await tx.update(workActivities).set({ projectId: null }).where(eq(workActivities.projectId, p.id));
+        await tx.update(workSummaries).set({ primaryProjectId: null }).where(eq(workSummaries.primaryProjectId, p.id));
+        await tx.delete(projects).where(eq(projects.id, p.id));
+      }
+
+      // Tasks assigned to this person (possibly in other people's projects).
+      const assigned = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.assigneeId, id));
+      if (assigned.length > 0) {
+        const taskIds = assigned.map((t) => t.id);
+        await tx.update(projectCompletionCriteria).set({ taskId: null }).where(inArray(projectCompletionCriteria.taskId, taskIds));
+        await tx.update(tasks).set({ dependsOnTaskId: null }).where(inArray(tasks.dependsOnTaskId, taskIds));
+        await tx.update(workActivities).set({ taskId: null, taskCorrelation: null }).where(inArray(workActivities.taskId, taskIds));
+        await tx.delete(taskSubmissions).where(inArray(taskSubmissions.taskId, taskIds));
+        await tx.delete(taskComments).where(inArray(taskComments.taskId, taskIds));
+        await tx.delete(tasks).where(inArray(tasks.id, taskIds));
+      }
+      // Things this person authored on other people's records are kept,
+      // with the author reference removed.
+      await tx.update(tasks).set({ createdByUserId: null }).where(eq(tasks.createdByUserId, id));
+      await tx.update(comments).set({ managerId: null }).where(eq(comments.managerId, id));
+      await tx.update(logComments).set({ managerId: null }).where(eq(logComments.managerId, id));
+      await tx.update(taskComments).set({ authorUserId: null }).where(eq(taskComments.authorUserId, id));
+      await tx.update(performanceNarratives).set({ generatedByUserId: null }).where(eq(performanceNarratives.generatedByUserId, id));
+      await tx.update(signalDismissals).set({ dismissedByUserId: null }).where(eq(signalDismissals.dismissedByUserId, id));
+      await tx.update(projectCompletionCriteria).set({ completedByUserId: null }).where(eq(projectCompletionCriteria.completedByUserId, id));
+      await tx.update(users).set({ completionBadgeAwardedByUserId: null }).where(eq(users.completionBadgeAwardedByUserId, id));
+      await tx.update(alumniRecords).set({ transitionedByUserId: null }).where(eq(alumniRecords.transitionedByUserId, id));
+      await tx.update(workSessions).set({ endedByUserId: null }).where(eq(workSessions.endedByUserId, id));
+      await tx.update(applications).set({ reviewedByUserId: null }).where(eq(applications.reviewedByUserId, id));
+
+      await tx.delete(performanceNarratives).where(eq(performanceNarratives.userId, id));
+      await tx.delete(digestRuns).where(eq(digestRuns.userId, id));
+      await tx.delete(assistantMessages).where(eq(assistantMessages.userId, id));
+      await tx.delete(workActivities).where(eq(workActivities.internId, id));
+      await tx.delete(taskSubmissions).where(eq(taskSubmissions.internId, id));
+      await tx.delete(workSummaries).where(eq(workSummaries.internId, id));
+      await tx.delete(workSessions).where(eq(workSessions.internId, id));
+      await tx.delete(notifications).where(eq(notifications.userId, id));
+      await tx.delete(chatMessages).where(eq(chatMessages.userId, id));
+      await tx.delete(channelMessages).where(eq(channelMessages.userId, id));
+      // Direct-message channels with this person are removed outright; a
+      // DM with nobody on the other end is meaningless.
+      const dmIds = await tx.select({ id: channels.id }).from(channels)
+        .innerJoin(channelMembers, eq(channelMembers.channelId, channels.id))
+        .where(and(eq(channels.type, "dm"), eq(channelMembers.userId, id)));
+      if (dmIds.length > 0) await tx.delete(channels).where(inArray(channels.id, dmIds.map((c) => c.id)));
+      await tx.delete(channelMembers).where(eq(channelMembers.userId, id));
+      await tx.update(channels).set({ createdById: null }).where(eq(channels.createdById, id));
+      await tx.delete(alumniRecords).where(eq(alumniRecords.userId, id));
+      await tx.delete(userDevices).where(eq(userDevices.userId, id));
+      await tx.update(auditLogs).set({ actorUserId: null }).where(eq(auditLogs.actorUserId, id));
+      await tx.delete(users).where(eq(users.id, id));
+    });
   }
 
   async createPlanVersion(data: InsertPlanVersion): Promise<PlanVersion> {
@@ -750,8 +818,8 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getNotificationsByUser(userId: string): Promise<Notification[]> {
-    return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+  async getNotificationsByUser(userId: string, limit = 100): Promise<Notification[]> {
+    return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(limit);
   }
 
   // Scoped by userId as well as id — without this, any authenticated user
@@ -850,29 +918,6 @@ export class DatabaseStorage implements IStorage {
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-12)
       .map(([week, logs]) => ({ week, logs }));
-  }
-
-  async getTeamMessages(companyId: string, limit: number = 50): Promise<(TeamMessage & { userName: string })[]> {
-    const rows = await db
-      .select({
-        id: teamMessages.id,
-        companyId: teamMessages.companyId,
-        userId: teamMessages.userId,
-        content: teamMessages.content,
-        createdAt: teamMessages.createdAt,
-        userName: users.name,
-      })
-      .from(teamMessages)
-      .innerJoin(users, eq(teamMessages.userId, users.id))
-      .where(eq(teamMessages.companyId, companyId))
-      .orderBy(desc(teamMessages.createdAt))
-      .limit(limit);
-    return rows.reverse();
-  }
-
-  async createTeamMessage(data: InsertTeamMessage): Promise<TeamMessage> {
-    const [created] = await db.insert(teamMessages).values(data).returning();
-    return created;
   }
 
   async getChatMessages(projectId: string, mode: string): Promise<ChatMessage[]> {
@@ -1160,20 +1205,6 @@ export class DatabaseStorage implements IStorage {
     return claimed;
   }
 
-  async createSignupToken(data: InsertSignupToken): Promise<SignupToken> {
-    const [created] = await db.insert(signupTokensTable).values(data).returning();
-    return created;
-  }
-
-  async getSignupToken(token: string): Promise<SignupToken | undefined> {
-    const [found] = await db.select().from(signupTokensTable).where(eq(signupTokensTable.token, token));
-    return found;
-  }
-
-  async markSignupTokenUsed(token: string): Promise<void> {
-    await db.update(signupTokensTable).set({ used: true }).where(eq(signupTokensTable.token, token));
-  }
-
   async createEmailVerificationToken(data: InsertEmailVerificationToken): Promise<EmailVerificationToken> {
     const [created] = await db.insert(verifyTokensTable).values(data).returning();
     return created;
@@ -1224,6 +1255,16 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(userDevices).set({ revokedAt: new Date() })
       .where(and(eq(userDevices.id, id), eq(userDevices.userId, userId))).returning();
     return updated;
+  }
+
+  // Revokes every still-active device for a user except `keepDeviceId`
+  // (pass null to revoke all). Used after a password change/reset so a
+  // leaked token can't outlive the credential it was issued against.
+  async revokeOtherUserDevices(userId: string, keepDeviceId: string | null): Promise<number> {
+    const conditions = [eq(userDevices.userId, userId), isNull(userDevices.revokedAt)];
+    if (keepDeviceId) conditions.push(sql`${userDevices.deviceId} <> ${keepDeviceId}`);
+    const updated = await db.update(userDevices).set({ revokedAt: new Date() }).where(and(...conditions)).returning();
+    return updated.length;
   }
 
   async createAuditLog(data: InsertAuditLog): Promise<AuditLog> {
@@ -1336,7 +1377,11 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(tasks).where(eq(tasks.dependsOnTaskId, taskId));
   }
 
-  async updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null; startedAt?: Date }): Promise<Task | undefined> {
+  // `expectedStatuses` makes the transition compare-and-set: the row only
+  // changes if it's still in one of those states, so two racing "submit"
+  // clicks (or an approve racing a request-changes) can't both succeed.
+  // Returns undefined when the guard fails — callers answer 409.
+  async updateTaskStatus(id: string, status: string, extra?: { submission?: string; submittedAt?: Date | null; feedback?: string | null; blockedReason?: string | null; completedAt?: Date | null; startedAt?: Date | null; assigneeId?: string }, expectedStatuses?: string[]): Promise<Task | undefined> {
     const updateData: any = { status, updatedAt: new Date() };
     if (extra?.submission !== undefined) updateData.submission = extra.submission;
     if (extra?.submittedAt !== undefined) updateData.submittedAt = extra.submittedAt;
@@ -1344,8 +1389,118 @@ export class DatabaseStorage implements IStorage {
     if (extra?.blockedReason !== undefined) updateData.blockedReason = extra.blockedReason;
     if (extra?.completedAt !== undefined) updateData.completedAt = extra.completedAt;
     if (extra?.startedAt !== undefined) updateData.startedAt = extra.startedAt;
-    const [updated] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+    if (extra?.assigneeId !== undefined) updateData.assigneeId = extra.assigneeId;
+    const where = expectedStatuses && expectedStatuses.length > 0
+      ? and(eq(tasks.id, id), inArray(tasks.status, expectedStatuses))
+      : eq(tasks.id, id);
+    const [updated] = await db.update(tasks).set(updateData).where(where).returning();
     return updated;
+  }
+
+  async getTasksByIds(ids: string[]): Promise<Task[]> {
+    if (ids.length === 0) return [];
+    return db.select().from(tasks).where(inArray(tasks.id, ids));
+  }
+
+  // ---- Task comments ----
+  async createTaskComment(data: InsertTaskComment): Promise<TaskComment> {
+    const [created] = await db.insert(taskComments).values(data).returning();
+    return created;
+  }
+
+  async getTaskComments(taskId: string): Promise<(TaskComment & { authorName: string | null; authorRole: string | null })[]> {
+    const rows = await db.select({
+      id: taskComments.id, taskId: taskComments.taskId, companyId: taskComments.companyId,
+      authorUserId: taskComments.authorUserId, content: taskComments.content, createdAt: taskComments.createdAt,
+      authorName: users.name, authorRole: users.role,
+    }).from(taskComments).leftJoin(users, eq(taskComments.authorUserId, users.id))
+      .where(eq(taskComments.taskId, taskId)).orderBy(taskComments.createdAt);
+    return rows;
+  }
+
+  async getTaskSubmissionsByTask(taskId: string): Promise<TaskSubmission[]> {
+    return db.select().from(taskSubmissions).where(eq(taskSubmissions.taskId, taskId)).orderBy(desc(taskSubmissions.submittedAt));
+  }
+
+  async getWorkActivitiesByTask(taskId: string): Promise<WorkActivity[]> {
+    return db.select().from(workActivities).where(eq(workActivities.taskId, taskId)).orderBy(workActivities.startedAt);
+  }
+
+  async getRecentTaskSubmissionsByCompany(companyId: string, limit = 20): Promise<TaskSubmission[]> {
+    return db.select().from(taskSubmissions).where(eq(taskSubmissions.companyId, companyId)).orderBy(desc(taskSubmissions.submittedAt)).limit(limit);
+  }
+
+  // ---- Pulse Chat history ----
+  async createAssistantMessage(data: InsertAssistantMessage): Promise<AssistantMessage> {
+    const [created] = await db.insert(assistantMessages).values(data as any).returning();
+    return created;
+  }
+
+  async getAssistantMessages(userId: string, limit = 60): Promise<AssistantMessage[]> {
+    const rows = await db.select().from(assistantMessages).where(eq(assistantMessages.userId, userId)).orderBy(desc(assistantMessages.createdAt)).limit(limit);
+    return rows.reverse();
+  }
+
+  async clearAssistantMessages(userId: string): Promise<void> {
+    await db.delete(assistantMessages).where(eq(assistantMessages.userId, userId));
+  }
+
+  // ---- Global search ----
+  // Case-insensitive substring match across the entity types a user is
+  // allowed to see. Scoping is done HERE, not by the caller filtering
+  // afterwards, so an intern's query never touches another intern's rows.
+  async searchTasks(companyId: string, q: string, assigneeId: string | null, limit = 8): Promise<Task[]> {
+    const pattern = `%${q}%`;
+    const conds = [eq(tasks.companyId, companyId), or(ilike(tasks.title, pattern), ilike(tasks.description, pattern))!];
+    if (assigneeId) conds.push(eq(tasks.assigneeId, assigneeId));
+    return db.select().from(tasks).where(and(...conds)).orderBy(desc(tasks.updatedAt)).limit(limit);
+  }
+
+  async searchProjects(companyId: string, q: string, internId: string | null, limit = 6): Promise<Project[]> {
+    const pattern = `%${q}%`;
+    const conds = [eq(projects.companyId, companyId), or(ilike(projects.title, pattern), ilike(projects.idea, pattern))!];
+    if (internId) conds.push(eq(projects.internId, internId));
+    return db.select().from(projects).where(and(...conds)).orderBy(desc(projects.createdAt)).limit(limit);
+  }
+
+  async searchUsers(companyId: string, q: string, limit = 6): Promise<User[]> {
+    const pattern = `%${q}%`;
+    return db.select().from(users)
+      .where(and(eq(users.companyId, companyId), ne(users.role, "system"), or(ilike(users.name, pattern), ilike(users.email, pattern))!))
+      .orderBy(users.name).limit(limit);
+  }
+
+  async searchChannelMessages(userId: string, q: string, limit = 6): Promise<(ChannelMessage & { channelName: string; channelType: string; userName: string })[]> {
+    const pattern = `%${q}%`;
+    const rows = await db.select({
+      id: channelMessages.id, channelId: channelMessages.channelId, userId: channelMessages.userId,
+      content: channelMessages.content, createdAt: channelMessages.createdAt,
+      channelName: channels.name, channelType: channels.type, userName: users.name,
+    }).from(channelMessages)
+      .innerJoin(channels, eq(channelMessages.channelId, channels.id))
+      .innerJoin(channelMembers, and(eq(channelMembers.channelId, channels.id), eq(channelMembers.userId, userId)))
+      .innerJoin(users, eq(channelMessages.userId, users.id))
+      .where(ilike(channelMessages.content, pattern))
+      .orderBy(desc(channelMessages.createdAt)).limit(limit);
+    return rows;
+  }
+
+  async searchApplications(companyId: string, q: string, limit = 5): Promise<Application[]> {
+    const pattern = `%${q}%`;
+    return db.select().from(applications)
+      .where(and(eq(applications.companyId, companyId), or(ilike(applications.name, pattern), ilike(applications.email, pattern))!))
+      .orderBy(desc(applications.createdAt)).limit(limit);
+  }
+
+  async searchAlumni(companyId: string, q: string, limit = 5): Promise<User[]> {
+    const pattern = `%${q}%`;
+    return db.select().from(users)
+      .where(and(eq(users.companyId, companyId), isNotNull(users.alumniAt), or(ilike(users.name, pattern), ilike(users.email, pattern))!))
+      .orderBy(users.name).limit(limit);
+  }
+
+  async setCompanyOnboardingDismissed(companyId: string, dismissed: boolean): Promise<void> {
+    await db.update(companies).set({ onboardingDismissedAt: dismissed ? new Date() : null }).where(eq(companies.id, companyId));
   }
 
   async deleteTask(id: string): Promise<void> {
@@ -1359,9 +1514,14 @@ export class DatabaseStorage implements IStorage {
     // inherently about a specific task, so those rows are deleted along
     // with the task they were submitted to, same as deleting a task
     // already discards its own submission/feedback fields.
-    await db.update(workActivities).set({ taskId: null }).where(eq(workActivities.taskId, id));
-    await db.delete(taskSubmissions).where(eq(taskSubmissions.taskId, id));
-    await db.delete(tasks).where(eq(tasks.id, id));
+    await db.transaction(async (tx) => {
+      await tx.update(workActivities).set({ taskId: null, taskCorrelation: null }).where(eq(workActivities.taskId, id));
+      await tx.update(tasks).set({ dependsOnTaskId: null }).where(eq(tasks.dependsOnTaskId, id));
+      await tx.update(projectCompletionCriteria).set({ taskId: null }).where(eq(projectCompletionCriteria.taskId, id));
+      await tx.delete(taskSubmissions).where(eq(taskSubmissions.taskId, id));
+      await tx.delete(taskComments).where(eq(taskComments.taskId, id));
+      await tx.delete(tasks).where(eq(tasks.id, id));
+    });
   }
 
   async createCompletionCriterion(data: { projectId: string; text: string; optional?: boolean; taskId?: string | null; sortOrder?: number }): Promise<ProjectCompletionCriterion> {
@@ -1434,24 +1594,72 @@ export class DatabaseStorage implements IStorage {
   // this pre-check just gives the common (non-race) case a clean, typed
   // error path instead of surfacing a raw constraint-violation.
   async startWorkSession(internId: string, companyId: string): Promise<WorkSession> {
-    const existing = await this.getActiveWorkSession(internId);
-    if (existing) return existing;
+    // No pre-check here on purpose: the route already did one, and a
+    // second one would let a racing request silently "succeed" by
+    // returning the other request's row. The unique index decides.
     const [created] = await db.insert(workSessions)
       .values({ internId, companyId, status: "active" })
       .returning();
     return created;
   }
 
-  async endWorkSession(internId: string): Promise<WorkSession | undefined> {
+  async endWorkSession(internId: string, endReason: string = "manual", endedByUserId: string | null = null, endedAt: Date = new Date()): Promise<WorkSession | undefined> {
     const active = await this.getActiveWorkSession(internId);
     if (!active) return undefined;
-    const endedAt = new Date();
-    const durationSeconds = Math.round((endedAt.getTime() - new Date(active.startedAt).getTime()) / 1000);
-    const [updated] = await db.update(workSessions)
-      .set({ endedAt, durationSeconds, status: "completed" })
-      .where(and(eq(workSessions.id, active.id), eq(workSessions.status, "active")))
-      .returning();
-    return updated;
+    return this.endWorkSessionById(active.id, endReason, endedByUserId, endedAt);
+  }
+
+  // Conditional on status='active' so a double End (or an auto-timeout
+  // racing a manual End) can only ever close the row once. Also waits on
+  // any in-flight activity insert that holds the row lock (see
+  // createWorkActivitiesForActiveSession), so nothing lands after the end.
+  async endWorkSessionById(sessionId: string, endReason: string, endedByUserId: string | null, endedAt: Date = new Date()): Promise<WorkSession | undefined> {
+    return db.transaction(async (tx) => {
+      const [locked] = await tx.select().from(workSessions).where(and(eq(workSessions.id, sessionId), eq(workSessions.status, "active"))).for("update");
+      if (!locked) return undefined;
+      const durationSeconds = Math.max(0, Math.round((endedAt.getTime() - new Date(locked.startedAt).getTime()) / 1000));
+      const [updated] = await tx.update(workSessions)
+        .set({ endedAt, durationSeconds, status: "completed", endReason, endedByUserId })
+        .where(and(eq(workSessions.id, sessionId), eq(workSessions.status, "active")))
+        .returning();
+      return updated;
+    });
+  }
+
+  async getActiveWorkSessionsOlderThan(cutoff: Date): Promise<WorkSession[]> {
+    return db.select().from(workSessions).where(and(eq(workSessions.status, "active"), lt(workSessions.startedAt, cutoff)));
+  }
+
+  // Inserts activity only if the session is STILL active at commit time.
+  // The FOR UPDATE lock on the session row serialises this against
+  // endWorkSessionById: whichever transaction wins, the other sees the
+  // final state — no sample can land on a shift that has already ended.
+  async createWorkActivitiesForActiveSession(sessionId: string, rows: InsertWorkActivity[]): Promise<WorkActivity[] | null> {
+    return db.transaction(async (tx) => {
+      const [locked] = await tx.select({ id: workSessions.id }).from(workSessions)
+        .where(and(eq(workSessions.id, sessionId), eq(workSessions.status, "active"))).for("update");
+      if (!locked) return null;
+      if (rows.length === 0) return [];
+      return tx.insert(workActivities).values(rows).returning();
+    });
+  }
+
+  async getWorkActivitiesBySessions(sessionIds: string[]): Promise<WorkActivity[]> {
+    if (sessionIds.length === 0) return [];
+    return db.select().from(workActivities).where(inArray(workActivities.sessionId, sessionIds)).orderBy(workActivities.startedAt);
+  }
+
+  async getLatestWorkActivityForSession(sessionId: string): Promise<WorkActivity | undefined> {
+    const [row] = await db.select().from(workActivities).where(eq(workActivities.sessionId, sessionId)).orderBy(desc(workActivities.endedAt)).limit(1);
+    return row;
+  }
+
+  async getLatestWorkActivitiesForSessions(sessionIds: string[]): Promise<Map<string, WorkActivity>> {
+    const out = new Map<string, WorkActivity>();
+    if (sessionIds.length === 0) return out;
+    const rows = await db.select().from(workActivities).where(inArray(workActivities.sessionId, sessionIds)).orderBy(desc(workActivities.endedAt));
+    for (const r of rows) if (!out.has(r.sessionId)) out.set(r.sessionId, r);
+    return out;
   }
 
   async getWorkSessionById(id: string): Promise<WorkSession | undefined> {

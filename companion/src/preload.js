@@ -1,19 +1,32 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-// The only surface the renderer (plain HTML/JS, no Node access) gets. No
-// token, no raw network access — every call is proxied through the main
-// process, which is the only place the session token ever lives.
+// The only surface the sandboxed renderer gets. No token, no raw network,
+// no Node — every call is proxied to the main process, which owns all
+// state. Payloads are plain data in both directions.
+const invoke = (channel, payload) => ipcRenderer.invoke(channel, payload);
+
 contextBridge.exposeInMainWorld("internops", {
-  login: (email, password) => ipcRenderer.invoke("login", { email, password }),
-  logout: () => ipcRenderer.invoke("logout"),
-  getStatus: () => ipcRenderer.invoke("get-status"),
-  startWorkMode: () => ipcRenderer.invoke("start-work-mode"),
-  stopWorkMode: () => ipcRenderer.invoke("stop-work-mode"),
-  getSummary: (sessionId) => ipcRenderer.invoke("get-summary", sessionId),
-  updateSummaryNote: (sessionId, note) => ipcRenderer.invoke("update-summary-note", { sessionId, note }),
-  submitSummary: (sessionId) => ipcRenderer.invoke("submit-summary", sessionId),
-  onSessionRestored: (cb) => ipcRenderer.on("session-restored", (_e, data) => cb(data)),
-  onActivityPermissionNeeded: (cb) => ipcRenderer.on("activity-permission-needed", () => cb()),
-  installUpdate: () => ipcRenderer.invoke("install-update"),
-  onUpdateStatus: (cb) => ipcRenderer.on("update-status", (_e, status) => cb(status)),
+  getState: () => invoke("get-state"),
+  login: (email, password) => invoke("login", { email, password }),
+  logout: () => invoke("logout"),
+  acknowledgeExpired: () => invoke("acknowledge-expired"),
+  startWork: () => invoke("start-work"),
+  stopWork: () => invoke("stop-work"),
+  submitReport: (note) => invoke("submit-report", { note }),
+  discardReport: () => invoke("discard-report"),
+  checkPermissions: () => invoke("check-permissions"),
+  openPermissionSettings: (which) => invoke("open-permission-settings", { which }),
+  openWeb: (path) => invoke("open-web", { path }),
+  checkForUpdates: () => invoke("check-updates"),
+  installUpdate: () => invoke("install-update"),
+  onState: (cb) => {
+    const listener = (_e, state) => cb(state);
+    ipcRenderer.on("state", listener);
+    return () => ipcRenderer.removeListener("state", listener);
+  },
+  onNavigate: (cb) => {
+    const listener = (_e, view) => cb(view);
+    ipcRenderer.on("navigate", listener);
+    return () => ipcRenderer.removeListener("navigate", listener);
+  },
 });

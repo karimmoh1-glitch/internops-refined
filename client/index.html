@@ -2,29 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#FAFAF9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0B0B0C" media="(prefers-color-scheme: dark)" />
 
-    <title>InternOps | AI-Powered Intern Management Platform</title>
-    <meta name="description" content="Company admins sign up, invite interns, and track progress with AI-enhanced daily logs and weekly feedback. Manage your intern program smarter." />
-    
-    <meta property="og:title" content="InternOps | AI-Powered Intern Management Platform" />
-    <meta property="og:description" content="Company admins sign up, invite interns, and track progress with AI-enhanced daily logs and weekly feedback." />
+    <title>InternOps — The operating system for intern teams</title>
+    <meta name="description" content="InternOps turns intern management into one clear operating system: tasks, projects, Work Mode, observed activity, Workday Replay, manager signals, and Pulse Chat — all connected." />
+
+    <meta property="og:title" content="InternOps — The operating system for intern teams" />
+    <meta property="og:description" content="Tasks, projects, Work Mode, Workday Replay, signals, and Pulse Chat — one connected operating system for managing interns and early-career teams." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/hero-abstract.png" />
-    
+    <meta property="og:image" content="/opengraph.jpg" />
+
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="InternOps | AI-Powered Intern Management Platform" />
-    <meta name="twitter:description" content="Company admins sign up, invite interns, and track progress with AI-enhanced daily logs and weekly feedback." />
-    <meta name="twitter:image" content="/hero-abstract.png" />
+    <meta name="twitter:title" content="InternOps — The operating system for intern teams" />
+    <meta name="twitter:description" content="Tasks, projects, Work Mode, Workday Replay, signals, and Pulse Chat — one connected operating system for managing interns and early-career teams." />
+    <meta name="twitter:image" content="/opengraph.jpg" />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <!-- Update to the real production domain once one exists. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="canonical" href="https://APP_DOMAIN/" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <script>
+      // Apply the stored theme before first paint to avoid a flash. The
+      // only writer of this key is the Appearance setting.
+      (function () {
+        try {
+          var t = localStorage.getItem("internops_theme");
+          var dark = t === "dark" || (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

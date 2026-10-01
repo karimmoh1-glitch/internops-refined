@@ -37,6 +37,20 @@ async function buildAll() {
   ];
   const externals = allDeps.filter((dep) => !allowlist.includes(dep));
 
+  // The migration runner ships alongside the server so `npm start` can
+  // apply pending migrations before the app boots (see package.json).
+  await esbuild({
+    entryPoints: ["script/migrate.ts"],
+    platform: "node",
+    bundle: true,
+    format: "cjs",
+    outfile: "dist/migrate.cjs",
+    define: { "process.env.NODE_ENV": '"production"' },
+    minify: true,
+    external: externals,
+    logLevel: "info",
+  });
+
   await esbuild({
     entryPoints: ["server/index.ts"],
     platform: "node",

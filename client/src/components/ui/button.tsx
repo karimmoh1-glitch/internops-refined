@@ -5,25 +5,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 select-none",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline:
-          "border border-border bg-transparent text-foreground hover:bg-white/[0.04] hover:border-white/20",
-        secondary:
-          "bg-secondary text-secondary-foreground border border-border hover:bg-secondary/70",
-        ghost: "hover:bg-white/[0.04]",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-accent text-accent-ink hover:bg-accent-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]",
+        destructive: "bg-danger text-white hover:brightness-110",
+        outline: "border border-line-strong bg-surface text-ink hover:bg-surface-2",
+        secondary: "bg-surface-2 text-ink border border-line hover:bg-bg-sunken",
+        ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink",
+        link: "text-accent underline-offset-4 hover:underline h-auto px-0",
+        work: "bg-work text-work-ink hover:brightness-110 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]",
+        pulse: "bg-pulse text-white hover:brightness-110",
       },
       size: {
-        default: "min-h-9 px-4 py-2",
-        sm: "min-h-8 rounded-md px-3 text-xs",
-        lg: "min-h-10 rounded-md px-8",
+        default: "h-9 px-3.5",
+        sm: "h-8 rounded-md px-2.5 text-[13px]",
+        xs: "h-7 rounded-sm px-2 text-xs",
+        lg: "h-11 rounded-lg px-5 text-[15px]",
         icon: "h-9 w-9",
+        "icon-sm": "h-8 w-8",
+        "icon-xs": "h-7 w-7",
       },
     },
     defaultVariants: {

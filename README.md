@@ -1,6 +1,6 @@
 # InternOps
 
-InternOps is an internship-management platform, currently configured as a single fixed workspace ("EDAI"). Public signup and the public application page both create a pending request — a manager reviews and approves or rejects each one before an account exists. Managers assign projects and tasks, interns plan their work with an AI assistant and log progress, and managers review and give feedback — with a full activity/audit trail behind it. Managers can also promote an intern to manager, demote a manager back to intern, and deactivate or permanently delete an intern account, all from the dashboard.
+InternOps is the operating system for intern and early-career teams: tasks with a review lifecycle, projects with reviewed plans, Work Mode sessions, a desktop Companion that observes activity only during a session, Workday Replay, evidence-based Manager Signals, and Pulse Chat that answers questions from the workspace's real data. It runs as a single fixed workspace per deployment ("EDAI"). Public signup and the public application page both create a pending request — a manager reviews and approves or rejects each one before an account exists. Managers assign projects and tasks, interns plan their work with an AI assistant and log progress, and managers review and give feedback — with a full activity/audit trail behind it. Managers can also promote an intern to manager, demote a manager back to intern, and deactivate or permanently delete an intern account, all from the dashboard.
 
 ## Tech Stack
 
@@ -27,9 +27,10 @@ InternOps is an internship-management platform, currently configured as a single
    ```bash
    cp .env.example .env
    ```
-3. Push the database schema:
+3. Create the schema on a fresh local database, then apply migrations:
    ```bash
-   npm run db:push
+   npm run db:push      # local/throwaway databases only
+   npm run db:migrate   # hand-written SQL in migrations/, tracked in schema_migrations
    ```
 4. Start the dev server:
    ```bash
@@ -53,6 +54,8 @@ See [`.env.example`](.env.example) for the full list with descriptions. Summary:
 | `OPENAI_API_KEY` | No | Enables real AI plan generation/chat |
 | `PORT` | No | Server port (default 5000; many local dev setups need to override this — see note below) |
 
+**AI note**: Pulse Chat works without an AI key (deterministic answers from recorded data, labelled as such). With `OPENAI_API_KEY` set it streams model-written answers grounded in the same data; `PULSE_MODEL` overrides the model.
+
 **Local port note**: macOS's built-in AirPlay Receiver often holds port 5000. If `npm run dev` fails with `EADDRINUSE`, set `PORT` to something else (e.g. `3001`) in `.env`.
 
 ### Demo data
@@ -66,15 +69,20 @@ See [`.env.example`](.env.example) for the full list with descriptions. Summary:
 | `npm run dev` | Run the Express server with Vite middleware for local development |
 | `npm run build` | Build the production bundle (`dist/public` for the client, `dist/index.cjs` for the server) |
 | `npm start` | Run the production build |
-| `npm run db:push` | Push the Drizzle schema to the database |
+| `npm run db:migrate` | Apply pending SQL migrations from `migrations/` (also runs automatically on `npm start`) |
+| `npm test` | Integration tests (vitest + supertest) against a database named `internops_test` — never dev or prod |
+| `npm run test:companion` | Companion unit tests |
+| `npm run db:push` | Push the Drizzle schema to a **local throwaway** database. Never run against production — use migrations |
 | `npm run db:studio` | Open Drizzle Studio |
 | `npm run db:seed` | Populate realistic demo data (development only) |
 
 ## Project Structure
 
-- `client/` — React frontend
-- `server/` — Express backend, routes, and services
+- `client/` — React frontend (design system in `client/src/index.css`, shared kit in `client/src/components/kit`, see `docs/DESIGN.md`)
+- `server/` — Express backend (`routes.ts` plus feature modules in `server/routes/`), services, and `server/__tests__`
 - `shared/` — Types and Drizzle schema shared between client and server
+- `migrations/` — Hand-written, idempotent SQL applied by `script/migrate.ts`
+- `companion/` — The Electron desktop Companion
 
 `replit.md` is a historical engineering changelog from this project's original development environment. It predates the current architecture in places and is kept only as a reference, not as current documentation — this README is authoritative.
 
@@ -97,8 +105,7 @@ Vercel is a reasonable alternative for the frontend specifically, but since this
 
 1. Provision a Postgres database, get its connection string.
 2. Set environment variables on your platform: at minimum `DATABASE_URL`, `JWT_SECRET`, `APP_URL`, `NODE_ENV=production`. Add `RESEND_API_KEY`/`EMAIL_FROM`/`ADMIN_NOTIFICATION_EMAILS` and `OPENAI_API_KEY` for email and AI.
-3. Run `npm run db:push` against the production database (or from CI) to create the schema.
-4. Build (`npm run build`) and start (`npm start`). Most platforms do this automatically from `package.json`.
+3. Build (`npm run build`) and start (`npm start`). `npm start` applies any pending migrations from `migrations/` before the server boots, so schema changes ship with the code. Never run `drizzle-kit push` against production.
 5. Point your domain at the platform (see below).
 6. Go to `/signup` and create the first account. `npm run db:seed` refuses to run in production, so this is how you get your first manager: the very first signup on an instance with zero managers is automatically granted the manager role and logged straight in. Every signup after that goes through the normal pending-approval queue, reviewed from the manager dashboard.
 

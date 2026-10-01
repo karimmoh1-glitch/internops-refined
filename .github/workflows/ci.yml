@@ -10,6 +10,23 @@ jobs:
   web:
     name: Web app (typecheck + build)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: internops
+          POSTGRES_PASSWORD: internops
+          POSTGRES_DB: internops_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U internops"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://internops:internops@localhost:5432/internops_test
+      TEST_DATABASE_URL: postgresql://internops:internops@localhost:5432/internops_test
+      JWT_SECRET: ci-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,14 +36,20 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit -p .
+      - name: Create schema (drizzle-kit push is only ever used on throwaway databases) and apply migrations
+        run: |
+          npx drizzle-kit push --force
+          npm run db:migrate
+      - name: Integration tests
+        run: npm test
       - name: Build (with a real-shaped APP_URL, matching how production actually builds)
-        run: npx vite build
+        run: npm run build
         env:
           APP_URL: "https://ci-build-check.internops.invalid"
       - name: Fail on localhost/placeholder domains reaching the build output
         run: |
           if grep -RIl "APP_DOMAIN" dist/public/ 2>/dev/null; then
-            echo "::error::Unreplaced APP_DOMAIN placeholder found in build output — APP_URL was set for this build, so the meta-images plugin should have replaced it"
+            echo "::error::Unreplaced APP_DOMAIN placeholder found in build output"
             exit 1
           fi
           if grep -RIlE "http://localhost" dist/public/ 2>/dev/null; then
@@ -34,9 +57,13 @@ jobs:
             exit 1
           fi
           if ! grep -RIq "ci-build-check.internops.invalid" dist/public/index.html; then
-            echo "::error::Expected the CI-supplied APP_URL to appear in the built canonical tag — the replacement path isn't running at all"
+            echo "::error::Expected the CI-supplied APP_URL to appear in the built canonical tag"
             exit 1
           fi
+      - name: Production bundle boots and migrates
+        run: |
+          node dist/migrate.cjs
+          (NODE_ENV=production PORT=5055 node dist/index.cjs & echo $! > server.pid; sleep 4; curl -fsS http://localhost:5055/api/health; kill $(cat server.pid))
 
   companion:
     name: Companion (tests)
@@ -52,11 +79,6 @@ jobs:
           cache: npm
           cache-dependency-path: companion/package-lock.json
       - run: npm ci
-      - name: Typecheck-adjacent sanity — main.js and updater.js at least parse
-        run: |
-          node --check src/main.js
-          node --check src/updater.js
-          node --check src/activityTracker.js
-          node --check src/workContext.js
-          node --check src/reconcile.js
+      - name: Every main-process module parses
+        run: for f in src/*.js src/renderer/*.js; do node --check "$f"; done
       - run: npm test

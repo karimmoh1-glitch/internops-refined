@@ -1,101 +1,185 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'" />
+  <meta name="color-scheme" content="light dark" />
   <title>InternOps Companion</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body data-platform="unknown">
   <div class="app">
-    <header>
-      <span class="logo">InternOps</span>
-      <span class="sub">Companion</span>
+    <header class="titlebar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="wordmark">InternOps</span>
+        <span class="product">Companion</span>
+      </div>
+      <div class="titlebar-actions">
+        <button id="btn-perms" class="icon-btn" type="button" aria-label="Permissions" title="Permissions">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5 2.5 3.8v3.7c0 3.2 2.3 5.9 5.5 6.9 3.2-1 5.5-3.7 5.5-6.9V3.8L8 1.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="m5.8 8 1.6 1.6L10.4 6.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
     </header>
 
-    <!-- Login -->
-    <section id="view-login" class="view">
-      <h1>Sign in</h1>
-      <p class="muted">Use your InternOps intern account.</p>
-      <input id="login-email" type="email" placeholder="you@company.com" autocomplete="username" />
-      <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" />
-      <button id="login-submit" class="primary">Sign In</button>
-      <p id="login-error" class="error hidden"></p>
-    </section>
+    <main id="views" class="views">
 
-    <!-- Home / status -->
-    <section id="view-home" class="view hidden">
-      <div class="status-row">
-        <span id="status-dot" class="dot off"></span>
-        <span id="status-label">Not Working</span>
-      </div>
-      <div id="tracking-state" class="tracking-state off">Activity tracking is OFF.</div>
-      <div id="timer" class="timer hidden">00:00:00</div>
-      <div id="current-task" class="current-task hidden"></div>
-      <div id="current-context" class="current-context hidden">
-        <span class="label">Currently</span>
-        <span id="context-app" class="context-line"></span>
-        <span id="context-detail" class="context-line muted"></span>
-      </div>
-      <div id="permission-warning" class="permission-warning hidden">
-        Work Mode can't see which app you're using — macOS needs permission.
-        Go to <strong>System Settings → Privacy &amp; Security → Automation</strong>,
-        allow InternOps Companion to control System Events, then restart the app.
-        Your shift is still timed; only the activity breakdown will be empty until this is fixed.
-      </div>
+      <!-- Signed out -->
+      <section id="view-login" class="view" hidden>
+        <h1 class="t-page">Sign in</h1>
+        <p class="t-meta">Use your InternOps intern account. The Companion records nothing until you start Work Mode.</p>
+        <form id="login-form" class="form" novalidate>
+          <label class="field">
+            <span class="t-label">Email</span>
+            <input id="login-email" name="email" type="email" autocomplete="username" inputmode="email" spellcheck="false" required />
+          </label>
+          <label class="field">
+            <span class="t-label">Password</span>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <p id="login-error" class="inline-error" role="alert" hidden></p>
+          <button id="login-submit" class="btn btn-primary" type="submit"><span class="spinner" aria-hidden="true"></span><span class="btn-label">Sign in</span></button>
+        </form>
+        <p class="t-meta footer-note">Interns only. Admins use the web app.</p>
+      </section>
 
-      <button id="btn-start" class="primary">Start Work Session</button>
-      <button id="btn-stop" class="danger hidden">End Shift</button>
-
-      <details class="privacy">
-        <summary>What does Work Mode record?</summary>
-        <div class="privacy-body">
-          <p><strong>Records, only while Work Mode is on:</strong></p>
-          <ul>
-            <li>The application in front, and how long you're on it</li>
-            <li>Window title and file/document name, when the OS allows it</li>
-            <li>The domain (not the full page) of the active browser tab, for supported browsers</li>
-            <li>Whether your keyboard/mouse have been idle — never what you typed or clicked</li>
-            <li>Your current InternOps task/project</li>
-          </ul>
-          <p><strong>Never records, ever:</strong></p>
-          <ul>
-            <li>Passwords, keystrokes, or clipboard content</li>
-            <li>Screenshots or screen recordings</li>
-            <li>Microphone or camera</li>
-            <li>Anything at all before Start or after End Shift</li>
-          </ul>
-          <p class="muted">The window-title and browser-domain signals need extra OS permission (Accessibility / per-app Automation) and simply won't appear if you haven't granted it — the shift itself still tracks fine either way.</p>
+      <!-- Session expired -->
+      <section id="view-expired" class="view" hidden>
+        <div class="state-hero">
+          <span class="dot dot-danger" aria-hidden="true"></span>
+          <h1 class="t-page">Session expired — sign in again</h1>
+          <p id="expired-message" class="t-meta"></p>
+          <p class="t-meta">Nothing is being observed. Your shift, if one was running, is still open on the server until you end it from the web app or sign back in here.</p>
         </div>
-      </details>
+        <button id="btn-expired-signin" class="btn btn-primary" type="button">Sign in again</button>
+      </section>
 
-      <button id="btn-logout" class="link">Sign Out</button>
-
-      <div id="update-banner" class="update-banner hidden">
-        <span id="update-message"></span>
-        <button id="btn-install-update" class="link hidden">Restart to update</button>
-      </div>
-      <p id="app-version" class="version"></p>
-    </section>
-
-    <!-- Shift report review -->
-    <section id="view-report" class="view hidden">
-      <h1>Your Shift Report</h1>
-      <div class="report-card">
-        <div class="report-row"><span class="label">Duration</span><span id="r-duration" class="value"></span></div>
-        <div class="report-row" id="r-project-row"><span class="label">Primary work</span><span id="r-project" class="value"></span></div>
-        <div class="report-block">
-          <span class="label">Activity</span>
-          <ul id="r-activity" class="activity-list"></ul>
+      <!-- Home: Ready / Starting / Working / Ending -->
+      <section id="view-home" class="view" hidden>
+        <div class="status">
+          <div class="status-row">
+            <span id="status-dot" class="dot" aria-hidden="true"></span>
+            <span id="status-label" class="status-label">Ready for Work Mode</span>
+          </div>
+          <p id="status-sub" class="t-meta status-sub">Nothing is observed until you start.</p>
         </div>
-        <div class="report-row"><span class="label">Completed</span><span id="r-completed" class="value"></span></div>
-        <div class="report-row"><span class="label">Submitted</span><span id="r-submitted" class="value"></span></div>
-        <div class="report-row" id="r-next-row"><span class="label">Next</span><span id="r-next" class="value"></span></div>
-      </div>
-      <textarea id="r-note" placeholder="Add a short note or correction (optional)…"></textarea>
-      <button id="btn-submit-report" class="primary">Looks Accurate — Submit Report</button>
-      <p id="report-status" class="muted hidden"></p>
-    </section>
+
+        <div id="timer" class="timer t-num" hidden aria-live="off">00:00:00</div>
+
+        <p id="server-ended" class="notice notice-info" hidden>Your shift was ended from the server — by a manager, the web app, or the maximum shift length.</p>
+        <p id="work-error" class="notice notice-danger" role="alert" hidden></p>
+
+        <div id="pending-chip" class="chip-row" hidden>
+          <span class="t-meta">Shift report not submitted.</span>
+          <button id="btn-open-report" class="btn btn-ghost btn-xs" type="button">Open report</button>
+        </div>
+
+        <div id="task-card" class="card" hidden>
+          <span class="t-label">Current task</span>
+          <span id="task-title" class="card-primary"></span>
+          <span id="task-reason" class="t-meta"></span>
+        </div>
+
+        <div id="observe-card" class="card" hidden>
+          <span class="t-label">Observed now</span>
+          <span id="observe-primary" class="card-primary"></span>
+          <span id="observe-secondary" class="t-meta"></span>
+          <button id="btn-fix-perms" class="btn btn-ghost btn-xs" type="button" hidden>Fix permissions</button>
+        </div>
+
+        <div id="connection" class="conn-row" hidden>
+          <span id="conn-dot" class="dot dot-sm" aria-hidden="true"></span>
+          <span id="conn-label">Connected</span>
+          <span id="conn-queued" class="t-meta"></span>
+        </div>
+
+        <div class="actions">
+          <button id="btn-start" class="btn btn-primary" type="button"><span class="spinner" aria-hidden="true"></span><span class="btn-label">Start Work Mode</span></button>
+          <button id="btn-stop" class="btn btn-outline" type="button" hidden><span class="spinner" aria-hidden="true"></span><span class="btn-label">End Shift</span></button>
+          <p id="quit-note" class="t-meta center" hidden>Quitting the app does not end your shift — only End Shift does.</p>
+        </div>
+
+        <div id="update-banner" class="update" hidden>
+          <span id="update-message"></span>
+          <button id="btn-install-update" class="btn btn-ghost btn-xs" type="button" hidden>Restart to update</button>
+        </div>
+
+        <footer class="home-footer">
+          <button id="btn-open-web" class="link-btn" type="button">Open InternOps</button>
+          <span class="sep" aria-hidden="true">·</span>
+          <button id="btn-logout" class="link-btn" type="button">Sign out</button>
+          <span class="sep" aria-hidden="true">·</span>
+          <span id="app-version" class="t-meta"></span>
+        </footer>
+      </section>
+
+      <!-- Report -->
+      <section id="view-report" class="view" hidden>
+        <h1 class="t-page">Shift report</h1>
+        <p class="t-meta">Built from what was observed. Review it, add a note if something is off, then submit.</p>
+        <div class="card report">
+          <div class="kv"><span class="t-label">Duration</span><span id="r-duration" class="t-num value"></span></div>
+          <div class="kv kv-block">
+            <span class="t-label">Observed activity</span>
+            <ul id="r-activity" class="activity"></ul>
+          </div>
+          <div class="kv"><span class="t-label">Tasks completed</span><span id="r-completed" class="t-num value"></span></div>
+          <div class="kv"><span class="t-label">Tasks submitted</span><span id="r-submitted" class="t-num value"></span></div>
+          <div class="kv" id="r-next-row"><span class="t-label">Next step</span><span id="r-next" class="value"></span></div>
+        </div>
+        <label class="field">
+          <span class="t-label">Note (optional)</span>
+          <textarea id="r-note" rows="3" maxlength="1000" placeholder="A correction or context for your manager"></textarea>
+        </label>
+        <p id="report-error" class="inline-error" role="alert" hidden></p>
+        <button id="btn-submit-report" class="btn btn-primary" type="button"><span class="spinner" aria-hidden="true"></span><span class="btn-label">Submit report</span></button>
+        <div class="row-between">
+          <button id="btn-report-later" class="link-btn" type="button">Later</button>
+          <button id="btn-report-discard" class="link-btn link-danger" type="button">Discard without submitting</button>
+        </div>
+      </section>
+
+      <!-- Permissions -->
+      <section id="view-permissions" class="view" hidden>
+        <h1 class="t-page">Permissions</h1>
+        <p id="perm-intro" class="t-meta"></p>
+        <ul class="perm-list">
+          <li class="perm-row"><div><span class="perm-name">Application in front</span><span id="perm-app-hint" class="t-meta"></span></div><span id="perm-app" class="badge"></span></li>
+          <li class="perm-row"><div><span class="perm-name">Window title</span><span id="perm-title-hint" class="t-meta"></span></div><span id="perm-title" class="badge"></span></li>
+          <li class="perm-row"><div><span class="perm-name">Browser domain</span><span id="perm-browser-hint" class="t-meta"></span></div><span id="perm-browser" class="badge"></span></li>
+        </ul>
+        <div id="perm-mac-actions" class="stack" hidden>
+          <button id="btn-open-accessibility" class="btn btn-outline" type="button">Open Accessibility settings</button>
+          <button id="btn-open-automation" class="btn btn-outline" type="button">Open Automation settings</button>
+        </div>
+        <button id="btn-recheck" class="btn btn-ghost" type="button"><span class="spinner" aria-hidden="true"></span><span class="btn-label">Re-check</span></button>
+        <p class="t-meta">The shift is timed either way; signals that aren't granted are simply left out of the report, never guessed.</p>
+        <button id="btn-perms-back" class="link-btn" type="button">Back</button>
+      </section>
+    </main>
   </div>
+
+  <dialog id="dlg-end" class="dialog">
+    <form method="dialog">
+      <h2 class="t-section">End shift?</h2>
+      <p class="t-meta">Observation stops immediately and the server builds your shift report from what was recorded.</p>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost" value="cancel" type="submit">Cancel</button>
+        <button id="dlg-end-confirm" class="btn btn-primary" value="confirm" type="submit">End shift</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-discard" class="dialog">
+    <form method="dialog">
+      <h2 class="t-section">Discard this report?</h2>
+      <p class="t-meta">The shift stays recorded on the server; you can still review and submit it from the web app.</p>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost" value="cancel" type="submit">Keep</button>
+        <button class="btn btn-danger" value="confirm" type="submit">Discard</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="app.js"></script>
 </body>

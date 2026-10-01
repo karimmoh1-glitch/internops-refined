@@ -1,12 +1,9 @@
-// Proves the hard OFF_WORK / WORK_MODE boundary from the Companion spec:
-// start → collection on, stop → collection off with no delayed restarts,
-// and a sample that was already in flight when stop() was called must not
-// leak state after stop. Uses a mock getContext (no real OS calls) with
-// short intervals so the whole suite runs in well under a second.
+// The sampler's hard OFF/ON boundary, idle bucket splitting, and lock/sleep
+// pausing. Uses a fake clock and drives _sample() directly where timing
+// matters, so the suite is deterministic and fast.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { ActivityTracker } = require("../src/activityTracker");
-const { reconcileTrackingState } = require("../src/reconcile");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,181 +22,221 @@ function makeContext(overrides = {}) {
   };
 }
 
-test("START turns collection ON — samples are taken and a bucket opens", async () => {
-  let calls = 0;
+function makeTracker(opts = {}) {
+  const buckets = [];
+  let clock = 1_000_000;
   const tracker = new ActivityTracker({
-    sampleIntervalMs: 15,
-    flushIntervalMs: 10_000,
+    sampleIntervalMs: 10_000,
     minBucketSeconds: 0,
-    onFlush: async () => {},
-    getContext: async () => { calls++; return makeContext(); },
+    idleThresholdSeconds: 300,
+    maxBucketSeconds: 3600,
+    getContext: async () => makeContext(),
+    onBucket: (row) => buckets.push(row),
+    now: () => clock,
+    ...opts,
   });
+  return { tracker, buckets, advance: (ms) => { clock += ms; }, clock: () => clock };
+}
 
+test("start() turns collection on; stop() turns it off and no sample fires afterwards", async () => {
+  let calls = 0;
+  const buckets = [];
+  const tracker = new ActivityTracker({
+    sampleIntervalMs: 10,
+    minBucketSeconds: 0,
+    getContext: async () => { calls++; return makeContext(); },
+    onBucket: (row) => buckets.push(row),
+  });
   assert.equal(tracker.running, false);
   tracker.start();
   assert.equal(tracker.running, true);
-  await sleep(120);
-
+  await sleep(60);
   assert.ok(calls >= 2, "expected multiple samples while running");
-  assert.ok(tracker.current, "expected an open bucket while an app is in the foreground");
-  tracker.stop();
-});
+  assert.ok(tracker.current, "expected an open bucket");
 
-test("END turns collection OFF — no new samples, no new buckets", async () => {
-  let calls = 0;
-  const tracker = new ActivityTracker({
-    sampleIntervalMs: 15,
-    flushIntervalMs: 10_000,
-    minBucketSeconds: 0,
-    onFlush: async () => {},
-    getContext: async () => { calls++; return makeContext(); },
-  });
-
-  tracker.start();
-  await sleep(40);
   tracker.stop();
   assert.equal(tracker.running, false);
-  assert.equal(tracker.current, null, "stop() must close out any open bucket");
-
+  assert.equal(tracker.current, null, "stop() closes the open bucket");
   const callsAtStop = calls;
-  await sleep(80); // well past several would-be sample intervals
-  assert.equal(calls, callsAtStop, "no sample should ever fire after stop()");
+  await sleep(50);
+  assert.equal(calls, callsAtStop, "no sample fires after stop()");
 });
 
-test("END produces no delayed collector restart via the flush timer", async () => {
-  const flushedBatches = [];
+test("start() is idempotent — a second call does not create a second timer", async () => {
+  let calls = 0;
   const tracker = new ActivityTracker({
-    sampleIntervalMs: 15,
-    flushIntervalMs: 20,
+    sampleIntervalMs: 10,
     minBucketSeconds: 0,
-    onFlush: async (batch) => { flushedBatches.push(batch); },
-    getContext: async () => makeContext(),
+    getContext: async () => { calls++; return makeContext(); },
+    onBucket: () => {},
   });
-
   tracker.start();
-  await sleep(40);
+  const gen = tracker.generation;
+  tracker.start();
+  assert.equal(tracker.generation, gen);
+  await sleep(45);
   tracker.stop();
-  const batchesAtStop = flushedBatches.length;
-
-  await sleep(100); // several flush intervals' worth of time
-  assert.equal(flushedBatches.length, batchesAtStop, "no flush (and so no send) should occur after stop()");
+  assert.ok(calls <= 6, `expected one timer's worth of samples, got ${calls}`);
 });
 
 test("a sample already in flight when stop() is called cannot mutate state afterward", async () => {
-  let releaseSample;
-  const slowContext = new Promise((resolve) => { releaseSample = resolve; });
+  let release;
+  const slow = new Promise((resolve) => { release = resolve; });
+  const buckets = [];
   const tracker = new ActivityTracker({
     sampleIntervalMs: 5,
-    flushIntervalMs: 10_000,
     minBucketSeconds: 0,
-    onFlush: async () => {},
-    // First call hangs until we release it (simulating a slow OS query);
-    // that's the one that will still be "in flight" when stop() runs.
-    getContext: async () => slowContext,
+    getContext: async () => slow,
+    onBucket: (row) => buckets.push(row),
   });
-
   tracker.start();
-  await sleep(20); // give the interval a chance to fire the slow sample at least once
+  await sleep(15);
   tracker.stop();
-  assert.equal(tracker.current, null);
-
-  // Now let the slow OS call finally resolve, *after* stop() already ran.
-  releaseSample(makeContext({ application: "Chrome" }));
-  await sleep(20);
-
-  assert.equal(tracker.current, null, "a late-resolving sample must not open a bucket after stop()");
-  assert.equal(tracker.buckets.length, 0, "a late-resolving sample must not queue a bucket for upload after stop()");
+  release(makeContext({ application: "Chrome" }));
+  await sleep(15);
+  assert.equal(tracker.current, null, "a late sample must not open a bucket after stop()");
+  assert.equal(buckets.length, 0);
 });
 
-test("APP RESTART while OFF_WORK stays OFF (reconcile: no active session, not locally tracking)", () => {
-  assert.equal(reconcileTrackingState(false, false), "none");
-});
-
-test("APP RESTART during WORK_MODE reconnects without violating the boundary (reconcile: active session, not yet locally tracking)", () => {
-  assert.equal(reconcileTrackingState(true, false), "start");
-});
-
-test("a server-invalidated session while still locally tracking triggers a stop", () => {
-  assert.equal(reconcileTrackingState(false, true), "stop");
-});
-
-test("already in sync (tracking with an active session) takes no action", () => {
-  assert.equal(reconcileTrackingState(true, true), "none");
-});
-
-test("flushNow() sends the final open bucket, then stop() sends nothing further", async () => {
-  const flushedBatches = [];
-  const tracker = new ActivityTracker({
-    sampleIntervalMs: 15,
-    flushIntervalMs: 10_000, // long enough that only flushNow() triggers a send in this test
-    minBucketSeconds: 0,
-    onFlush: async (batch) => { flushedBatches.push(batch); },
-    getContext: async () => makeContext(),
-  });
-
-  tracker.start();
-  await sleep(30);
-  await tracker.flushNow();
-  assert.equal(flushedBatches.length, 1);
-  assert.ok(flushedBatches[0].length >= 1);
-
-  tracker.stop();
-  await sleep(50);
-  assert.equal(flushedBatches.length, 1, "stop() itself must never flush");
-});
-
-test("a context change (different document, same app) closes one bucket and opens another", async () => {
-  // Interval-driven timing is inherently racy in a unit test, so this
-  // drives _sample() directly (same method the interval calls) instead of
-  // depending on wall-clock timing to land a specific number of ticks.
-  let currentDocument = "auth.ts";
-  const tracker = new ActivityTracker({
-    sampleIntervalMs: 10_000, // long enough that the real interval never fires during this test
-    flushIntervalMs: 10_000,
-    minBucketSeconds: 0,
-    onFlush: async () => {},
-    getContext: async () => makeContext({ documentName: currentDocument }),
-  });
-
-  tracker.start(); // fires one immediate sample (auth.ts)
-  await sleep(5);
-  await tracker._sample(tracker.generation); // still auth.ts — same bucket, no new entry
-
-  currentDocument = "routes.ts";
-  await tracker._sample(tracker.generation); // context changed — closes auth.ts, opens routes.ts
-
-  assert.equal(tracker.buckets.length, 1);
-  assert.equal(tracker.buckets[0].documentName, "auth.ts");
-  assert.equal(tracker.current.context.documentName, "routes.ts");
-
-  tracker.stop();
-  assert.equal(tracker.buckets.length, 2);
-  assert.equal(tracker.buckets[1].documentName, "routes.ts");
-});
-
-test("breakSegment() closes the open bucket without stopping the tracker (sleep/lock boundary)", async () => {
-  const tracker = new ActivityTracker({
-    sampleIntervalMs: 10_000,
-    flushIntervalMs: 10_000,
-    minBucketSeconds: 0,
-    onFlush: async () => {},
-    getContext: async () => makeContext(),
-  });
-
-  tracker.start();
-  await sleep(5);
-  assert.ok(tracker.current, "expected an open bucket before the break");
-
-  tracker.breakSegment();
-  assert.equal(tracker.buckets.length, 1, "the pre-sleep bucket should be closed out, not discarded");
-  assert.equal(tracker.current, null, "no bucket should span the sleep/lock gap");
-  assert.equal(tracker.running, true, "breakSegment() must not stop the tracker itself — Work Mode is still on");
-
-  // The next sample after waking opens a fresh bucket, not a continuation
-  // of the pre-sleep one — proving the sleep gap can never be silently
-  // absorbed into a bucket's reported duration.
+test("a context change closes one bucket and opens another; durations match the timestamps (±2s server rule)", async () => {
+  let doc = "auth.ts";
+  const { tracker, buckets, advance } = makeTracker({ getContext: async () => makeContext({ documentName: doc }) });
+  tracker.running = true; // drive _sample directly
   await tracker._sample(tracker.generation);
-  assert.ok(tracker.current, "a new bucket should open on the next sample after the break");
-
+  advance(30_000);
+  await tracker._sample(tracker.generation); // same bucket
+  doc = "routes.ts";
+  advance(15_000);
+  await tracker._sample(tracker.generation); // change → close auth.ts (45s)
+  assert.equal(buckets.length, 1);
+  assert.equal(buckets[0].documentName, "auth.ts");
+  assert.equal(buckets[0].durationSeconds, 45);
+  const span = (new Date(buckets[0].endedAt) - new Date(buckets[0].startedAt)) / 1000;
+  assert.ok(Math.abs(span - buckets[0].durationSeconds) <= 2);
+  assert.equal(tracker.current.context.documentName, "routes.ts");
   tracker.stop();
+  assert.equal(buckets.length, 2);
+  assert.equal(buckets[1].documentName, "routes.ts");
+});
+
+test("idle ≥ 300s closes the active bucket; subsequent samples form a separate bucket with the real idle reading and the real app", async () => {
+  let idle = 0;
+  const { tracker, buckets, advance } = makeTracker({ getContext: async () => makeContext({ idleSeconds: idle }) });
+  tracker.running = true;
+  await tracker._sample(tracker.generation); // active, t=0
+  advance(60_000);
+  idle = 120;
+  await tracker._sample(tracker.generation); // still active (<300)
+  advance(60_000);
+  idle = 300;
+  await tracker._sample(tracker.generation); // crosses threshold → split
+  assert.equal(buckets.length, 1, "the active span closes when idle crosses the threshold");
+  assert.equal(buckets[0].durationSeconds, 120);
+  assert.equal(buckets[0].idleSeconds, 120, "the closed active bucket keeps its last (sub-threshold) idle reading");
+  assert.ok(tracker.current.idle, "a new idle-flagged bucket is open");
+  assert.equal(tracker.current.context.application, "VS Code", "no invented 'idle' app — the real one stays");
+
+  advance(300_000);
+  idle = 600;
+  await tracker._sample(tracker.generation); // still idle → same bucket, reading updated
+  assert.equal(buckets.length, 1);
+
+  advance(15_000);
+  idle = 2;
+  await tracker._sample(tracker.generation); // user is back → idle bucket closes
+  assert.equal(buckets.length, 2);
+  assert.equal(buckets[1].application, "VS Code");
+  assert.equal(buckets[1].idleSeconds, 600, "the idle bucket carries its last idle reading");
+  assert.equal(buckets[1].durationSeconds, 315);
+  assert.ok(!tracker.current.idle);
+  tracker.stop();
+});
+
+test("pause() closes the open bucket and makes samples no-ops; resume() opens a fresh bucket (locked time never counted)", async () => {
+  let calls = 0;
+  const { tracker, buckets, advance } = makeTracker({ getContext: async () => { calls++; return makeContext(); } });
+  tracker.start(); // immediate sample
+  await sleep(5);
+  assert.ok(tracker.current);
+  advance(20_000);
+  tracker.pause("locked");
+  assert.equal(buckets.length, 1, "pre-lock span is recorded with what was observed");
+  assert.equal(buckets[0].durationSeconds, 20);
+  assert.equal(tracker.current, null);
+  assert.equal(tracker.running, true, "pausing is not stopping — Work Mode stays on");
+
+  const callsAtPause = calls;
+  advance(3_600_000); // an hour locked
+  await tracker._sample(tracker.generation);
+  assert.equal(calls, callsAtPause, "no OS query while paused");
+  assert.equal(tracker.current, null, "nothing opened while paused");
+
+  tracker.resume();
+  await sleep(5);
+  assert.ok(tracker.current, "a fresh bucket opens on resume");
+  assert.equal(tracker.current.startedAt, 1_000_000 + 20_000 + 3_600_000, "the new bucket starts now, not before the lock");
+  tracker.stop();
+  assert.equal(buckets.length, 2);
+  assert.equal(buckets[1].durationSeconds, 0);
+});
+
+test("a sample that resolves after pause() is discarded", async () => {
+  let release;
+  const { tracker, buckets } = makeTracker({ getContext: () => new Promise((r) => { release = r; }) });
+  tracker.start();
+  await sleep(5);
+  tracker.pause("sleep");
+  release(makeContext());
+  await sleep(5);
+  assert.equal(tracker.current, null);
+  assert.equal(buckets.length, 0);
+  tracker.stop();
+});
+
+test("a failed observation closes the open bucket rather than extending it on a guess, and warns after 3 failures", async () => {
+  let ok = true;
+  let warned = 0;
+  const samples = [];
+  const { tracker, buckets, advance } = makeTracker({
+    getContext: async () => (ok ? makeContext() : { application: null, idleSeconds: 0 }),
+    onPermissionIssue: () => { warned++; },
+    onSample: (ctx) => samples.push(ctx),
+  });
+  tracker.running = true;
+  await tracker._sample(tracker.generation);
+  advance(10_000);
+  ok = false;
+  await tracker._sample(tracker.generation);
+  assert.equal(buckets.length, 1);
+  assert.equal(buckets[0].durationSeconds, 10);
+  await tracker._sample(tracker.generation);
+  await tracker._sample(tracker.generation);
+  assert.equal(warned, 1);
+  assert.equal(samples.filter((s) => s === null).length, 3);
+  ok = true;
+  await tracker._sample(tracker.generation);
+  assert.equal(tracker.consecutiveFailures, 0);
+  assert.equal(tracker.warned, false, "a successful sample re-arms the warning");
+  tracker.stop();
+});
+
+test("a bucket longer than maxBucketSeconds is split so no row approaches the server's 6h cap", async () => {
+  const { tracker, buckets, advance } = makeTracker({ maxBucketSeconds: 3600 });
+  tracker.running = true;
+  await tracker._sample(tracker.generation);
+  advance(3_600_000);
+  await tracker._sample(tracker.generation);
+  assert.equal(buckets.length, 1);
+  assert.equal(buckets[0].durationSeconds, 3600);
+  assert.ok(tracker.current);
+  tracker.stop();
+});
+
+test("buckets shorter than minBucketSeconds are dropped as blips", async () => {
+  const { tracker, buckets, advance } = makeTracker({ minBucketSeconds: 5 });
+  tracker.running = true;
+  await tracker._sample(tracker.generation);
+  advance(2_000);
+  tracker.stop();
+  assert.equal(buckets.length, 0);
 });
