@@ -28,19 +28,23 @@ export function summarizeSessions(sessions: WorkSession[], now: Date = new Date(
   };
 }
 
-export function startOfToday(now: Date = new Date()): Date {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  return d;
+// Calendar boundaries in the CLIENT's timezone. tzOffsetMinutes is the
+// browser's Date.getTimezoneOffset() (minutes to add to local time to reach
+// UTC). The server runs in UTC, so without this "today" could start up to
+// 14 hours away from what the person looking at the screen calls today.
+export function startOfToday(now: Date = new Date(), tzOffsetMinutes = 0): Date {
+  const shifted = new Date(now.getTime() - tzOffsetMinutes * 60_000);
+  const localMidnightUtc = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+  return new Date(localMidnightUtc + tzOffsetMinutes * 60_000);
 }
 
-// Monday-start week.
-export function startOfWeek(now: Date = new Date()): Date {
-  const d = startOfToday(now);
-  const day = d.getDay();
+// Monday-start week, in the client's timezone.
+export function startOfWeek(now: Date = new Date(), tzOffsetMinutes = 0): Date {
+  const today = startOfToday(now, tzOffsetMinutes);
+  const shifted = new Date(today.getTime() - tzOffsetMinutes * 60_000);
+  const day = shifted.getUTCDay();
   const diff = day === 0 ? 6 : day - 1;
-  d.setDate(d.getDate() - diff);
-  return d;
+  return new Date(today.getTime() - diff * 24 * 60 * 60_000);
 }
 
 // Tasks whose given timestamp field falls inside [start, end] — used both

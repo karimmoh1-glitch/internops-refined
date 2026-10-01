@@ -3,22 +3,16 @@ import { index, uniqueIndex, jsonb, pgTable, text, timestamp, varchar, boolean, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)]
-);
-
 export const companies = pgTable("companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   slug: varchar("slug").unique(),
   acceptingApplications: boolean("accepting_applications").notNull().default(false),
   githubToken: varchar("github_token"),
+  // Set when an admin dismisses the first-run setup checklist. Null means
+  // the checklist is still shown (it also auto-hides once every step is
+  // genuinely complete — see /api/onboarding).
+  onboardingDismissedAt: timestamp("onboarding_dismissed_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -129,12 +123,16 @@ export const planVersions = pgTable("plan_versions", {
   contentJson: jsonb("content_json").$type<Record<string, unknown>>().notNull(),
   status: varchar("status").notNull().default("draft"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // Version numbers are computed as max+1 at write time; this is what makes
+  // two concurrent generate calls unable to both claim the same number.
+  uniqueIndex("idx_plan_versions_project_version").on(table.projectId, table.versionNumber),
+]);
 
 export const comments = pgTable("comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   versionId: varchar("version_id").notNull().references(() => planVersions.id),
-  managerId: varchar("manager_id").notNull().references(() => users.id),
+  managerId: varchar("manager_id").references(() => users.id),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -153,7 +151,7 @@ export const weeklyLogs = pgTable("weekly_logs", {
 export const logComments = pgTable("log_comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   logId: varchar("log_id").notNull().references(() => weeklyLogs.id),
-  managerId: varchar("manager_id").notNull().references(() => users.id),
+  managerId: varchar("manager_id").references(() => users.id),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -191,26 +189,6 @@ export const emailVerificationTokens = pgTable("email_verification_tokens", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const signupTokens = pgTable("signup_tokens", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").notNull(),
-  companyName: text("company_name").notNull(),
-  managerName: text("manager_name").notNull(),
-  passwordHash: varchar("password_hash").notNull(),
-  token: varchar("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  used: boolean("used").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const teamMessages = pgTable("team_messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  companyId: varchar("company_id").notNull().references(() => companies.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
 export const chatMessages = pgTable("chat_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
@@ -231,6 +209,9 @@ export const channels = pgTable("channels", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_channels_company_type").on(table.companyId, table.type),
+  // Exactly one #general per company — ensureGeneralChannel is a
+  // check-then-insert that two first page loads could otherwise race.
+  uniqueIndex("idx_channels_one_general_per_company").on(table.companyId).where(sql`type = 'general'`),
 ]);
 
 export const channelMembers = pgTable("channel_members", {
@@ -280,7 +261,7 @@ export const tasks = pgTable("tasks", {
   title: text("title").notNull(),
   description: text("description"),
   assigneeId: varchar("assignee_id").notNull().references(() => users.id),
-  createdByUserId: varchar("created_by_user_id").notNull().references(() => users.id),
+  createdByUserId: varchar("created_by_user_id").references(() => users.id),
   projectId: varchar("project_id").references(() => projects.id),
   priority: varchar("priority").notNull().default("medium"), // low | medium | high
   status: varchar("status").notNull().default("todo"), // todo | in_progress | in_review | completed | blocked
@@ -347,6 +328,14 @@ export const workSessions = pgTable("work_sessions", {
   // completed session's duration is a fixed historical fact.
   durationSeconds: integer("duration_seconds"),
   status: varchar("status").notNull().default("active"), // active | completed
+  // How the session ended. "manual" = the intern pressed End (web or
+  // Companion); "auto_timeout" = the server closed a shift nobody ended
+  // after MAX_SHIFT_HOURS; "admin" = a manager ended it; "account" = the
+  // account was deactivated/promoted/transitioned while a shift was open.
+  // Null while active. Surfaced in Workday Replay so a reader never
+  // mistakes a server-closed shift for a deliberate one.
+  endReason: varchar("end_reason"),
+  endedByUserId: varchar("ended_by_user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_work_sessions_intern_started").on(table.internId, table.startedAt),
@@ -424,6 +413,38 @@ export const workSummaries = pgTable("work_summaries", {
   index("idx_work_summaries_intern_generated").on(table.internId, table.generatedAt),
 ]);
 
+// Threaded discussion on a task — the place a manager asks "which API did
+// you mean?" and the intern answers, without either of them leaving the
+// task. Distinct from `submissions` (formal hand-ins) and `feedback` (the
+// manager's decision text on a review).
+export const taskComments = pgTable("task_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  authorUserId: varchar("author_user_id").references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_task_comments_task_created").on(table.taskId, table.createdAt),
+]);
+
+// Pulse Chat history — one row per turn, per user. `references` stores the
+// InternOps objects an assistant reply pointed at (tasks, people,
+// projects, sessions) so the client can render them as links again on
+// reload without re-deriving them.
+export const assistantMessages = pgTable("assistant_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  companyId: varchar("company_id").notNull().references(() => companies.id),
+  role: varchar("role").notNull(), // user | assistant
+  content: text("content").notNull(),
+  aiGenerated: boolean("ai_generated").notNull().default(false),
+  references: jsonb("references").$type<{ type: string; id: string; label: string }[]>().notNull().default(sql`'[]'::jsonb`),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_assistant_messages_user_created").on(table.userId, table.createdAt),
+]);
+
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   actorUserId: varchar("actor_user_id").references(() => users.id),
@@ -446,7 +467,7 @@ export const performanceNarratives = pgTable("performance_narratives", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   companyId: varchar("company_id").notNull().references(() => companies.id),
-  generatedByUserId: varchar("generated_by_user_id").notNull().references(() => users.id),
+  generatedByUserId: varchar("generated_by_user_id").references(() => users.id),
   content: text("content").notNull(),
   aiGenerated: boolean("ai_generated").notNull().default(true),
   taskSnapshotCount: integer("task_snapshot_count").notNull().default(0),
@@ -523,7 +544,7 @@ export const signalDismissals = pgTable("signal_dismissals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyId: varchar("company_id").notNull().references(() => companies.id),
   signalKey: varchar("signal_key").notNull(),
-  dismissedByUserId: varchar("dismissed_by_user_id").notNull().references(() => users.id),
+  dismissedByUserId: varchar("dismissed_by_user_id").references(() => users.id),
   snoozedUntil: timestamp("snoozed_until"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
@@ -542,14 +563,14 @@ export const insertLogCommentSchema = createInsertSchema(logComments).omit({ id:
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true, createdAt: true });
 export const insertEmailVerificationTokenSchema = createInsertSchema(emailVerificationTokens).omit({ id: true, createdAt: true });
-export const insertSignupTokenSchema = createInsertSchema(signupTokens).omit({ id: true, createdAt: true });
-export const insertTeamMessageSchema = createInsertSchema(teamMessages).omit({ id: true, createdAt: true });
 export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
 export const insertChannelSchema = createInsertSchema(channels).omit({ id: true, createdAt: true });
 export const insertChannelMemberSchema = createInsertSchema(channelMembers).omit({ id: true, joinedAt: true });
 export const insertChannelMessageSchema = createInsertSchema(channelMessages).omit({ id: true, createdAt: true });
 export const insertUserDeviceSchema = createInsertSchema(userDevices).omit({ id: true, firstSeenAt: true, lastSeenAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({ id: true, createdAt: true });
+export const insertAssistantMessageSchema = createInsertSchema(assistantMessages, { references: z.array(z.object({ type: z.string(), id: z.string(), label: z.string() })) }).omit({ id: true, createdAt: true });
 export const insertTaskSchema = createInsertSchema(tasks, { skillTags: z.array(z.string()) }).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkSessionSchema = createInsertSchema(workSessions).omit({ id: true, createdAt: true });
 export const insertWorkActivitySchema = createInsertSchema(workActivities).omit({ id: true, createdAt: true });
@@ -585,10 +606,6 @@ export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
 export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect;
 export type InsertEmailVerificationToken = z.infer<typeof insertEmailVerificationTokenSchema>;
-export type SignupToken = typeof signupTokens.$inferSelect;
-export type InsertSignupToken = z.infer<typeof insertSignupTokenSchema>;
-export type TeamMessage = typeof teamMessages.$inferSelect;
-export type InsertTeamMessage = z.infer<typeof insertTeamMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type Channel = typeof channels.$inferSelect;
@@ -599,6 +616,10 @@ export type ChannelMessage = typeof channelMessages.$inferSelect;
 export type InsertChannelMessage = z.infer<typeof insertChannelMessageSchema>;
 export type UserDevice = typeof userDevices.$inferSelect;
 export type InsertUserDevice = z.infer<typeof insertUserDeviceSchema>;
+export type TaskComment = typeof taskComments.$inferSelect;
+export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
+export type AssistantMessage = typeof assistantMessages.$inferSelect;
+export type InsertAssistantMessage = z.infer<typeof insertAssistantMessageSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type Task = typeof tasks.$inferSelect;

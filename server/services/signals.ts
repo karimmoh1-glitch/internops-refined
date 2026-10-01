@@ -169,13 +169,21 @@ export function computeSignals(
   for (const intern of interns) {
     const internTasks = tasks.filter((t) => t.assigneeId === intern.id && t.status !== "completed");
     if (internTasks.length === 0) continue;
+    // "Nothing has moved" means NO open task of theirs has changed —
+    // anchor on the most recently touched open task, so finishing one
+    // thing yesterday correctly keeps the whole intern out of this signal.
+    const freshest = internTasks.reduce<Task | null>((latest, t) => {
+      const ts = t.updatedAt ? new Date(t.updatedAt).getTime() : 0;
+      const latestTs = latest?.updatedAt ? new Date(latest.updatedAt).getTime() : -1;
+      return ts > latestTs ? t : latest;
+    }, null);
     const stalest = internTasks.reduce<Task | null>((oldest, t) => {
       const ts = t.updatedAt ? new Date(t.updatedAt).getTime() : 0;
       const oldestTs = oldest?.updatedAt ? new Date(oldest.updatedAt).getTime() : Infinity;
       return ts < oldestTs ? t : oldest;
     }, null);
-    if (!stalest?.updatedAt) continue;
-    const days = businessDaysSince(new Date(stalest.updatedAt), now);
+    if (!stalest?.updatedAt || !freshest?.updatedAt) continue;
+    const days = businessDaysSince(new Date(freshest.updatedAt), now);
     if (days >= 5) {
       signals.push({
         key: `stalled:${intern.id}`,
@@ -315,8 +323,8 @@ export function computeWorktimeSignals(
         severity: days >= 5 ? "high" : "medium",
         headline: "No recent activity",
         description: lastSession
-          ? `${intern.name} has open tasks but hasn't started a shift in ${days} day${days === 1 ? "" : "s"}.`
-          : `${intern.name} has open tasks but has never started a shift.`,
+          ? `${intern.name} has open tasks but hasn't started a Work Mode session in ${days} day${days === 1 ? "" : "s"}.`
+          : `${intern.name} has open tasks but no Work Mode session in the last 14 days.`,
         internId: intern.id,
         internName: intern.name,
         actions: [{ label: `Message ${intern.name}`, kind: "message", userId: intern.id }],

@@ -3,12 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generatePlan, aiChat, summarizeLog, modifyPlan, orgAssistantChat, internAssistantChat, generatePerformanceNarrative, type OrgDigest, type PerformanceDigest, type InternDigest } from "./services/aiService";
 import { normalizeSkillTag, aggregateSkillTags } from "@shared/skills";
-import { computeRiskFlags } from "./services/riskRadar";
 import { computeSignals, computeWorktimeSignals } from "./services/signals";
 import { computeNextBestAction } from "./services/nextBestAction";
 import { summarizeSessions, startOfToday, startOfWeek, tasksInWindow } from "./services/worktime";
 import { categorizeApplication, summarizeActivityByCategory, categoryLabel, buildActivitySegments, interpretSegment } from "./services/workJournal";
 import { runMorningDigestForCompany } from "./services/morningDigest";
+import { finalizeWorkSession, endShiftForAccountChange, MAX_SHIFT_HOURS } from "./services/workSessions";
 import {
   sendInternInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
@@ -21,18 +21,9 @@ import { generateSecureToken } from "./services/tokenService";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import multer, { type StorageEngine } from "multer";
 import path from "path";
 import fs from "fs";
 import rateLimit from "express-rate-limit";
-
-declare global {
-  namespace Express {
-    interface Request {
-      file?: Express.Multer.File;
-    }
-  }
-}
 
 if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
   throw new Error(
@@ -91,7 +82,22 @@ const activityIngestionLimiter = rateLimit({
   limit: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  // Per user, not per IP — twenty interns in one office share an address.
+  keyGenerator: (req) => (req as any).userId || req.ip || "anonymous",
+  validate: false,
   message: { message: "Too many activity submissions. Please try again later." },
+});
+// AI endpoints are the most expensive thing a signed-in user can call.
+// Keyed per user (not per IP) so a whole office behind one NAT isn't
+// throttled together, and generous enough that real use never notices.
+export const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as any).userId || req.ip || "anonymous",
+  validate: false,
+  message: { message: "You're sending requests too quickly. Please wait a moment and try again." },
 });
 // InternOps runs as a single fixed workspace for EDAI — nobody creates or
 // names a company at signup. Every manager who signs up joins this same
@@ -115,26 +121,6 @@ async function getOrCreateEdaiCompany() {
 
   return storage.createCompany({ name: EDAI_COMPANY_NAME, slug: EDAI_COMPANY_SLUG });
 }
-
-const UPLOAD_DIR = path.join(process.cwd(), "uploads");
-
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-
-const diskStorage: StorageEngine = multer.diskStorage({
-  destination: (_req: any, _file: any, cb: any) => cb(null, UPLOAD_DIR),
-  filename: (_req: any, file: any, cb: any) => {
-    const uniqueName = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  },
-});
-
-const upload = multer({
-  storage: diskStorage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-});
 
 function signToken(userId: string, role: string, companyId: string | null, deviceId: string): string {
   return jwt.sign({ userId, role, companyId, deviceId }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
@@ -195,6 +181,14 @@ async function generateUniqueCompanySlug(name: string): Promise<string> {
   return slug;
 }
 
+// drizzle-orm ≥0.44 wraps driver errors in a DrizzleQueryError whose
+// `cause` is the original pg error, so the Postgres SQLSTATE lives one
+// level down. Checking both keeps this correct across driver versions.
+export function isUniqueViolation(error: unknown): boolean {
+  const e = error as { code?: string; cause?: { code?: string } } | null;
+  return e?.code === "23505" || e?.cause?.code === "23505";
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -238,7 +232,7 @@ async function createDeviceForLogin(userId: string, req: Request): Promise<strin
   return deviceId;
 }
 
-async function logAudit(params: {
+export async function logAudit(params: {
   actorUserId: string | null;
   companyId: string | null;
   action: string;
@@ -261,7 +255,7 @@ async function logAudit(params: {
   }
 }
 
-async function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Authentication required" });
@@ -305,7 +299,58 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-function requireRole(...roles: string[]) {
+// Which project statuses an intern may (re)generate, modify, or reset a
+// plan in. A proposal still awaiting a manager's decision, or one that was
+// rejected, must not be able to sneak back into the normal planning flow
+// by way of the plan endpoints — that was a real state-machine bypass.
+const PLAN_EDITABLE_PROJECT_STATUSES = new Set(["assigned", "planning", "active", "approved"]);
+
+// Loads a project only if the caller may see it: the assigned intern, or
+// an admin of the same company. Returns null otherwise so every call site
+// answers a uniform 404 and never reveals whether the id exists.
+export async function loadProjectForCaller(req: Request, projectId: string | undefined | null) {
+  if (!projectId || typeof projectId !== "string") return null;
+  const project = await storage.getProjectById(projectId);
+  if (!project) return null;
+  const role = (req as any).userRole;
+  const userId = (req as any).userId;
+  const companyId = (req as any).companyId;
+  if (project.companyId !== companyId) return null;
+  if (role !== "admin" && project.internId !== userId) return null;
+  return project;
+}
+
+// LLM endpoints accept a conversation array from the client. Only the two
+// conversational roles are ever forwarded — a client-supplied "system" turn
+// would otherwise be able to rewrite the assistant's instructions — and
+// the history is capped so a single request can't carry an unbounded
+// prompt.
+function sanitizeChatMessages(raw: unknown, maxMessages = 30, maxChars = 4000): { role: "user" | "assistant"; content: string }[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const cleaned = raw
+    .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .map((m: any) => ({ role: m.role as "user" | "assistant", content: m.content.slice(0, maxChars) }))
+    .slice(-maxMessages);
+  if (cleaned.length === 0 || cleaned[cleaned.length - 1].role !== "user") return null;
+  return cleaned;
+}
+
+// Positive-integer query param with a hard ceiling — never NaN, never
+// negative, never a full-table scan because someone passed limit=1e9.
+export function clampInt(value: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof value === "string" || typeof value === "number" ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+
+function parseDateOrNull(value: unknown): Date | null | "invalid" {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string" && typeof value !== "number") return "invalid";
+  const d = new Date(value);
+  return Number.isFinite(d.getTime()) ? d : "invalid";
+}
+
+export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     const role = (req as any).userRole;
     if (!roles.includes(role)) {
@@ -319,6 +364,15 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Feature modules. Registered first so their fixed paths (e.g.
+  // /api/tasks/:id/detail) are matched before any broader pattern below.
+  const [{ registerSearchRoutes }, { registerPulseRoutes }, { registerOverviewRoutes }, { registerTaskDetailRoutes }] = await Promise.all([
+    import("./routes/search"), import("./routes/pulse"), import("./routes/overview"), import("./routes/taskDetail"),
+  ]);
+  registerSearchRoutes(app);
+  registerPulseRoutes(app);
+  registerOverviewRoutes(app);
+  registerTaskDetailRoutes(app);
 
   // Production-only: rewrites <title>/og:title/og:description in the
   // static index.html for this one dynamic path before falling through to
@@ -345,24 +399,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to pre-render public profile page:", error);
       next();
-    }
-  });
-
-  app.use("/uploads", (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-    try {
-      jwt.verify(authHeader.split(" ")[1], JWT_SECRET);
-    } catch {
-      return res.status(401).json({ message: "Invalid or expired token" });
-    }
-    const filePath = path.join(UPLOAD_DIR, path.basename(req.path));
-    if (fs.existsSync(filePath)) {
-      res.sendFile(filePath);
-    } else {
-      res.status(404).json({ message: "File not found" });
     }
   });
 
@@ -474,7 +510,7 @@ export async function registerRoutes(
           title: "New Signup Request",
           message: `${name.trim()} signed up and is waiting for approval.`,
           read: false,
-          link: "/?view=applications",
+          link: "/people?tab=applications",
         });
       }
 
@@ -581,6 +617,10 @@ export async function registerRoutes(
 
       const passwordHash = await bcrypt.hash(newPassword, 10);
       await storage.updateUserPassword(user.id, passwordHash);
+      // Every other signed-in device is signed out — a password change is
+      // usually made because the old one may have leaked. The device that
+      // made this request stays signed in.
+      await storage.revokeOtherUserDevices(user.id, (req as any).deviceId ?? null);
 
       await logAudit({
         actorUserId: user.id,
@@ -719,6 +759,9 @@ export async function registerRoutes(
 
       const passwordHash = await bcrypt.hash(password, 10);
       await storage.updateUserPassword(user.id, passwordHash);
+      // A reset is the "I no longer control my sessions" path — every
+      // existing device is revoked, so a stolen token dies here.
+      await storage.revokeOtherUserDevices(user.id, null);
 
       res.json({ message: "Password reset successfully. You can now log in with your new password." });
     } catch (error: any) {
@@ -851,8 +894,19 @@ export async function registerRoutes(
   app.post("/api/invitations/accept/:token", authLimiter, async (req, res) => {
     try {
       const { name, password } = req.body;
-      if (!name || !password) {
+      if (typeof name !== "string" || !name.trim() || typeof password !== "string" || !password) {
         return res.status(400).json({ message: "Name and password are required" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      // Look before consuming: if the address already has an account, the
+      // single-use invite must survive so the person isn't left with a
+      // burned link AND no account.
+      const peek = await storage.getInvitationByToken(req.params.token);
+      if (peek && (await storage.getUserByEmail(peek.email))) {
+        return res.status(400).json({ message: "An account with this email already exists. Try logging in instead." });
       }
 
       // Atomic claim first, same reasoning as reset-password above.
@@ -880,7 +934,7 @@ export async function registerRoutes(
           title: "New Intern Joined",
           message: `${name.trim()} has accepted the invitation and joined as an intern.`,
           read: false,
-          link: "/?view=interns",
+          link: "/people",
         });
         sendNewInternJoinedEmail(admin.email, name.trim(), joinedCompany?.name || "your company").catch(() => {});
       }
@@ -994,7 +1048,7 @@ export async function registerRoutes(
           title: "New Application",
           message: `${name.trim()} applied to join ${company.name}.`,
           read: false,
-          link: "/?view=applications",
+          link: "/people?tab=applications",
         });
         sendNewApplicationAdminEmail(admin.email, name.trim(), normalizedEmail, company.name, reviewLink, { skills, motivation }).catch(() => {});
       }
@@ -1088,6 +1142,9 @@ export async function registerRoutes(
       if (!application || application.companyId !== (req as any).companyId) {
         return res.status(404).json({ message: "Application not found" });
       }
+      if (application.status === "approved" || application.status === "rejected") {
+        return res.status(400).json({ message: `This application was already ${application.status}.` });
+      }
       const { notes } = req.body || {};
 
       await storage.updateApplicationStatus(application.id, "rejected", (req as any).userId, notes?.trim() || undefined);
@@ -1131,6 +1188,9 @@ export async function registerRoutes(
       if (!application || application.companyId !== (req as any).companyId) {
         return res.status(404).json({ message: "Application not found" });
       }
+      if (application.status === "approved" || application.status === "rejected") {
+        return res.status(400).json({ message: `This application was already ${application.status}.` });
+      }
       const { notes } = req.body;
       if (!notes?.trim()) {
         return res.status(400).json({ message: "Notes explaining what's needed are required" });
@@ -1169,7 +1229,9 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateCompanyAcceptingApplications(companyId, !!accepting);
-      res.json(updated);
+      if (!updated) return res.status(404).json({ message: "Company not found" });
+      const { githubToken: _omit, ...safe } = updated;
+      res.json({ ...safe, githubConnected: !!_omit });
     } catch (error: any) {
       console.error("Failed to update setting:", error);
       res.status(500).json({ message: "Failed to update setting" });
@@ -1199,6 +1261,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Intern not found" });
       }
       const updated = await storage.setUserDeactivated(intern.id, true);
+      await endShiftForAccountChange(intern.id, (req as any).userId);
 
       await logAudit({
         actorUserId: (req as any).userId,
@@ -1380,6 +1443,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Intern not found" });
       }
 
+      await endShiftForAccountChange(intern.id, (req as any).userId);
       const { user, alumniRecord } = await storage.transitionUserToAlumni(intern.id, (req as any).userId);
 
       await logAudit({
@@ -1479,12 +1543,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Reactivate this account before promoting it" });
       }
 
+      await endShiftForAccountChange(intern.id, (req as any).userId);
       const updated = await storage.promoteToAdmin(intern.id);
 
       await storage.createNotification({
         userId: intern.id,
         title: "You're now a manager",
-        message: "You've been promoted to manager on EDAI. Log out and back in to see the manager dashboard.",
+        message: "You've been promoted to manager. Your workspace will switch to the manager view.",
         read: false,
         link: "/",
       });
@@ -1653,7 +1718,7 @@ export async function registerRoutes(
         title: "New Project Assigned",
         message: `You've been assigned a new project: "${title.trim()}"`,
         read: false,
-        link: "/?projectId=" + project.id,
+        link: "/projects/" + project.id,
       });
 
       res.status(201).json(project);
@@ -1700,7 +1765,7 @@ export async function registerRoutes(
           title: "New Project Proposal",
           message: `${intern?.name || "An intern"} proposed a project: "${title.trim()}"`,
           read: false,
-          link: "/?view=proposals",
+          link: "/projects?filter=proposals",
         });
       }
 
@@ -1730,7 +1795,7 @@ export async function registerRoutes(
         title: "Project Approved",
         message: `Your proposed project "${project.title}" was approved — you're all set to start.`,
         read: false,
-        link: "/?projectId=" + project.id,
+        link: "/projects/" + project.id,
       });
 
       res.json(updated);
@@ -1861,12 +1926,20 @@ export async function registerRoutes(
       if (!text || typeof text !== "string" || !text.trim()) {
         return res.status(400).json({ message: "text is required" });
       }
+      let validTaskId: string | null = null;
+      if (taskId) {
+        const linked = typeof taskId === "string" ? await storage.getTaskById(taskId) : undefined;
+        if (!linked || linked.companyId !== project.companyId || (linked.projectId && linked.projectId !== project.id)) {
+          return res.status(400).json({ message: "Invalid linked task" });
+        }
+        validTaskId = linked.id;
+      }
       const existing = await storage.getCompletionCriteriaByProject(project.id);
       const criterion = await storage.createCompletionCriterion({
         projectId: project.id,
         text: text.trim().slice(0, 300),
         optional: !!optional,
-        taskId: taskId || null,
+        taskId: validTaskId,
         sortOrder: existing.length,
       });
       res.status(201).json(criterion);
@@ -1926,12 +1999,16 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const { hoursPerDay, daysPerWeek, numberOfWeeks } = req.body;
-      if (!hoursPerDay || !daysPerWeek || !numberOfWeeks) {
-        return res.status(400).json({ message: "hoursPerDay, daysPerWeek, and numberOfWeeks are required" });
+      if (!PLAN_EDITABLE_PROJECT_STATUSES.has(project.status)) {
+        return res.status(400).json({ message: "This project isn't in a state where a plan can be generated." });
       }
+      const hpd = Number(req.body?.hoursPerDay), dpw = Number(req.body?.daysPerWeek), nw = Number(req.body?.numberOfWeeks);
+      if (![hpd, dpw, nw].every(Number.isFinite) || hpd <= 0 || hpd > 24 || dpw <= 0 || dpw > 7 || nw <= 0 || nw > 52 || !Number.isInteger(nw)) {
+        return res.status(400).json({ message: "hoursPerDay (1-24), daysPerWeek (1-7), and numberOfWeeks (1-52) are required" });
+      }
+      const hoursPerDay = hpd, daysPerWeek = dpw, numberOfWeeks = nw;
 
-      const totalPlannedHours = Number(hoursPerDay) * Number(daysPerWeek) * Number(numberOfWeeks);
+      const totalPlannedHours = hoursPerDay * daysPerWeek * numberOfWeeks;
 
       if (totalPlannedHours < project.minimumTotalHours) {
         return res.status(400).json({
@@ -2010,6 +2087,9 @@ export async function registerRoutes(
       if (pv.status !== "draft") {
         return res.status(400).json({ message: "Only draft plans can be submitted" });
       }
+      if (!PLAN_EDITABLE_PROJECT_STATUSES.has(project.status)) {
+        return res.status(400).json({ message: "This project isn't in a state where a plan can be submitted." });
+      }
 
       await storage.updatePlanVersionStatus(pv.id, "submitted");
       await storage.updateProjectStatus(project.id, "submitted");
@@ -2022,7 +2102,7 @@ export async function registerRoutes(
           title: "Plan Submitted for Review",
           message: `${user?.name || "An intern"} submitted plan v${pv.versionNumber} for "${project.title}" for your review.`,
           read: false,
-          link: "/?view=review&projectId=" + project.id,
+          link: "/projects/" + project.id + "?tab=plan",
         });
         sendPlanSubmittedEmail(admin.email, user?.name || "An intern", project.title, pv.versionNumber).catch(() => {});
       }
@@ -2065,7 +2145,7 @@ export async function registerRoutes(
         title: "Plan Approved!",
         message: `Your plan v${pv.versionNumber} for "${project.title}" has been approved. Execution mode is now active.${comment?.trim() ? ` Manager's note: "${comment.trim().substring(0, 100)}"` : ""}`,
         read: false,
-        link: "/?projectId=" + project.id,
+        link: "/projects/" + project.id,
       });
 
       const intern = await storage.getUser(project.internId);
@@ -2119,7 +2199,7 @@ export async function registerRoutes(
         title: "Revision Requested",
         message: `Your manager requested changes to plan v${pv.versionNumber} for "${project.title}": "${comment.trim().substring(0, 100)}"`,
         read: false,
-        link: "/?projectId=" + project.id,
+        link: "/projects/" + project.id,
       });
 
       const revIntern = await storage.getUser(project.internId);
@@ -2136,7 +2216,7 @@ export async function registerRoutes(
           title: "AI Revision Guidance",
           message: guidance.substring(0, 500),
           read: false,
-          link: "/?projectId=" + project.id,
+          link: "/projects/" + project.id,
         });
       } catch (guidanceErr: any) {
         console.error("Failed to generate revision guidance:", guidanceErr.message);
@@ -2172,27 +2252,30 @@ export async function registerRoutes(
   app.post("/api/plan-versions/:id/comments", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const { content } = req.body;
-      if (!content?.trim()) {
+      if (typeof content !== "string" || !content.trim()) {
         return res.status(400).json({ message: "Comment content is required" });
       }
 
+      const pv = await storage.getPlanVersionById(req.params.id as string);
+      const ownedProject = pv ? await loadProjectForCaller(req, pv.projectId) : null;
+      if (!pv || !ownedProject) return res.status(404).json({ message: "Plan version not found" });
+
       const comment = await storage.createComment({
-        versionId: req.params.id as string,
+        versionId: pv.id,
         managerId: (req as any).userId,
-        content: content.trim(),
+        content: content.trim().slice(0, 4000),
       });
 
-      const pv = await storage.getPlanVersionById(req.params.id as string);
-      if (pv) {
-        const project = await storage.getProjectById(pv.projectId);
-        if (project) {
+      {
+        const project = ownedProject;
+        {
           const manager = await storage.getUser((req as any).userId);
           await storage.createNotification({
             userId: project.internId,
             title: "New Comment on Plan",
             message: `${manager?.name || "Your manager"} commented on plan v${pv.versionNumber}: "${content.trim().substring(0, 100)}"`,
             read: false,
-            link: "/?projectId=" + pv.projectId,
+            link: "/projects/" + pv.projectId,
           });
           const commentIntern = await storage.getUser(project.internId);
           if (commentIntern) {
@@ -2208,18 +2291,20 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/ai/chat", requireAuth, async (req, res) => {
+  app.post("/api/ai/chat", requireAuth, aiLimiter, async (req, res) => {
     try {
-      const { projectId, messages, mode } = req.body;
-      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      const { projectId, mode } = req.body;
+      const messages = sanitizeChatMessages(req.body?.messages);
+      if (!messages) {
         return res.status(400).json({ message: "Messages array is required" });
       }
 
       let projectContext: any = null;
 
       if (projectId) {
-        const project = await storage.getProjectById(projectId);
-        if (project) {
+        const project = await loadProjectForCaller(req, projectId);
+        if (!project) return res.status(404).json({ message: "Project not found" });
+        {
           const versions = await storage.getPlanVersionsByProject(project.id);
           const latestPlan = await storage.getLatestPlanVersion(project.id);
           const allComments = await storage.getAllCommentsByProject(project.id);
@@ -2275,6 +2360,7 @@ export async function registerRoutes(
       if (!["brainstorm", "plan"].includes(mode)) {
         return res.status(400).json({ message: "Mode must be brainstorm or plan" });
       }
+      if (!(await loadProjectForCaller(req, projectId))) return res.status(404).json({ message: "Project not found" });
       const messages = await storage.getChatMessages(projectId, mode);
       res.json({ messages: messages.map(m => ({ role: m.role, content: m.content })) });
     } catch (error: any) {
@@ -2289,6 +2375,7 @@ export async function registerRoutes(
       if (!["brainstorm", "plan"].includes(mode)) {
         return res.status(400).json({ message: "Mode must be brainstorm or plan" });
       }
+      if (!(await loadProjectForCaller(req, projectId))) return res.status(404).json({ message: "Project not found" });
       await storage.clearChatMessages(projectId, mode);
       res.json({ success: true });
     } catch (error: any) {
@@ -2421,7 +2508,9 @@ export async function registerRoutes(
 
   app.get("/api/weekly-logs/project/:projectId", requireAuth, async (req, res) => {
     try {
-      const logs = await storage.getWeeklyLogsByProject(req.params.projectId as string);
+      const project = await loadProjectForCaller(req, req.params.projectId as string);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+      const logs = await storage.getWeeklyLogsByProject(project.id);
       res.json(logs);
     } catch (error: any) {
       console.error("Failed to get logs:", error);
@@ -2478,7 +2567,7 @@ export async function registerRoutes(
         title: "New Comment on Log",
         message: `${manager?.name || "Your manager"} commented on your log entry: "${content.trim().substring(0, 80)}"`,
         read: false,
-        link: "/?projectId=" + project.id,
+        link: "/projects/" + project.id,
       });
 
       const logIntern = await storage.getUser(project.internId);
@@ -2495,11 +2584,13 @@ export async function registerRoutes(
 
   app.get("/api/log-comments/project/:projectId", requireAuth, async (req, res) => {
     try {
-      const comments = await storage.getLogCommentsByProject(req.params.projectId as string);
-      const enriched = await Promise.all(comments.map(async (c) => {
-        const manager = await storage.getUser(c.managerId);
-        return { ...c, managerName: manager?.name || "Manager" };
-      }));
+      const project = await loadProjectForCaller(req, req.params.projectId as string);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+      const comments = await storage.getLogCommentsByProject(project.id);
+      const managerIds = Array.from(new Set(comments.map((c) => c.managerId).filter((id): id is string => !!id)));
+      const managers = await Promise.all(managerIds.map((id) => storage.getUser(id)));
+      const nameById = new Map(managers.filter(Boolean).map((m) => [m!.id, m!.name]));
+      const enriched = comments.map((c) => ({ ...c, managerName: (c.managerId && nameById.get(c.managerId)) || "Manager" }));
       res.json(enriched);
     } catch (error: any) {
       console.error("Failed to get comments:", error);
@@ -2594,7 +2685,7 @@ export async function registerRoutes(
       }
 
       const assignee = await storage.getUser(assigneeId);
-      if (!assignee || assignee.companyId !== companyId) {
+      if (!assignee || assignee.companyId !== companyId || assignee.role === "system" || assignee.deactivatedAt) {
         return res.status(400).json({ message: "Invalid assignee" });
       }
 
@@ -2608,6 +2699,9 @@ export async function registerRoutes(
       if (priority && !["low", "medium", "high"].includes(priority)) {
         return res.status(400).json({ message: "Invalid priority" });
       }
+      const parsedDue = parseDateOrNull(dueDate);
+      if (parsedDue === "invalid") return res.status(400).json({ message: "Invalid due date" });
+      if (typeof title !== "string") return res.status(400).json({ message: "Title must be text" });
 
       let validatedDependsOn: string | null = null;
       if (dependsOnTaskId) {
@@ -2627,9 +2721,9 @@ export async function registerRoutes(
         projectId: projectId || null,
         priority: priority || "medium",
         status: "todo",
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: parsedDue,
         skillTags: Array.isArray(skillTags)
-          ? skillTags.map(normalizeSkillTag).filter(Boolean).slice(0, 10)
+          ? skillTags.filter((t: unknown) => typeof t === "string").map(normalizeSkillTag).filter(Boolean).slice(0, 10)
           : [],
         dependsOnTaskId: validatedDependsOn,
       } as any);
@@ -2639,7 +2733,7 @@ export async function registerRoutes(
         title: "New Task Assigned",
         message: `You've been assigned a new task: "${task.title}"`,
         read: false,
-        link: "/?view=tasks&taskId=" + task.id,
+        link: "/tasks/" + task.id,
       });
 
       await logAudit({
@@ -2738,10 +2832,15 @@ export async function registerRoutes(
 
       if (assigneeId) {
         const assignee = await storage.getUser(assigneeId);
-        if (!assignee || assignee.companyId !== task.companyId) {
+        if (!assignee || assignee.companyId !== task.companyId || assignee.role === "system" || assignee.deactivatedAt) {
           return res.status(400).json({ message: "Invalid assignee" });
         }
       }
+      if (title !== undefined && (typeof title !== "string" || !title.trim())) {
+        return res.status(400).json({ message: "Title must be non-empty text" });
+      }
+      const parsedDueUpdate = dueDate !== undefined ? parseDateOrNull(dueDate) : undefined;
+      if (parsedDueUpdate === "invalid") return res.status(400).json({ message: "Invalid due date" });
       if (projectId) {
         const project = await storage.getProjectById(projectId);
         if (!project || project.companyId !== task.companyId) {
@@ -2763,11 +2862,33 @@ export async function registerRoutes(
           if (!upstream || upstream.companyId !== task.companyId) {
             return res.status(400).json({ message: "Invalid dependency task" });
           }
-          if (upstream.dependsOnTaskId === task.id) {
-            return res.status(400).json({ message: "That would create a circular dependency" });
+          // Walk the whole upstream chain, not just one hop — A→B→C→A is
+          // just as much a cycle as A→B→A.
+          let cursor: typeof upstream | undefined = upstream;
+          const seen = new Set<string>();
+          while (cursor?.dependsOnTaskId) {
+            if (cursor.dependsOnTaskId === task.id || seen.has(cursor.dependsOnTaskId)) {
+              return res.status(400).json({ message: "That would create a circular dependency" });
+            }
+            seen.add(cursor.dependsOnTaskId);
+            cursor = await storage.getTaskById(cursor.dependsOnTaskId);
           }
           dependsOnUpdate = { dependsOnTaskId: upstream.id };
         }
+      }
+
+      const reassigning = !!assigneeId && assigneeId !== task.assigneeId;
+      if (reassigning && task.status === "in_review") {
+        return res.status(400).json({ message: "Review this submission (approve or request changes) before reassigning the task." });
+      }
+      if (reassigning && task.status === "completed") {
+        return res.status(400).json({ message: "A completed task can't be reassigned." });
+      }
+      // Reassigning in-flight work hands the task over fresh: the new
+      // assignee starts from To Do. The previous submissions stay in the
+      // append-only submission log, so nothing is lost.
+      if (reassigning && (task.status === "in_progress" || task.status === "blocked")) {
+        await storage.updateTaskStatus(task.id, "todo", { startedAt: null, blockedReason: null }, [task.status]);
       }
 
       const updated = await storage.updateTaskDetails(task.id, {
@@ -2776,18 +2897,25 @@ export async function registerRoutes(
         ...(assigneeId !== undefined ? { assigneeId } : {}),
         ...(projectId !== undefined ? { projectId: projectId || null } : {}),
         ...(priority !== undefined ? { priority } : {}),
-        ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-        ...(Array.isArray(skillTags) ? { skillTags: skillTags.map(normalizeSkillTag).filter(Boolean).slice(0, 10) } : {}),
+        ...(parsedDueUpdate !== undefined ? { dueDate: parsedDueUpdate } : {}),
+        ...(Array.isArray(skillTags) ? { skillTags: skillTags.filter((t: unknown) => typeof t === "string").map(normalizeSkillTag).filter(Boolean).slice(0, 10) } : {}),
         ...dependsOnUpdate,
       });
 
-      if (assigneeId && assigneeId !== task.assigneeId) {
+      if (reassigning) {
         await storage.createNotification({
           userId: assigneeId,
           title: "Task Reassigned To You",
           message: `You've been assigned the task: "${updated?.title}"`,
           read: false,
-          link: "/?view=tasks&taskId=" + task.id,
+          link: "/tasks/" + task.id,
+        });
+        await storage.createNotification({
+          userId: task.assigneeId,
+          title: "Task Reassigned",
+          message: `"${updated?.title}" was reassigned to someone else.`,
+          read: false,
+          link: "/tasks",
         });
       }
 
@@ -2821,7 +2949,9 @@ export async function registerRoutes(
       if (task.status !== "todo") {
         return res.status(400).json({ message: "Only a To Do task can be started" });
       }
-      const updated = await storage.updateTaskStatus(task.id, "in_progress", { startedAt: new Date() });
+      // startedAt is set once, the first time the task starts.
+      const updated = await storage.updateTaskStatus(task.id, "in_progress", task.startedAt ? {} : { startedAt: new Date() }, ["todo"]);
+      if (!updated) return res.status(409).json({ message: "This task just changed. Refresh to see its current state." });
       res.json(updated);
     } catch (error: any) {
       console.error("Failed to start task:", error);
@@ -2842,12 +2972,14 @@ export async function registerRoutes(
       if (!submission?.trim()) {
         return res.status(400).json({ message: "Submission text is required" });
       }
+      if (typeof submission !== "string") return res.status(400).json({ message: "Submission text is required" });
       const submittedAt = new Date();
       const updated = await storage.updateTaskStatus(task.id, "in_review", {
-        submission: submission.trim(),
+        submission: submission.trim().slice(0, 10000),
         submittedAt,
         blockedReason: null,
-      });
+      }, ["in_progress", "blocked"]);
+      if (!updated) return res.status(409).json({ message: "This task was already submitted or changed. Refresh to see its current state." });
       // tasks.submittedAt is a single mutable column that a resubmission
       // overwrites — this append-only row is what lets Workday Replay find
       // an EARLIER submission that happened in an earlier, already-ended
@@ -2857,11 +2989,11 @@ export async function registerRoutes(
         taskId: task.id,
         internId: task.assigneeId, // == (req as any).userId, per the ownership check above — using the task's own field is self-documenting
         companyId: task.companyId,
-        submission: submission.trim(),
+        submission: submission.trim().slice(0, 10000),
         submittedAt,
       });
 
-      await notifyAdmins(task.companyId, "Task Submitted for Review", `A task was submitted for review: "${task.title}"`, "/?view=tasks&taskId=" + task.id);
+      await notifyAdmins(task.companyId, "Task Submitted for Review", `A task was submitted for review: "${task.title}"`, "/tasks/" + task.id);
 
       res.json(updated);
     } catch (error: any) {
@@ -2883,9 +3015,11 @@ export async function registerRoutes(
       if (!reason?.trim()) {
         return res.status(400).json({ message: "A reason is required to mark a task blocked" });
       }
-      const updated = await storage.updateTaskStatus(task.id, "blocked", { blockedReason: reason.trim() });
+      if (typeof reason !== "string") return res.status(400).json({ message: "A reason is required to mark a task blocked" });
+      const updated = await storage.updateTaskStatus(task.id, "blocked", { blockedReason: reason.trim().slice(0, 2000) }, ["todo", "in_progress"]);
+      if (!updated) return res.status(409).json({ message: "This task just changed. Refresh to see its current state." });
 
-      await notifyAdmins(task.companyId, "Task Blocked", `"${task.title}" is blocked: ${reason.trim()}`, "/?view=tasks&taskId=" + task.id);
+      await notifyAdmins(task.companyId, "Task Blocked", `"${task.title}" is blocked: ${reason.trim()}`, "/tasks/" + task.id);
 
       res.json(updated);
     } catch (error: any) {
@@ -2903,7 +3037,9 @@ export async function registerRoutes(
       if (task.status !== "blocked") {
         return res.status(400).json({ message: "Only a blocked task can be unblocked" });
       }
-      const updated = await storage.updateTaskStatus(task.id, "in_progress", { blockedReason: null });
+      const updated = await storage.updateTaskStatus(task.id, "in_progress", { blockedReason: null, ...(task.startedAt ? {} : { startedAt: new Date() }) }, ["blocked"]);
+      if (!updated) return res.status(409).json({ message: "This task just changed. Refresh to see its current state." });
+      await notifyAdmins(task.companyId, "Task Unblocked", `"${task.title}" is no longer blocked.`, "/tasks/" + task.id);
       res.json(updated);
     } catch (error: any) {
       console.error("Failed to unblock task:", error);
@@ -2923,15 +3059,16 @@ export async function registerRoutes(
       const { feedback } = req.body;
       const updated = await storage.updateTaskStatus(task.id, "completed", {
         completedAt: new Date(),
-        ...(feedback?.trim() ? { feedback: feedback.trim() } : {}),
-      });
+        ...(typeof feedback === "string" && feedback.trim() ? { feedback: feedback.trim().slice(0, 4000) } : {}),
+      }, ["in_review"]);
+      if (!updated) return res.status(409).json({ message: "This task was already reviewed. Refresh to see its current state." });
 
       await storage.createNotification({
         userId: task.assigneeId,
         title: "Task Approved",
         message: `Your task "${task.title}" was approved.`,
         read: false,
-        link: "/?view=tasks&taskId=" + task.id,
+        link: "/tasks/" + task.id,
       });
 
       res.json(updated);
@@ -2954,14 +3091,16 @@ export async function registerRoutes(
       if (!feedback?.trim()) {
         return res.status(400).json({ message: "Feedback explaining the requested changes is required" });
       }
-      const updated = await storage.updateTaskStatus(task.id, "in_progress", { feedback: feedback.trim() });
+      if (typeof feedback !== "string") return res.status(400).json({ message: "Feedback explaining the requested changes is required" });
+      const updated = await storage.updateTaskStatus(task.id, "in_progress", { feedback: feedback.trim().slice(0, 4000) }, ["in_review"]);
+      if (!updated) return res.status(409).json({ message: "This task was already reviewed. Refresh to see its current state." });
 
       await storage.createNotification({
         userId: task.assigneeId,
         title: "Changes Requested on Task",
         message: `Changes were requested on "${task.title}".`,
         read: false,
-        link: "/?view=tasks&taskId=" + task.id,
+        link: "/tasks/" + task.id,
       });
 
       res.json(updated);
@@ -2971,46 +3110,49 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/risk-radar", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const companyId = (req as any).companyId;
-      if (!companyId) return res.json([]);
-      const interns = await storage.getInternsByCompany(companyId);
-      const tasks = await storage.getTasksByCompany(companyId);
-      res.json(computeRiskFlags(interns, tasks));
-    } catch (error: any) {
-      console.error("Failed to compute risk radar:", error);
-      res.status(500).json({ message: "Failed to compute risk radar" });
-    }
-  });
-
-  // Manager Signals: computed live from real task/project data every
-  // request (see server/services/signals.ts for why nothing is stored).
-  // Dismiss/snooze use the same mechanism with different cooldown lengths
-  // — a "dismiss" is just a 3-day snooze, so a genuinely unresolved
-  // problem naturally resurfaces instead of being silenced forever.
+  // Signals, with evidence attached. Each signal already names the task /
+  // person / project it's about; here it also carries the concrete
+  // timestamps behind it (due date, last update, last session) so the UI
+  // can show WHY without re-deriving anything.
   app.get("/api/signals", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const companyId = (req as any).companyId;
       if (!companyId) return res.json([]);
-      const [interns, tasks, projects, dismissals, recentSessions] = await Promise.all([
-        storage.getInternsByCompany(companyId),
-        storage.getTasksByCompany(companyId),
-        storage.getProjectsByCompany(companyId),
-        storage.getSignalDismissalsByCompany(companyId),
-        storage.getWorkSessionsByCompanySince(companyId, new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)),
-      ]);
-      const now = Date.now();
-      const suppressed = new Set(
-        dismissals
-          .filter((d) => !d.snoozedUntil || new Date(d.snoozedUntil).getTime() > now)
-          .map((d) => d.signalKey)
-      );
-      const signals = [
-        ...computeSignals(interns, tasks, projects),
-        ...computeWorktimeSignals(interns, tasks, projects, recentSessions, now),
-      ].filter((s) => !suppressed.has(s.key));
-      res.json(signals);
+      const tz = clampInt(req.query.tzOffsetMinutes, 0, -720, 840);
+      const { buildOrgContext } = await import("./services/orgContext");
+      const ctx = await buildOrgContext(companyId, { tzOffsetMinutes: tz });
+      const lastSessionByIntern = new Map<string, Date>();
+      for (const s of ctx.recentSessions) {
+        const prev = lastSessionByIntern.get(s.internId);
+        const ts = new Date(s.startedAt);
+        if (!prev || ts > prev) lastSessionByIntern.set(s.internId, ts);
+      }
+      const enriched = ctx.signals.map((sig) => {
+        const task = sig.taskId ? ctx.taskById.get(sig.taskId) : undefined;
+        const project = sig.projectId ? ctx.projectById.get(sig.projectId) : undefined;
+        const evidence: { label: string; value: string }[] = [];
+        if (task) {
+          evidence.push({ label: "Status", value: task.status.replace("_", " ") });
+          if (task.dueDate) evidence.push({ label: "Due", value: new Date(task.dueDate).toISOString() });
+          if (task.submittedAt && task.status === "in_review") evidence.push({ label: "Submitted", value: new Date(task.submittedAt).toISOString() });
+          if (task.updatedAt) evidence.push({ label: "Last change", value: new Date(task.updatedAt).toISOString() });
+          if (task.blockedReason) evidence.push({ label: "Blocked reason", value: task.blockedReason });
+        }
+        if (sig.internId) {
+          const last = lastSessionByIntern.get(sig.internId);
+          evidence.push({ label: "Last Work Mode session", value: last ? last.toISOString() : "none in 14 days" });
+        }
+        if (project) evidence.push({ label: "Project status", value: project.status.replace("_", " ") });
+        return {
+          ...sig,
+          evidence,
+          source: sig.type === "inactive" || sig.type === "unusual_hours" || sig.type === "no_work_assigned" || sig.type === "overloaded" ? "work sessions + tasks" : sig.type === "pending_proposal" ? "projects" : "tasks",
+          taskTitle: task?.title ?? null,
+          projectTitle: project?.title ?? null,
+          href: task ? `/tasks/${task.id}` : project ? `/projects/${project.id}` : sig.internId ? `/people/${sig.internId}` : "/signals",
+        };
+      });
+      res.json(enriched);
     } catch (error: any) {
       console.error("Failed to compute signals:", error);
       res.status(500).json({ message: "Failed to compute signals" });
@@ -3066,7 +3208,7 @@ export async function registerRoutes(
       // per_intern) correctly lets only one through — the loser should see
       // the same friendly message as the sequential-duplicate case above,
       // not a raw 500. Postgres unique-violation is error code 23505.
-      if (error?.code === "23505") {
+      if (isUniqueViolation(error)) {
         return res.status(400).json({ message: "You already have an active shift." });
       }
       console.error("Failed to start work session:", error);
@@ -3077,73 +3219,50 @@ export async function registerRoutes(
   app.post("/api/work-sessions/end", requireAuth, requireRole("intern"), async (req, res) => {
     try {
       const userId = (req as any).userId;
-      const companyId = (req as any).companyId;
-      const ended = await storage.endWorkSession(userId);
+      const ended = await storage.endWorkSession(userId, "manual", userId);
       if (!ended) {
         return res.status(400).json({ message: "You don't have an active shift to end." });
       }
-
-      const [myTasks, companyTasks] = await Promise.all([
-        storage.getTasksByAssignee(userId),
-        companyId ? storage.getTasksByCompany(companyId) : Promise.resolve([]),
-      ]);
-      const start = new Date(ended.startedAt);
-      const end = new Date(ended.endedAt as Date);
-      const completed = tasksInWindow(myTasks, start, end, "completedAt");
-      const submitted = tasksInWindow(myTasks, start, end, "submittedAt");
-
-      // Shift report generation — every field below is computed from real
-      // stored data (activity samples, task timestamps, the existing
-      // next-best-action engine), never invented. This runs for every
-      // shift, with or without the desktop companion — activityBreakdown
-      // is simply empty when there's no companion data.
-      const activityRows = await storage.getWorkActivityBreakdownBySession(ended.id);
-      const activityBreakdown = summarizeActivityByCategory(activityRows);
-
-      // Primary project: the project most represented in activity samples
-      // that were correlated with a task (an observed, not claimed, signal).
-      // Falls back to whichever task was touched most recently in the
-      // window if there's no companion activity at all.
-      const activities = await storage.getWorkActivitiesBySession(ended.id);
-      const projectSeconds = new Map<string, number>();
-      for (const a of activities) {
-        if (a.projectId) projectSeconds.set(a.projectId, (projectSeconds.get(a.projectId) ?? 0) + a.durationSeconds);
-      }
-      let primaryProjectId: string | null = null;
-      if (projectSeconds.size > 0) {
-        primaryProjectId = Array.from(projectSeconds.entries()).sort((a, b) => b[1] - a[1])[0][0];
-      } else {
-        const touched = [...completed, ...submitted].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0];
-        primaryProjectId = touched?.projectId ?? null;
-      }
-
-      const { recommended } = computeNextBestAction(myTasks, companyTasks);
-      const nextStep = recommended ? `Continue "${recommended.task.title}"` : null;
-
-      const workSummary = await storage.createWorkSummary({
-        sessionId: ended.id,
-        internId: userId,
-        companyId,
-        durationSeconds: ended.durationSeconds ?? 0,
-        primaryProjectId,
-        activityBreakdown,
-        tasksCompleted: completed.length,
-        tasksSubmitted: submitted.length,
-        nextStep,
-      });
-
+      const report = await finalizeWorkSession(ended);
       res.json({
         session: ended,
         summary: {
           durationSeconds: ended.durationSeconds,
-          tasksCompleted: completed.length,
-          tasksSubmitted: submitted.length,
+          tasksCompleted: report.tasksCompleted,
+          tasksSubmitted: report.tasksSubmitted,
         },
-        report: workSummary,
+        report,
       });
     } catch (error: any) {
       console.error("Failed to end work session:", error);
       res.status(500).json({ message: "Couldn't end your shift. Please try again." });
+    }
+  });
+
+  // A manager can end a shift an intern forgot (the server also does this
+  // itself after MAX_SHIFT_HOURS). Recorded as endReason="admin" with the
+  // manager's id, and the intern is told — never a silent edit.
+  app.post("/api/interns/:id/end-shift", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const intern = await storage.getUser(req.params.id as string);
+      if (!intern || intern.companyId !== companyId) return res.status(404).json({ message: "Intern not found" });
+      const ended = await storage.endWorkSession(intern.id, "admin", (req as any).userId);
+      if (!ended) return res.status(400).json({ message: `${intern.name} doesn't have an active shift.` });
+      const report = await finalizeWorkSession(ended);
+      const actor = await storage.getUser((req as any).userId);
+      await storage.createNotification({
+        userId: intern.id,
+        title: "Your shift was ended by a manager",
+        message: `${actor?.name || "A manager"} ended your Work Mode session.`,
+        read: false,
+        link: `/work/replay/${ended.id}`,
+      });
+      await logAudit({ actorUserId: (req as any).userId, companyId, action: "shift.ended_by_admin", targetType: "work_session", targetId: ended.id });
+      res.json({ session: ended, report });
+    } catch (error: any) {
+      console.error("Failed to end intern shift:", error);
+      res.status(500).json({ message: "Couldn't end that shift. Please try again." });
     }
   });
 
@@ -3200,17 +3319,25 @@ export async function registerRoutes(
       const windowStart = new Date(active.startedAt).getTime() - CLOCK_SKEW_MS;
       const windowEnd = Date.now() + CLOCK_SKEW_MS;
 
+      // Hard cap per request. Anything past it is reported back as rejected
+      // (never silently dropped) so a companion draining a backlog knows to
+      // chunk rather than assume the whole batch landed.
+      const MAX_ROWS_PER_REQUEST = 200;
       const rows = activities
+        .slice(0, MAX_ROWS_PER_REQUEST)
         .filter((a: any) => {
-          if (!a?.application || !a?.startedAt || !a?.endedAt) return false;
+          if (!a?.application || typeof a.application !== "string" || !a?.startedAt || !a?.endedAt) return false;
           if (!Number.isFinite(a?.durationSeconds) || a.durationSeconds <= 0 || a.durationSeconds >= 6 * 60 * 60) return false;
           const startedMs = new Date(a.startedAt).getTime();
           const endedMs = new Date(a.endedAt).getTime();
           if (!Number.isFinite(startedMs) || !Number.isFinite(endedMs)) return false;
           if (endedMs < startedMs) return false;
+          // durationSeconds must agree with the timestamps it claims to
+          // span (±2s for rounding) — a 1ms sample can't claim 5 hours.
+          const spanSeconds = (endedMs - startedMs) / 1000;
+          if (Math.abs(spanSeconds - a.durationSeconds) > 2) return false;
           return startedMs >= windowStart && endedMs <= windowEnd;
         })
-        .slice(0, 200)
         .map((a: any) => ({
           sessionId: active.id,
           internId: userId,
@@ -3231,8 +3358,17 @@ export async function registerRoutes(
           source: "desktop_companion",
         }));
 
-      const created = await storage.createWorkActivities(rows);
-      res.status(201).json({ created: created.length });
+      // Inserted under a row lock on the session: if End Shift commits
+      // first, this returns null and nothing is written.
+      const created = await storage.createWorkActivitiesForActiveSession(active.id, rows as any);
+      if (created === null) {
+        return res.status(400).json({ message: "This shift has ended — no further activity is recorded." });
+      }
+      res.status(201).json({
+        created: created.length,
+        rejected: activities.length - created.length,
+        sessionId: active.id,
+      });
     } catch (error: any) {
       console.error("Failed to record work activity:", error);
       res.status(500).json({ message: "Failed to record work activity" });
@@ -3285,7 +3421,7 @@ export async function registerRoutes(
       const role = (req as any).userRole;
       const userId = (req as any).userId;
       const summary = await storage.getWorkSummaryBySession(req.params.id as string);
-      if (!summary || (role !== "admin" && summary.internId !== userId)) {
+      if (!summary || summary.companyId !== (req as any).companyId || (role !== "admin" && summary.internId !== userId)) {
         return res.status(404).json({ message: "Shift report not found" });
       }
       // Per-task activity correlation, computed at read time (not stored)
@@ -3384,12 +3520,45 @@ export async function registerRoutes(
       for (const s of submissionsInWindow) {
         events.push({ ts: s.submittedAt as unknown as string, type: "task_submitted", label: `Submitted "${taskTitleById.get(s.taskId) ?? "Unknown task"}" for review` });
       }
+      // completedAt is the moment a manager APPROVED the submission, which
+      // may land inside the intern's shift — label it as what it is.
       for (const t of tasksInWindow(internTasks, start, end, "completedAt")) {
-        events.push({ ts: t.completedAt as unknown as string, type: "task_completed", label: `Completed "${t.title}"` });
+        events.push({ ts: t.completedAt as unknown as string, type: "task_approved", label: `"${t.title}" was approved`, taskId: t.id });
+      }
+
+      // Honest gaps. Once the Companion has reported anything for this
+      // shift, a span with no observation at all is itself a fact worth
+      // showing — as UNKNOWN, never as "idle" or "away".
+      if (segments.length > 0) {
+        const GAP_MS = 10 * 60_000;
+        let cursor = new Date(segments[0].startedAt).getTime();
+        for (const seg of segments) {
+          const segStart = new Date(seg.startedAt).getTime();
+          if (segStart - cursor >= GAP_MS) {
+            events.push({ ts: new Date(cursor).toISOString(), type: "no_observation", label: "No Companion observation", durationSeconds: Math.round((segStart - cursor) / 1000) });
+          }
+          cursor = Math.max(cursor, new Date(seg.endedAt).getTime());
+          // A long idle reading inside an observed span is reported as
+          // exactly that: the OS saw no input for this long.
+          if (seg.maxIdleSeconds != null && seg.maxIdleSeconds >= 5 * 60) {
+            events.push({ ts: seg.endedAt, type: "idle_observed", label: `No keyboard or mouse input for ${Math.round(seg.maxIdleSeconds / 60)}m`, detail: `During ${seg.application}`, durationSeconds: seg.maxIdleSeconds, evidenceIds: seg.evidenceIds });
+          }
+        }
+        const tailEnd = end.getTime();
+        if (tailEnd - cursor >= GAP_MS) {
+          events.push({ ts: new Date(cursor).toISOString(), type: "no_observation", label: "No Companion observation", durationSeconds: Math.round((tailEnd - cursor) / 1000) });
+        }
+      } else {
+        events.push({ ts: session.startedAt as unknown as string, type: "no_companion", label: "No Companion activity for this shift", detail: "Only task events and the shift itself are recorded." });
       }
 
       if (session.endedAt) {
-        events.push({ ts: session.endedAt as unknown as string, type: "shift_ended", label: "Shift ended" });
+        const reason = (session as any).endReason as string | null;
+        const endLabel = reason === "auto_timeout" ? `Shift closed automatically after ${MAX_SHIFT_HOURS}h`
+          : reason === "admin" ? "Shift ended by a manager"
+          : reason === "account" ? "Shift ended by an account change"
+          : "Shift ended";
+        events.push({ ts: session.endedAt as unknown as string, type: "shift_ended", label: endLabel });
         const summary = await storage.getWorkSummaryBySession(session.id);
         if (summary?.generatedAt) {
           events.push({ ts: summary.generatedAt as unknown as string, type: "report_generated", label: "Shift report generated" });
@@ -3397,7 +3566,15 @@ export async function registerRoutes(
       }
 
       events.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
-      res.json({ session, events });
+      const intern = await storage.getUser(session.internId);
+      const summary = session.endedAt ? await storage.getWorkSummaryBySession(session.id) : null;
+      res.json({
+        session,
+        intern: intern ? { id: intern.id, name: intern.name } : null,
+        summary,
+        observedSeconds: segments.reduce((sum, seg) => sum + seg.durationSeconds, 0),
+        events,
+      });
     } catch (error: any) {
       console.error("Failed to build workday timeline:", error);
       res.status(500).json({ message: "Failed to build workday timeline" });
@@ -3449,7 +3626,7 @@ export async function registerRoutes(
           title: "Shift Report Submitted",
           message: `${intern?.name || "An intern"} submitted a shift report.`,
           read: false,
-          link: `/interns/${userId}`,
+          link: `/work/replay/${summary.sessionId}`,
         });
       }
 
@@ -3489,9 +3666,10 @@ export async function registerRoutes(
     try {
       const userId = (req as any).userId;
       const now = new Date();
+      const tz = clampInt(req.query.tzOffsetMinutes, 0, -720, 840);
       const [todaySessions, weekSessions, overall, myTasks] = await Promise.all([
-        storage.getWorkSessionsByInternSince(userId, startOfToday(now)),
-        storage.getWorkSessionsByInternSince(userId, startOfWeek(now)),
+        storage.getWorkSessionsByInternSince(userId, startOfToday(now, tz)),
+        storage.getWorkSessionsByInternSince(userId, startOfWeek(now, tz)),
         storage.getWorkSessionAggregateByIntern(userId),
         storage.getTasksByAssignee(userId),
       ]);
@@ -3502,11 +3680,11 @@ export async function registerRoutes(
       res.json({
         today: {
           ...today,
-          tasksCompleted: tasksInWindow(myTasks, startOfToday(now), now, "completedAt").length,
+          tasksCompleted: tasksInWindow(myTasks, startOfToday(now, tz), now, "completedAt").length,
         },
         week: {
           ...week,
-          tasksCompleted: tasksInWindow(myTasks, startOfWeek(now), now, "completedAt").length,
+          tasksCompleted: tasksInWindow(myTasks, startOfWeek(now, tz), now, "completedAt").length,
         },
         overall: {
           totalSeconds: overall.totalSeconds + (activeSession ? Math.max(0, Math.round((now.getTime() - new Date(activeSession.startedAt).getTime()) / 1000)) : 0),
@@ -3529,11 +3707,12 @@ export async function registerRoutes(
       const companyId = (req as any).companyId;
       if (!companyId) return res.json([]);
       const now = new Date();
+      const tz = clampInt(req.query.tzOffsetMinutes, 0, -720, 840);
       const [interns, activeSessions, todaySessions, weekSessions, allTasks] = await Promise.all([
         storage.getInternsByCompany(companyId),
         storage.getActiveWorkSessionsByCompany(companyId),
-        storage.getWorkSessionsByCompanySince(companyId, startOfToday(now)),
-        storage.getWorkSessionsByCompanySince(companyId, startOfWeek(now)),
+        storage.getWorkSessionsByCompanySince(companyId, startOfToday(now, tz)),
+        storage.getWorkSessionsByCompanySince(companyId, startOfWeek(now, tz)),
         storage.getTasksByCompany(companyId),
       ]);
 
@@ -3617,13 +3796,13 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/ai/org-assistant", requireAuth, requireRole("admin"), async (req, res) => {
+  app.post("/api/ai/org-assistant", requireAuth, requireRole("admin"), aiLimiter, async (req, res) => {
     try {
       const companyId = (req as any).companyId;
       if (!companyId) return res.status(400).json({ message: "Admin must belong to a company" });
 
-      const { messages } = req.body;
-      if (!Array.isArray(messages) || messages.length === 0) {
+      const messages = sanitizeChatMessages(req.body?.messages);
+      if (!messages) {
         return res.status(400).json({ message: "messages is required" });
       }
 
@@ -3750,11 +3929,11 @@ export async function registerRoutes(
   // not just by requireRole: the digest below is built exclusively from
   // this caller's own tasks/projects, so there is never any other
   // intern's or manager-only data in the AI's context to begin with.
-  app.post("/api/ai/intern-assistant", requireAuth, requireRole("intern"), async (req, res) => {
+  app.post("/api/ai/intern-assistant", requireAuth, requireRole("intern"), aiLimiter, async (req, res) => {
     try {
       const userId = (req as any).userId;
-      const { messages } = req.body;
-      if (!Array.isArray(messages) || messages.length === 0) {
+      const messages = sanitizeChatMessages(req.body?.messages);
+      if (!messages) {
         return res.status(400).json({ message: "messages is required" });
       }
 
@@ -3866,7 +4045,7 @@ export async function registerRoutes(
         title: "Project Updated",
         message: `Your project "${updated?.title || project.title}" has been updated by your manager.`,
         read: false,
-        link: "/?projectId=" + project.id,
+        link: "/projects/" + project.id,
       });
 
       res.json(updated);
@@ -3927,6 +4106,9 @@ export async function registerRoutes(
       const project = await storage.getProjectById(projectId);
       if (!project || project.internId !== (req as any).userId) {
         return res.status(403).json({ message: "Access denied" });
+      }
+      if (project.status !== "planning" && project.status !== "assigned") {
+        return res.status(400).json({ message: "Only a plan that hasn't been submitted yet can be reset." });
       }
       await storage.deletePlanVersionsByProject(projectId);
       await storage.updateProjectStatus(projectId, "assigned");
@@ -4288,46 +4470,6 @@ export async function registerRoutes(
   });
 
   // Team Chat
-  app.get("/api/team/messages", requireAuth, async (req, res) => {
-    try {
-      const user = await storage.getUser((req as any).userId);
-      if (!user?.companyId) {
-        return res.status(400).json({ message: "No company associated with your account" });
-      }
-      const limit = parseInt(req.query.limit as string) || 50;
-      const messages = await storage.getTeamMessages(user.companyId, limit);
-      res.json(messages);
-    } catch (error: any) {
-      console.error("Failed to load team messages:", error);
-      res.status(500).json({ message: "Failed to load team messages" });
-    }
-  });
-
-  app.post("/api/team/messages", requireAuth, async (req, res) => {
-    try {
-      const user = await storage.getUser((req as any).userId);
-      if (!user?.companyId) {
-        return res.status(400).json({ message: "No company associated with your account" });
-      }
-      const { content } = req.body;
-      if (!content?.trim()) {
-        return res.status(400).json({ message: "Message content is required" });
-      }
-      const message = await storage.createTeamMessage({
-        companyId: user.companyId,
-        userId: user.id,
-        content: content.trim(),
-      });
-      res.json(message);
-    } catch (error: any) {
-      console.error("Failed to send message:", error);
-      res.status(500).json({ message: "Failed to send message" });
-    }
-  });
-
-  // ==================== Channel API (Discord-like Chat) ====================
-
-  // List channels for current user (grouped by type, with unread counts)
   app.get("/api/channels", requireAuth, async (req, res) => {
     try {
       const userId = (req as any).userId;
@@ -4356,20 +4498,30 @@ export async function registerRoutes(
       const { name, memberIds } = req.body;
       const userId = (req as any).userId;
       const companyId = (req as any).companyId;
-      if (!name?.trim()) return res.status(400).json({ message: "Channel name is required" });
+      if (typeof name !== "string" || !name.trim()) return res.status(400).json({ message: "Channel name is required" });
+      // Validate every member up front — before the channel exists — so a
+      // bad id can't leave a half-created channel behind, and nobody
+      // outside this company can ever be added.
+      const validMemberIds: string[] = [];
+      if (Array.isArray(memberIds)) {
+        for (const memberId of memberIds) {
+          if (typeof memberId !== "string" || memberId === userId) continue;
+          const member = await storage.getUser(memberId);
+          if (!member || member.companyId !== companyId || member.role === "system" || member.deactivatedAt) {
+            return res.status(400).json({ message: "One of the selected members isn't in your workspace" });
+          }
+          validMemberIds.push(member.id);
+        }
+      }
       const channel = await storage.createChannel({
         companyId,
         type: "custom",
-        name: name.trim(),
+        name: name.trim().slice(0, 80),
         createdById: userId,
       });
-      // Add creator
       await storage.addChannelMember(channel.id, userId);
-      // Add specified members
-      if (Array.isArray(memberIds)) {
-        for (const memberId of memberIds) {
-          await storage.addChannelMember(channel.id, memberId);
-        }
+      for (const memberId of Array.from(new Set(validMemberIds))) {
+        await storage.addChannelMember(channel.id, memberId);
       }
       res.status(201).json(channel);
     } catch (error: any) {
@@ -4401,6 +4553,9 @@ export async function registerRoutes(
       if (channel.type !== "custom" && channel.type !== "dm") {
         return res.status(400).json({ message: "Only custom channels and direct messages can be deleted" });
       }
+      if (channel.type === "dm" && !(await storage.isChannelMember(channel.id, (req as any).userId))) {
+        return res.status(403).json({ message: "Only a participant can delete a direct message" });
+      }
       await storage.deleteChannel(channel.id);
       res.json({ success: true });
     } catch (error: any) {
@@ -4415,7 +4570,7 @@ export async function registerRoutes(
       const userId = (req as any).userId;
       const isMember = await storage.isChannelMember(req.params.id, userId);
       if (!isMember) return res.status(403).json({ message: "Not a member of this channel" });
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = clampInt(req.query.limit, 100, 1, 300);
       const messages = await storage.getChannelMessages(req.params.id, limit);
       res.json(messages);
     } catch (error: any) {
@@ -4464,11 +4619,15 @@ export async function registerRoutes(
   app.post("/api/channels/:id/members", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const channel = await storage.getChannelById(req.params.id);
-      if (!channel) return res.status(404).json({ message: "Channel not found" });
+      if (!channel || channel.companyId !== (req as any).companyId) return res.status(404).json({ message: "Channel not found" });
       if (channel.type !== "custom") return res.status(400).json({ message: "Can only manage members of custom channels" });
       const { userId } = req.body;
-      if (!userId) return res.status(400).json({ message: "userId is required" });
-      const member = await storage.addChannelMember(channel.id, userId);
+      if (!userId || typeof userId !== "string") return res.status(400).json({ message: "userId is required" });
+      const target = await storage.getUser(userId);
+      if (!target || target.companyId !== channel.companyId || target.role === "system" || target.deactivatedAt) {
+        return res.status(400).json({ message: "That user isn't in your workspace" });
+      }
+      const member = await storage.addChannelMember(channel.id, target.id);
       res.status(201).json(member);
     } catch (error: any) {
       console.error("Failed to add member:", error);
@@ -4480,7 +4639,7 @@ export async function registerRoutes(
   app.delete("/api/channels/:id/members/:userId", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const channel = await storage.getChannelById(req.params.id);
-      if (!channel) return res.status(404).json({ message: "Channel not found" });
+      if (!channel || channel.companyId !== (req as any).companyId) return res.status(404).json({ message: "Channel not found" });
       if (channel.type !== "custom") return res.status(400).json({ message: "Can only manage members of custom channels" });
       await storage.removeChannelMember(channel.id, req.params.userId);
       res.json({ success: true });
@@ -4508,9 +4667,10 @@ export async function registerRoutes(
       const userId = (req as any).userId;
       const companyId = (req as any).companyId;
       const { targetUserId } = req.body;
-      if (!targetUserId) return res.status(400).json({ message: "targetUserId is required" });
+      if (!targetUserId || typeof targetUserId !== "string") return res.status(400).json({ message: "targetUserId is required" });
+      if (targetUserId === userId) return res.status(400).json({ message: "You can't start a direct message with yourself" });
       const targetUser = await storage.getUser(targetUserId);
-      if (!targetUser || targetUser.companyId !== companyId) {
+      if (!targetUser || targetUser.companyId !== companyId || targetUser.deactivatedAt) {
         return res.status(400).json({ message: "Target user not found in your company" });
       }
       const currentUser = await storage.getUser(userId);
@@ -4541,45 +4701,13 @@ export async function registerRoutes(
     }
   });
 
-  // One-time migration: move teamMessages to channelMessages via general channels
-  app.post("/api/admin/migrate-team-messages", requireAuth, requireRole("admin"), async (req, res) => {
+  app.get("/api/health", async (_req, res) => {
     try {
-      const userId = (req as any).userId;
-      const companyId = (req as any).companyId;
-      if (!companyId) return res.status(400).json({ message: "No company" });
-
-      // Ensure general channel exists
-      const generalChannel = await storage.ensureGeneralChannel(companyId);
-
-      // Add all company users as members (excluding the automated
-      // "system" sender account, if one exists — see getOrCreateSystemUser)
-      const companyUsers = await storage.getUsersByCompany(companyId);
-      for (const u of companyUsers.filter(u => u.role !== "system")) {
-        await storage.addChannelMember(generalChannel.id, u.id);
-      }
-
-      // Get all team messages for this company
-      const teamMsgs = await storage.getTeamMessages(companyId, 10000);
-
-      // Insert into channelMessages (oldest first)
-      let migrated = 0;
-      for (const msg of teamMsgs.reverse()) {
-        await storage.createChannelMessage({
-          channelId: generalChannel.id,
-          userId: msg.userId,
-          content: msg.content,
-        });
-        migrated++;
-      }
-
-      res.json({ message: `Migrated ${migrated} messages to #general channel`, migrated });
-    } catch (error: any) {
-      console.error("Migration failed:", error);
-      res.status(500).json({ message: "Migration failed" });
+      await storage.getAllCompanies();
+    } catch (error) {
+      console.error("Health check: database unreachable:", error);
+      return res.status(503).json({ status: "degraded", database: "unreachable", timestamp: new Date().toISOString() });
     }
-  });
-
-  app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 

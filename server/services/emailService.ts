@@ -7,8 +7,6 @@ export interface EmailMessage {
   html?: string;
 }
 
-const sentEmails: EmailMessage[] = [];
-
 function getFromEmail(): string {
   return process.env.EMAIL_FROM || "InternOps <noreply@internops.dev>";
 }
@@ -44,7 +42,7 @@ function emailWrapper(title: string, body: string): string {
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif">
 <div style="max-width:560px;margin:0 auto;padding:32px 16px">
 <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden">
-<div style="background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);padding:24px 28px">
+<div style="background:#0E0D0C;padding:24px 28px">
 <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.3px">InternOps</h1>
 </div>
 <div style="padding:28px">
@@ -61,7 +59,6 @@ ${body}
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
-  sentEmails.push(msg);
   const resend = getResendClient();
 
   if (!resend) {
@@ -87,24 +84,6 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
   }
 }
 
-export function getSentEmails(): EmailMessage[] { return sentEmails; }
-
-export function generatePassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let password = "";
-  for (let i = 0; i < 10; i++) password += chars.charAt(Math.floor(Math.random() * chars.length));
-  return password;
-}
-
-export function sendCredentialsEmail(email: string, name: string, role: string, password: string): Promise<void> {
-  return sendEmail({
-    to: email,
-    subject: "Welcome to InternOps - Your " + role + " Account",
-    body: "Hello " + name + ",\n\nYour " + role + " account has been created.\nEmail: " + email + "\nPassword: " + password,
-    html: emailWrapper("Welcome, " + name + "!", "<p>Your <strong>" + role + "</strong> account has been created.</p><p><strong>Email:</strong> " + email + "<br><strong>Password:</strong> " + password + "</p>"),
-  });
-}
-
 export function sendVerificationEmail(email: string, verifyLink: string): Promise<void> {
   return sendEmail({
     to: email,
@@ -113,11 +92,18 @@ export function sendVerificationEmail(email: string, verifyLink: string): Promis
     html: emailWrapper("Verify your email",
       "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Click the button below to confirm this is your email address. This link expires in 24 hours.</p>" +
       "<div style=\"text-align:center;margin:24px 0\">" +
-        "<a href=\"" + verifyLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Verify Email</a>" +
+        "<a href=\"" + verifyLink + "\" style=\"display:inline-block;padding:12px 32px;background:#111827;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Verify Email</a>" +
       "</div>" +
       "<p style=\"color:#a1a1aa;font-size:13px;line-height:1.5\">If you didn't create an InternOps account, you can safely ignore this email.</p>"
     ),
   });
+}
+
+// Every user-provided string that lands in an HTML email body goes through
+// this — an applicant's "motivation" field or a comment must never be able
+// to inject markup into an admin's inbox.
+function esc(v: unknown): string {
+  return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 export function sendInternInviteEmail(email: string, inviteLink: string, companyName: string, inviterName?: string): Promise<void> {
@@ -126,9 +112,9 @@ export function sendInternInviteEmail(email: string, inviteLink: string, company
     subject: "Invitation to join " + companyName + " on InternOps",
     body: (inviterName ? inviterName + " invited you" : "You've been invited") + " to join " + companyName + " on InternOps: " + inviteLink + "\n\nThis link expires in 48 hours.",
     html: emailWrapper("Join " + companyName,
-      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">" + (inviterName ? "<strong>" + inviterName + "</strong> invited you" : "You've been invited") + " to join <strong>" + companyName + "</strong> as an intern on InternOps.</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">" + (inviterName ? "<strong>" + esc(inviterName) + "</strong> invited you" : "You've been invited") + " to join <strong>" + esc(companyName) + "</strong> as an intern on InternOps.</p>" +
       "<div style=\"text-align:center;margin:24px 0\">" +
-        "<a href=\"" + inviteLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Accept Invitation</a>" +
+        "<a href=\"" + inviteLink + "\" style=\"display:inline-block;padding:12px 32px;background:#111827;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Accept Invitation</a>" +
       "</div>" +
       "<p style=\"color:#a1a1aa;font-size:13px;line-height:1.5\">This invitation expires in 48 hours.</p>"
     ),
@@ -140,7 +126,7 @@ export function sendPlanSubmittedEmail(adminEmail: string, internName: string, p
     to: adminEmail,
     subject: "Plan Review Needed: " + projectTitle,
     body: internName + " submitted plan v" + versionNumber + " for " + projectTitle,
-    html: emailWrapper("Plan Review Needed", "<p><strong>" + internName + "</strong> submitted plan v" + versionNumber + " for <strong>" + projectTitle + "</strong>.</p>"),
+    html: emailWrapper("Plan Review Needed", "<p><strong>" + esc(internName) + "</strong> submitted plan v" + versionNumber + " for <strong>" + esc(projectTitle) + "</strong>.</p>"),
   });
 }
 
@@ -149,7 +135,7 @@ export function sendPlanApprovedEmail(internEmail: string, projectTitle: string,
     to: internEmail,
     subject: "Plan Approved: " + projectTitle,
     body: "Plan v" + versionNumber + " for " + projectTitle + " approved. " + (comment || ""),
-    html: emailWrapper("Plan Approved!", "<p>Your plan v" + versionNumber + " for <strong>" + projectTitle + "</strong> has been approved.</p>"),
+    html: emailWrapper("Plan Approved!", "<p>Your plan v" + versionNumber + " for <strong>" + esc(projectTitle) + "</strong> has been approved.</p>"),
   });
 }
 
@@ -158,7 +144,7 @@ export function sendRevisionRequestedEmail(internEmail: string, projectTitle: st
     to: internEmail,
     subject: "Revision Requested: " + projectTitle,
     body: "Revision requested for plan v" + versionNumber + ": " + comment,
-    html: emailWrapper("Revision Requested", "<p>Changes requested for <strong>" + projectTitle + "</strong>: " + comment + "</p>"),
+    html: emailWrapper("Revision Requested", "<p>Changes requested for <strong>" + esc(projectTitle) + "</strong>: " + esc(comment) + "</p>"),
   });
 }
 
@@ -167,7 +153,7 @@ export function sendCommentEmail(internEmail: string, managerName: string, proje
     to: internEmail,
     subject: "New Comment: " + projectTitle,
     body: managerName + " commented: " + commentText,
-    html: emailWrapper("New Comment", "<p><strong>" + managerName + "</strong> commented: " + commentText + "</p>"),
+    html: emailWrapper("New Comment", "<p><strong>" + esc(managerName) + "</strong> commented: " + esc(commentText) + "</p>"),
   });
 }
 
@@ -176,7 +162,7 @@ export function sendNewInternJoinedEmail(adminEmail: string, internName: string,
     to: adminEmail,
     subject: "New Intern Joined: " + internName,
     body: internName + " joined " + companyName,
-    html: emailWrapper("New Intern Joined", "<p><strong>" + internName + "</strong> joined <strong>" + companyName + "</strong>.</p>"),
+    html: emailWrapper("New Intern Joined", "<p><strong>" + esc(internName) + "</strong> joined <strong>" + esc(companyName) + "</strong>.</p>"),
   });
 }
 
@@ -186,8 +172,8 @@ export function sendApplicationReceivedEmail(applicantEmail: string, applicantNa
     subject: "Your InternOps application has been received",
     body: "Hi " + applicantName + ",\n\nYour application to " + companyName + " has been received and is pending review. We'll email you as soon as there's an update.",
     html: emailWrapper("Application received",
-      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + applicantName + ",</p>" +
-      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Thanks for applying to <strong>" + companyName + "</strong>. Your application has been received and is now pending review.</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + esc(applicantName) + ",</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Thanks for applying to <strong>" + esc(companyName) + "</strong>. Your application has been received and is now pending review.</p>" +
       "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">We'll email you as soon as there's an update — no action is needed from you right now.</p>"
     ),
   });
@@ -195,18 +181,18 @@ export function sendApplicationReceivedEmail(applicantEmail: string, applicantNa
 
 export function sendNewApplicationAdminEmail(adminEmail: string, applicantName: string, applicantEmail: string, companyName: string, reviewLink: string, details: { skills?: string | null; motivation?: string | null }): Promise<void> {
   const detailRows = [
-    details.skills ? "<p style=\"color:#52525b;font-size:14px;line-height:1.6\"><strong>Skills:</strong> " + details.skills + "</p>" : "",
-    details.motivation ? "<p style=\"color:#52525b;font-size:14px;line-height:1.6\"><strong>Why they want to join:</strong> " + details.motivation + "</p>" : "",
+    details.skills ? "<p style=\"color:#52525b;font-size:14px;line-height:1.6\"><strong>Skills:</strong> " + esc(details.skills) + "</p>" : "",
+    details.motivation ? "<p style=\"color:#52525b;font-size:14px;line-height:1.6\"><strong>Why they want to join:</strong> " + esc(details.motivation) + "</p>" : "",
   ].join("");
   return sendEmail({
     to: adminEmail,
     subject: "New application: " + applicantName + " — " + companyName,
     body: applicantName + " (" + applicantEmail + ") applied to " + companyName + ". Review: " + reviewLink,
     html: emailWrapper("New internship application",
-      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\"><strong>" + applicantName + "</strong> (" + applicantEmail + ") applied to <strong>" + companyName + "</strong>.</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\"><strong>" + esc(applicantName) + "</strong> (" + esc(applicantEmail) + ") applied to <strong>" + esc(companyName) + "</strong>.</p>" +
       detailRows +
       "<div style=\"text-align:center;margin:24px 0\">" +
-        "<a href=\"" + reviewLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Review Application</a>" +
+        "<a href=\"" + reviewLink + "\" style=\"display:inline-block;padding:12px 32px;background:#111827;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Review Application</a>" +
       "</div>"
     ),
   });
@@ -218,10 +204,10 @@ export function sendApplicationApprovedEmail(applicantEmail: string, applicantNa
     subject: "You're in! Your " + companyName + " application was approved",
     body: "Hi " + applicantName + ",\n\nGreat news — your application to " + companyName + " has been approved. Log in to get started: " + loginLink,
     html: emailWrapper("Application approved!",
-      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + applicantName + ",</p>" +
-      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Great news — your application to <strong>" + companyName + "</strong> has been approved.</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + esc(applicantName) + ",</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Great news — your application to <strong>" + esc(companyName) + "</strong> has been approved.</p>" +
       "<div style=\"text-align:center;margin:24px 0\">" +
-        "<a href=\"" + loginLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Log In</a>" +
+        "<a href=\"" + loginLink + "\" style=\"display:inline-block;padding:12px 32px;background:#111827;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Log In</a>" +
       "</div>"
     ),
   });
@@ -233,8 +219,8 @@ export function sendApplicationRejectedEmail(applicantEmail: string, applicantNa
     subject: "Update on your " + companyName + " application",
     body: "Hi " + applicantName + ",\n\nThank you for your interest in " + companyName + ". After careful review, we won't be moving forward with your application at this time. We appreciate the time you took to apply and wish you the best in your search.",
     html: emailWrapper("Application update",
-      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + applicantName + ",</p>" +
-      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Thank you for your interest in <strong>" + companyName + "</strong>. After careful review, we won't be moving forward with your application at this time.</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Hi " + esc(applicantName) + ",</p>" +
+      "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Thank you for your interest in <strong>" + esc(companyName) + "</strong>. After careful review, we won't be moving forward with your application at this time.</p>" +
       "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">We appreciate the time you took to apply, and wish you the best in your search.</p>"
     ),
   });
@@ -248,7 +234,7 @@ export function sendPasswordResetEmail(email: string, resetLink: string): Promis
     html: emailWrapper("Reset Your Password", 
       "<p style=\"color:#52525b;font-size:15px;line-height:1.6\">Click the button below to reset your password. This link expires in 1 hour.</p>" +
       "<div style=\"text-align:center;margin:24px 0\">" +
-        "<a href=\"" + resetLink + "\" style=\"display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#EF7878 0%,#e85d5d 100%);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Reset Password</a>" +
+        "<a href=\"" + resetLink + "\" style=\"display:inline-block;padding:12px 32px;background:#111827;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px\">Reset Password</a>" +
       "</div>" +
       "<p style=\"color:#a1a1aa;font-size:13px;line-height:1.5\">If you didn't request a password reset, you can safely ignore this email.</p>"
     ),
