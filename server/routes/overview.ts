@@ -156,6 +156,29 @@ export function registerOverviewRoutes(app: Express) {
     }
   });
 
+  // Recent sessions across the company (admin Work view). Each row carries
+  // the intern's name and whether a report was submitted, so the list
+  // needs no per-row fetches.
+  app.get("/api/work-sessions/company", requireAuth, requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const companyId = (req as any).companyId as string;
+      const days = clampInt(req.query.days, 7, 1, 90);
+      const since = new Date(Date.now() - days * 86_400_000);
+      const [sessions, users] = await Promise.all([storage.getWorkSessionsByCompanySince(companyId, since), storage.getUsersByCompany(companyId)]);
+      const nameById = new Map(users.map((u) => [u.id, u.name]));
+      const summaries = await Promise.all(sessions.filter((s) => s.status === "completed").map((s) => storage.getWorkSummaryBySession(s.id)));
+      const summaryBySession = new Map(summaries.filter(Boolean).map((x) => [x!.sessionId, x!]));
+      res.json(sessions.map((s) => ({
+        id: s.id, internId: s.internId, internName: nameById.get(s.internId) ?? "Unknown", startedAt: s.startedAt, endedAt: s.endedAt,
+        durationSeconds: s.durationSeconds, status: s.status, endReason: (s as any).endReason ?? null,
+        reportSubmittedAt: summaryBySession.get(s.id)?.submittedAt ?? null, observed: (summaryBySession.get(s.id)?.activityBreakdown ?? []).reduce((sum: number, a: any) => sum + a.seconds, 0),
+      })));
+    } catch (error) {
+      console.error("Company sessions failed:", error);
+      res.status(500).json({ message: "Couldn't load sessions." });
+    }
+  });
+
   app.post("/api/onboarding/dismiss", requireAuth, requireRole("admin"), async (req: Request, res: Response) => {
     try {
       await storage.setCompanyOnboardingDismissed((req as any).companyId, req.body?.dismissed !== false);

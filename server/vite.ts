@@ -31,7 +31,11 @@ export async function setupVite(server: Server, app: Express) {
 
   app.use(vite.middlewares);
 
-  app.use("(.*)", async (req, res, next) => {
+  // No path pattern: Express 4's path-to-regexp doesn't reliably match
+  // "(.*)" at the root, which left "/" answering "Cannot GET /". API
+  // routes were registered earlier, so anything reaching here is a page.
+  app.use(async (req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api")) return next();
     const url = req.originalUrl;
 
     try {

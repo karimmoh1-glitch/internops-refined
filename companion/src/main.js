@@ -1,283 +1,674 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, powerMonitor } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, nativeTheme, powerMonitor, shell, dialog } = require("electron");
 const path = require("path");
-const { ActivityTracker } = require("./activityTracker");
-const authStore = require("./authStore");
+const fs = require("fs");
+const config = require("./config");
 const api = require("./api");
-const { reconcileTrackingState } = require("./reconcile");
+const authStore = require("./authStore");
+const { Outbox } = require("./outbox");
+const { ActivityTracker } = require("./activityTracker");
+const { WorkMode, STATES } = require("./workMode");
+const workContext = require("./workContext");
+const permissions = require("./permissions");
 const updater = require("./updater");
-const { SAMPLE_INTERVAL_MS, SYNC_INTERVAL_MS, UPDATE_CHECK_INTERVAL_MS } = require("./config");
 
+// Without a single-instance lock a second launch would load the same
+// persisted session, see the same active shift on the server, and start
+// its own sampler — double-counting the same real machine. Only the first
+// instance runs; later launches hand off to it and quit.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  return; // module-level return is valid — each CommonJS file is wrapped in a function
+}
+app.on("second-instance", () => showWindow());
+
+// ---------------------------------------------------------------------
+// State. Everything the renderer shows is derived from these; the renderer
+// never holds state of its own beyond "which view am I on".
+// ---------------------------------------------------------------------
 let mainWindow = null;
 let tray = null;
+const trayIcons = { off: null, on: null };
 let session = null; // { token, user }
-let tracker = null;
-let workModeActive = false;
-let updateStatus = { state: "idle" };
+let sessionExpired = null; // message while the "Session expired" screen should show
+let loggingOut = false;
+let outbox = null;
+let workMode = null;
+let task = null;
+let taskFetchedAt = 0;
+let observation = { status: "unavailable", at: null };
+const connection = { failures: 0, lastOkAt: null, lastError: null };
+let permissionState = { platform: process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "unsupported", app: "unknown", windowTitle: "unknown", browserDomain: "unknown", browser: null, needsAttention: false };
+let updateStatus = updater.getStatus();
+let reconcileTimer = null;
+let flushTimer = null;
+let trayTimer = null;
+let quitting = false;
+let pendingNavigate = null;
+const pauseReasons = new Set();
 
-// Without a single-instance lock, a second launch (double-clicked by
-// accident, or opened again from Spotlight) starts a fully independent
-// process that loads the same persisted session and — because the server
-// already has an active session — reconnects and starts its OWN tracker
-// too. Both would then genuinely observe the same real machine over the
-// same real window and could each write overlapping rows for it: not a
-// privacy leak (nothing false is reported), but real double-counted
-// duration once two trackers are running is a real accuracy problem an
-// admin would have no way to detect from the data alone. The standard fix
-// is to let only the first instance run; any later launch hands off to it
-// and quits immediately.
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
-if (!gotSingleInstanceLock) {
-  app.quit();
-  return; // module-level return is valid — each Node/CommonJS file is itself wrapped in a function
+const isMac = process.platform === "darwin";
+
+function userDataPath(name) {
+  return path.join(app.getPath("userData"), name);
 }
 
-app.on("second-instance", () => {
-  // Someone tried to open a second copy — surface the one real instance
-  // instead of silently doing nothing (or, worse, letting a second
-  // tracker start).
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-  }
-});
+function formatHMS(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return [h, m, sec].map((n) => String(n).padStart(2, "0")).join(":");
+}
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 380,
-    height: 620,
-    resizable: false,
-    title: "InternOps Companion",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
+function connectionStatus() {
+  if (connection.failures === 0) return "connected";
+  if (connection.failures < 3) return "reconnecting";
+  return "offline";
+}
+
+function buildState() {
+  return {
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    webUrl: config.WEB_URL,
+    auth: { loggedIn: !!session, user: session?.user ?? null, expired: sessionExpired },
+    work: workMode ? workMode.snapshot() : { state: STATES.OFF },
+    task,
+    observation,
+    connection: {
+      status: connectionStatus(),
+      queued: outbox ? outbox.size : 0,
+      lastOkAt: connection.lastOkAt,
+      lastError: connection.lastError,
+      nextAttemptAt: outbox ? outbox.nextAttemptAt : 0,
     },
-  });
-  mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
-  mainWindow.on("close", (e) => {
-    // Menu-bar-style app: closing the window doesn't stop an active Work
-    // Mode session (that requires the explicit Stop button) — it just
-    // hides the window, matching the "clear indication, explicit control"
-    // requirement rather than silently killing tracking on an accidental
-    // click.
-    if (workModeActive && !app.isQuitting) {
-      e.preventDefault();
-      mainWindow.hide();
-    }
-  });
-}
-
-function createTray() {
-  // A small solid-color dot, same asset on every platform. (An earlier
-  // version used macOS's NSImageNameStatusAvailable named image, which
-  // resolves to nothing on Windows/Linux and left the tray icon blank
-  // there — a real file works everywhere.)
-  let icon = nativeImage.createFromPath(path.join(__dirname, "renderer", "tray-icon.png"));
-  if (icon.isEmpty()) icon = nativeImage.createFromNamedImage("NSImageNameStatusAvailable");
-  tray = new Tray(icon);
-  tray.setToolTip("InternOps Companion");
-  updateTrayMenu();
-  tray.on("click", () => {
-    if (mainWindow) {
-      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-    }
-  });
-}
-
-function updateTrayMenu() {
-  if (!tray) return;
-  tray.setTitle(workModeActive ? " ● Work Mode" : "");
-  const menu = Menu.buildFromTemplate([
-    { label: workModeActive ? "Work Mode Active" : "Work Mode Off", enabled: false },
-    { type: "separator" },
-    { label: "Show InternOps Companion", click: () => mainWindow?.show() },
-    { type: "separator" },
-    { label: "Quit", click: () => { app.isQuitting = true; app.quit(); } },
-  ]);
-  tray.setContextMenu(menu);
+    permissions: permissionState,
+    update: updateStatus,
+  };
 }
 
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
 }
 
-async function flushActivity(activities) {
-  if (!session) return;
-  await api.postActivity(session.token, activities);
-}
-
-// The Companion UI's live "Currently: VS Code / auth.ts" readout reads
-// straight from the tracker's open bucket — never a separate, potentially
-// stale copy of the same fact.
-function currentContext() {
-  if (!workModeActive || !tracker || !tracker.current) return null;
-  const ctx = tracker.current.lastContext;
-  return {
-    application: ctx.application,
-    documentName: ctx.documentName,
-    browserDomain: ctx.browserDomain,
-    idleSeconds: ctx.idleSeconds,
-  };
-}
-
-function startTracking() {
-  workModeActive = true;
-  tracker = new ActivityTracker({
-    sampleIntervalMs: SAMPLE_INTERVAL_MS,
-    flushIntervalMs: SYNC_INTERVAL_MS,
-    onFlush: flushActivity,
-    onPermissionIssue: () => send("activity-permission-needed"),
+let broadcastQueued = false;
+function broadcast() {
+  // Coalesce bursts (a transition fires onChange, then the caller
+  // broadcasts again) into one IPC message per tick.
+  if (broadcastQueued) return;
+  broadcastQueued = true;
+  setImmediate(() => {
+    broadcastQueued = false;
+    send("state", buildState());
+    updateTray();
   });
-  tracker.start();
-  updateTrayMenu();
 }
 
-async function stopTracking() {
-  workModeActive = false;
-  if (tracker) {
-    await tracker.flushNow();
-    tracker.stop();
-    tracker = null;
-  }
-  updateTrayMenu();
-  // A shift just ended — if an update was deferred because Work Mode was
-  // active when it was found, this is the first safe moment to actually
-  // download it. Never awaited/blocking: this must never delay End Shift
-  // completing for the user.
-  if (updateStatus.state === "deferred" || updateStatus.state === "available") {
-    updater.checkForUpdates().catch(() => {});
-  }
+function noteConnectionOk() {
+  connection.failures = 0;
+  connection.lastOkAt = Date.now();
+  connection.lastError = null;
+}
+function noteConnectionFail(err) {
+  connection.failures++;
+  connection.lastError = err?.message || String(err);
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
-  const saved = authStore.loadSession();
-  if (saved) {
-    session = saved;
-    send("session-restored", { user: saved.user });
-  }
-
-  // Sleep and screen-lock are real activity boundaries even though Work
-  // Mode itself stays on across them (the shift the intern started is
-  // still genuinely running) — without this, a bucket left open when the
-  // lid closes would misreport the whole sleep/lock duration as continuous
-  // activity in whatever app was frontmost beforehand.
-  powerMonitor.on("suspend", () => tracker?.breakSegment());
-  powerMonitor.on("lock-screen", () => tracker?.breakSegment());
-
-  updater.setup({
-    isWorkModeActiveFn: () => workModeActive,
-    onStatusFn: (status) => {
-      updateStatus = status;
-      send("update-status", status);
+// ---------------------------------------------------------------------
+// Window — macOS menu-bar style: close hides, tray/dock/activate re-shows,
+// and a destroyed window is always re-created rather than touched.
+// ---------------------------------------------------------------------
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 360,
+    height: 560,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    show: false,
+    title: "InternOps Companion",
+    titleBarStyle: isMac ? "hiddenInset" : "default",
+    trafficLightPosition: isMac ? { x: 12, y: 14 } : undefined,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#0B0B0C" : "#F7F6F3",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      spellcheck: false,
+      devTools: !app.isPackaged,
     },
   });
-  // Once on launch, then periodically — never awaited, never blocking
-  // startup, and any failure (offline, GitHub unreachable, no releases
-  // published yet) is caught inside updater.js and surfaced as a status
-  // rather than thrown.
-  updater.checkForUpdates();
-  setInterval(() => updater.checkForUpdates(), UPDATE_CHECK_INTERVAL_MS);
-});
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("will-navigate", (e, url) => {
+    if (url !== mainWindow.webContents.getURL()) e.preventDefault();
+  });
+  mainWindow.webContents.on("did-finish-load", () => {
+    send("state", buildState());
+    if (pendingNavigate) {
+      send("navigate", pendingNavigate);
+      pendingNavigate = null;
+    }
+  });
+  mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.on("close", (e) => {
+    if (quitting) return;
+    e.preventDefault();
+    mainWindow.hide();
+  });
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
+  mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+}
 
-app.on("window-all-closed", () => {
-  // Menu-bar-style utility app — stay alive in the tray on macOS even
-  // with no windows open, same as most menu-bar apps.
-  if (process.platform !== "darwin") app.quit();
-});
-
-// --- IPC: everything the renderer can ask for. The token never leaves
-// this process — the renderer only ever sees { user } and status flags. ---
-
-ipcMain.handle("login", async (_e, { email, password }) => {
-  const result = await api.login(email, password);
-  if (result.user.role !== "intern") {
-    throw new Error("The InternOps Companion is for interns. Sign in to the web app as an admin instead.");
+function showWindow(view = null) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    pendingNavigate = view;
+    createWindow();
+    return;
   }
-  session = { token: result.token, user: result.user };
-  authStore.saveSession(session);
-  return { user: session.user };
-});
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+  if (view) send("navigate", view);
+}
 
-ipcMain.handle("logout", async () => {
-  if (workModeActive) await stopTracking();
+// ---------------------------------------------------------------------
+// Tray
+// ---------------------------------------------------------------------
+function loadTrayIcon(name) {
+  const img = nativeImage.createFromPath(path.join(__dirname, "renderer", name));
+  if (!img.isEmpty()) img.setTemplateImage(true);
+  return img;
+}
+
+function createTray() {
+  trayIcons.off = loadTrayIcon("trayTemplate.png");
+  trayIcons.on = loadTrayIcon("trayOnTemplate.png");
+  tray = new Tray(trayIcons.off);
+  tray.setToolTip("InternOps Companion");
+  tray.on("click", () => {
+    if (isMac) {
+      // On macOS the click opens the menu (set below); double-click shows.
+      return;
+    }
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) mainWindow.hide();
+    else showWindow();
+  });
+  tray.on("double-click", () => showWindow());
+  updateTray();
+}
+
+function elapsedSeconds() {
+  const startedAt = workMode?.session?.startedAt;
+  if (!startedAt) return 0;
+  return (Date.now() - new Date(startedAt).getTime()) / 1000;
+}
+
+function updateTray() {
+  if (!tray) return;
+  const on = workMode?.state === STATES.ON;
+  const busy = workMode?.isBusy;
+  const pendingReport = workMode?.state === STATES.ENDED_PENDING_REPORT;
+  tray.setImage(on ? trayIcons.on : trayIcons.off);
+  tray.setTitle(on ? ` ${formatHMS(elapsedSeconds())}` : "");
+  const template = [
+    {
+      label: on ? "End Work Mode…" : busy ? (workMode.state === STATES.STARTING ? "Starting…" : "Ending…") : "Start Work Mode",
+      enabled: !!session && !busy,
+      click: () => (on ? showWindow("confirm-end") : ipcStartWork()),
+    },
+    { type: "separator" },
+    { label: "Open InternOps", click: () => shell.openExternal(config.WEB_URL).catch(() => {}) },
+    ...(pendingReport ? [{ label: "Open report", click: () => showWindow("report") }] : []),
+    { label: "Permissions…", click: () => showWindow("permissions") },
+    { label: "Check for updates", click: () => updater.checkForUpdates({ manual: true }) },
+    { type: "separator" },
+    { label: "Show InternOps Companion", click: () => showWindow() },
+    { label: on ? "Quit (shift stays active on the server)" : "Quit", click: () => app.quit() },
+  ];
+  tray.setContextMenu(Menu.buildFromTemplate(template));
+  if (on && !trayTimer) {
+    trayTimer = setInterval(() => tray?.setTitle(` ${formatHMS(elapsedSeconds())}`), 1000);
+  } else if (!on && trayTimer) {
+    clearInterval(trayTimer);
+    trayTimer = null;
+  }
+}
+
+function buildAppMenu() {
+  const template = [
+    ...(isMac
+      ? [{
+          label: app.name,
+          submenu: [
+            { role: "about" },
+            { label: "Check for Updates…", click: () => updater.checkForUpdates({ manual: true }) },
+            { label: "Permissions…", click: () => showWindow("permissions") },
+            { type: "separator" },
+            { role: "hide" },
+            { role: "hideOthers" },
+            { role: "unhide" },
+            { type: "separator" },
+            { role: "quit" },
+          ],
+        }]
+      : []),
+    { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
+    { label: "Window", submenu: [{ role: "minimize" }, { role: "close" }] },
+    { label: "Help", submenu: [{ label: "Open InternOps", click: () => shell.openExternal(config.WEB_URL).catch(() => {}) }] },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+// ---------------------------------------------------------------------
+// Observation + permissions
+// ---------------------------------------------------------------------
+async function refreshPermissions({ probe = false } = {}) {
+  try {
+    permissionState = await permissions.check({ probe });
+  } catch (err) {
+    console.error("[permissions] check failed:", err);
+  }
+  if (observation.status !== "ok") {
+    observation = { ...observation, status: permissionState.needsAttention ? "permission" : "unavailable" };
+  }
+  broadcast();
+  return permissionState;
+}
+
+function handleSample(ctx, meta) {
+  if (ctx) {
+    observation = {
+      status: "ok",
+      application: ctx.application,
+      documentName: ctx.documentName,
+      browserDomain: ctx.browserDomain,
+      idleSeconds: ctx.idleSeconds,
+      idle: !!meta.idle,
+      at: meta.at,
+    };
+    // Samples succeeding is the signal that permissions are fine again —
+    // the banner clears on its own, without a manual re-check.
+    if (permissionState.needsAttention || permissionState.app !== "ok") refreshPermissions({ probe: false });
+    else broadcast();
+  } else {
+    observation = { status: permissionState.needsAttention ? "permission" : "unavailable", at: meta.at, failures: meta.failures };
+    broadcast();
+  }
+}
+
+function createTracker({ onBucket }) {
+  return new ActivityTracker({
+    sampleIntervalMs: config.SAMPLE_INTERVAL_MS,
+    getContext: workContext.getCurrentWorkContext,
+    onBucket,
+    onSample: handleSample,
+    onPermissionIssue: () => refreshPermissions({ probe: false }),
+    idleThresholdSeconds: config.IDLE_THRESHOLD_SECONDS,
+    minBucketSeconds: config.MIN_BUCKET_SECONDS,
+    maxBucketSeconds: config.MAX_BUCKET_SECONDS,
+  });
+}
+
+// ---------------------------------------------------------------------
+// Pending report persistence (survives a restart)
+// ---------------------------------------------------------------------
+function persistReport() {
+  const file = userDataPath("pending-report.json");
+  try {
+    if (workMode.state === STATES.ENDED_PENDING_REPORT && workMode.report) {
+      fs.writeFileSync(file, JSON.stringify({ userId: session?.user?.id ?? null, report: workMode.report }));
+    } else {
+      fs.rmSync(file, { force: true });
+    }
+  } catch (err) {
+    console.error("[report] persist failed:", err);
+  }
+}
+function restoreReport() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(userDataPath("pending-report.json"), "utf8"));
+    if (raw?.report && raw.userId === session?.user?.id) workMode.restoreReport(raw.report);
+  } catch {
+    // none pending
+  }
+}
+
+// ---------------------------------------------------------------------
+// Session lifecycle
+// ---------------------------------------------------------------------
+function getToken() {
+  return session?.token ?? null;
+}
+
+function handleSessionExpired(message) {
+  if (!session || loggingOut) return;
   session = null;
   authStore.clearSession();
+  sessionExpired = message || "Session expired — sign in again.";
+  task = null;
+  workMode.forceOff("session-expired").catch(() => {});
+  broadcast();
+}
+
+async function refreshTask() {
+  if (!session) return;
+  try {
+    const next = await api.getNextBest(session.token);
+    const rec = next?.recommended;
+    task = rec?.task ? { id: rec.task.id, title: rec.task.title, status: rec.task.status ?? null, reason: rec.reason ?? null, blockingCount: rec.blockingCount ?? 0 } : null;
+    taskFetchedAt = Date.now();
+  } catch (err) {
+    if (err?.network) noteConnectionFail(err);
+    // Non-critical — the previous recommendation stays on screen.
+  }
+}
+
+async function reconcileTick() {
+  if (!session || !workMode) return;
+  try {
+    await workMode.reconcile();
+    noteConnectionOk();
+    // A missed unlock-screen event must never leave sampling paused for a
+    // whole shift: if the OS says we're not locked, clear that reason.
+    if (pauseReasons.has("locked")) {
+      try {
+        if (powerMonitor.getSystemIdleState(1) !== "locked") resumeFor("locked");
+      } catch { /* unsupported — leave it to the unlock event */ }
+    }
+    if (workMode.isOn && Date.now() - taskFetchedAt > config.TASK_REFRESH_MS) await refreshTask();
+    else if (!task && Date.now() - taskFetchedAt > config.TASK_REFRESH_MS * 5) await refreshTask();
+  } catch (err) {
+    if (err?.network || err?.status >= 500) noteConnectionFail(err);
+    else if (err?.status !== 401) console.error("[reconcile] failed:", err);
+  }
+  broadcast();
+}
+
+function scheduleReconcile(delayMs) {
+  if (reconcileTimer) clearTimeout(reconcileTimer);
+  reconcileTimer = setTimeout(async () => {
+    await reconcileTick();
+    scheduleReconcile(workMode?.isOn ? config.RECONCILE_ACTIVE_MS : config.RECONCILE_IDLE_MS);
+  }, delayMs);
+}
+
+async function flushOutbox({ force = false } = {}) {
+  if (!session || !workMode) return;
+  try {
+    const result = await workMode.flush({ force });
+    if (result.failed) noteConnectionFail(outbox.lastError || new Error("flush failed"));
+    else if (!result.skipped) noteConnectionOk();
+  } catch (err) {
+    noteConnectionFail(err);
+  }
+  broadcast();
+}
+
+function pauseFor(reason) {
+  pauseReasons.add(reason);
+  workMode?.pause(reason);
+}
+function resumeFor(reason) {
+  pauseReasons.delete(reason);
+  if (pauseReasons.size === 0) {
+    workMode?.resume();
+  } else {
+    workMode?.pause([...pauseReasons][0]);
+  }
+}
+
+async function ipcStartWork() {
+  if (!session) return { ok: false, error: "Not signed in." };
+  try {
+    const snap = await workMode.start();
+    noteConnectionOk();
+    refreshTask().then(broadcast);
+    broadcast();
+    return { ok: true, work: snap };
+  } catch (err) {
+    if (err?.network) noteConnectionFail(err);
+    broadcast();
+    return { ok: false, error: err?.message || "Couldn't start Work Mode.", status: err?.status ?? null };
+  }
+}
+
+// ---------------------------------------------------------------------
+// IPC — every handler returns { ok, ... } rather than throwing so the
+// renderer gets clean messages, never "Error invoking remote method".
+// ---------------------------------------------------------------------
+function handle(channel, fn) {
+  ipcMain.handle(channel, async (event, payload) => {
+    if (event.sender !== mainWindow?.webContents) return { ok: false, error: "Unknown sender." };
+    try {
+      const result = await fn(payload || {});
+      return result && typeof result === "object" && "ok" in result ? result : { ok: true, ...(result || {}) };
+    } catch (err) {
+      console.error(`[ipc:${channel}]`, err);
+      return { ok: false, error: err?.message || "Something went wrong.", status: err?.status ?? null };
+    }
+  });
+}
+
+handle("get-state", async () => ({ ok: true, state: buildState() }));
+
+handle("login", async ({ email, password }) => {
+  const e = typeof email === "string" ? email.trim() : "";
+  const p = typeof password === "string" ? password : "";
+  if (!e || !p) return { ok: false, error: "Enter your email and password." };
+  const result = await api.login(e, p);
+  if (!result?.token || !result?.user) return { ok: false, error: "Unexpected response from the server." };
+  if (result.user.role !== "intern") {
+    return { ok: false, error: "The Companion is for interns. Admins use the web app." };
+  }
+  if (session?.user?.id && session.user.id !== result.user.id) outbox.clear();
+  session = { token: result.token, user: result.user };
+  authStore.saveSession(session);
+  sessionExpired = null;
+  noteConnectionOk();
+  restoreReport();
+  await reconcileTick();
+  await refreshTask();
+  scheduleReconcile(workMode.isOn ? config.RECONCILE_ACTIVE_MS : config.RECONCILE_IDLE_MS);
+  broadcast();
+  return { ok: true, user: session.user };
+});
+
+handle("logout", async () => {
+  if (!session) return { ok: true };
+  if (workMode.state !== STATES.OFF && workMode.state !== STATES.ENDED_PENDING_REPORT) {
+    return { ok: false, error: "End your shift before signing out." };
+  }
+  loggingOut = true;
+  const token = session.token;
+  try {
+    await flushOutbox({ force: true });
+    // Logout = revoke this device on the server. The login response carries
+    // no device id, so find ours in the list: the server marks the caller's
+    // own device `isCurrent`; fall back to the most recently seen Companion.
+    try {
+      const devices = await api.getDevices(token);
+      const live = (devices || []).filter((d) => !d.revokedAt);
+      const mine = live.find((d) => d.isCurrent)
+        || live.filter((d) => /companion/i.test(d.name || "") || /companion/i.test(d.browser || "")).sort((a, b) => new Date(b.lastSeenAt) - new Date(a.lastSeenAt))[0];
+      if (mine) await api.revokeDevice(token, mine.id);
+      else console.warn("[logout] could not identify this device on the server; token not revoked server-side");
+    } catch (err) {
+      console.warn("[logout] device revoke failed:", err?.message);
+    }
+  } finally {
+    session = null;
+    sessionExpired = null;
+    task = null;
+    authStore.clearSession();
+    await workMode.forceOff("signed-out");
+    workMode.dismissReport();
+    persistReport();
+    loggingOut = false;
+    broadcast();
+  }
   return { ok: true };
 });
 
-ipcMain.handle("get-status", async () => {
-  if (!session) return { loggedIn: false, appVersion: app.getVersion(), updateStatus };
+handle("acknowledge-expired", async () => {
+  sessionExpired = null;
+  broadcast();
+  return { ok: true };
+});
+
+handle("start-work", () => ipcStartWork());
+
+handle("stop-work", async () => {
+  if (!session) return { ok: false, error: "Not signed in." };
   try {
-    const active = await api.getActiveSession(session.token);
-    const action = reconcileTrackingState(!!active, workModeActive);
-    if (action === "start") startTracking(); // reconnect case: a shift was already active (e.g. app restarted mid-shift)
-    if (action === "stop") await stopTracking(); // server-side end (admin, another device, or invalidation) the client hadn't heard about yet
-    let nextBest = null;
-    try {
-      nextBest = await api.getNextBest(session.token);
-    } catch {
-      // Non-critical — the status view still works without it.
-    }
-    return {
-      loggedIn: true,
-      user: session.user,
-      workModeActive,
-      activeSession: active,
-      currentTask: nextBest?.recommended?.task ?? null,
-      currentContext: currentContext(),
-      appVersion: app.getVersion(),
-      updateStatus,
-    };
+    const snap = await workMode.stop();
+    noteConnectionOk();
+    persistReport();
+    broadcast();
+    return { ok: true, work: snap };
   } catch (err) {
-    if (err.status === 401) {
-      // Revoked device, deactivated account, or expired token — losing the
-      // session must also stop the tracker. Clearing `session` alone left
-      // the collector running: flushActivity() no-ops on a null session,
-      // so nothing gets *uploaded*, but the OS was still being queried
-      // indefinitely after the app had already detected it should stop.
-      if (workModeActive) await stopTracking();
-      session = null;
-      authStore.clearSession();
-      return { loggedIn: false, sessionExpired: true };
-    }
-    throw err;
+    if (err?.network) noteConnectionFail(err);
+    broadcast();
+    return { ok: false, error: err?.message || "Couldn't end the shift.", status: err?.status ?? null };
   }
 });
 
-ipcMain.handle("start-work-mode", async () => {
-  if (!session) throw new Error("Not signed in.");
-  const active = await api.startSession(session.token);
-  startTracking();
-  return active;
+handle("submit-report", async ({ note }) => {
+  if (!session) return { ok: false, error: "Not signed in." };
+  const pending = workMode.report;
+  if (!pending?.sessionId) return { ok: false, error: "There is no report to submit." };
+  const text = typeof note === "string" ? note.trim().slice(0, 1000) : "";
+  try {
+    if (text) await api.updateSummary(session.token, pending.sessionId, text);
+    await api.submitSummary(session.token, pending.sessionId);
+  } catch (err) {
+    if (!(err?.status === 400 && /already been submitted/i.test(err.message || ""))) throw err;
+  }
+  noteConnectionOk();
+  workMode.markReportSubmitted();
+  persistReport();
+  broadcast();
+  return { ok: true };
 });
 
-ipcMain.handle("stop-work-mode", async () => {
-  if (!session) throw new Error("Not signed in.");
-  await stopTracking();
-  const result = await api.endSession(session.token);
-  return result;
+handle("discard-report", async () => {
+  workMode.dismissReport();
+  persistReport();
+  broadcast();
+  return { ok: true };
 });
 
-// User-initiated only — never called automatically. installNow() itself
-// also refuses while Work Mode is active, so this is double-guarded.
-ipcMain.handle("install-update", async () => {
-  updater.installNow();
+handle("check-permissions", async () => ({ ok: true, permissions: await refreshPermissions({ probe: true }) }));
+
+handle("open-permission-settings", async ({ which }) => {
+  const target = which === "automation" ? "automation" : "accessibility";
+  return { ok: permissions.openSettings(target) };
 });
 
-ipcMain.handle("get-summary", async (_e, sessionId) => {
-  if (!session) throw new Error("Not signed in.");
-  return api.getSummary(session.token, sessionId);
+handle("open-web", async ({ path: p }) => {
+  const suffix = typeof p === "string" && /^\/(?!\/)[\w\-./?=&%]*$/.test(p) ? p : "";
+  await shell.openExternal(`${config.WEB_URL}${suffix}`);
+  return { ok: true };
 });
 
-ipcMain.handle("update-summary-note", async (_e, { sessionId, note }) => {
-  if (!session) throw new Error("Not signed in.");
-  return api.updateSummary(session.token, sessionId, note);
+handle("check-updates", async () => {
+  updater.checkForUpdates({ manual: true });
+  return { ok: true };
 });
 
-ipcMain.handle("submit-summary", async (_e, sessionId) => {
-  if (!session) throw new Error("Not signed in.");
-  return api.submitSummary(session.token, sessionId);
+handle("install-update", async () => ({ ok: updater.installNow() }));
+
+// ---------------------------------------------------------------------
+// App lifecycle
+// ---------------------------------------------------------------------
+app.whenReady().then(async () => {
+  if (!config.API_URL_CHECK.ok) {
+    dialog.showErrorBox("InternOps Companion can't start", config.API_URL_CHECK.reason);
+    app.exit(1);
+    return;
+  }
+  api.configure({ version: app.getVersion(), platform: process.platform, onUnauthorized: handleSessionExpired });
+
+  outbox = new Outbox({ filePath: userDataPath("outbox.jsonl"), maxRowsPerRequest: config.MAX_ROWS_PER_REQUEST });
+  workMode = new WorkMode({
+    api,
+    getToken,
+    createTracker,
+    outbox,
+    onChange: () => {
+      updater.syncInstallOnQuit();
+      if (workMode.state === STATES.OFF || workMode.state === STATES.ENDED_PENDING_REPORT) persistReport();
+      if (workMode.state !== STATES.ON) observation = { status: "unavailable", at: null };
+      broadcast();
+    },
+  });
+
+  session = authStore.loadSession();
+  if (session && (!session.token || !session.user)) session = null;
+  if (session) restoreReport();
+
+  buildAppMenu();
+  createTray();
+  createWindow();
+
+  // Lock/sleep are hard activity boundaries: sampling pauses (open bucket
+  // closed with what was really observed) and resumes afterwards; locked
+  // time is never counted. Wake also retries the outbox and reconciles.
+  powerMonitor.on("suspend", () => pauseFor("sleep"));
+  powerMonitor.on("lock-screen", () => pauseFor("locked"));
+  powerMonitor.on("resume", () => {
+    resumeFor("sleep");
+    flushOutbox({ force: true });
+    scheduleReconcile(1000);
+  });
+  powerMonitor.on("unlock-screen", () => {
+    resumeFor("locked");
+    flushOutbox({ force: true });
+    scheduleReconcile(1000);
+  });
+  powerMonitor.on("shutdown", () => {
+    workMode.tracker?.stop();
+  });
+
+  updater.setup({
+    isWorkModeActiveFn: () => workMode.state !== STATES.OFF && workMode.state !== STATES.ENDED_PENDING_REPORT,
+    onStatusFn: (status) => {
+      updateStatus = status;
+      broadcast();
+    },
+  });
+  updater.syncInstallOnQuit();
+  updater.checkForUpdates();
+  setInterval(() => updater.checkForUpdates(), config.UPDATE_CHECK_INTERVAL_MS);
+
+  flushTimer = setInterval(() => flushOutbox(), config.FLUSH_INTERVAL_MS);
+  if (isMac) refreshPermissions({ probe: false });
+  scheduleReconcile(0);
+  if (session) refreshTask().then(broadcast);
+});
+
+app.on("activate", () => showWindow());
+
+// Tray app: closing the last window never quits (close already hides).
+app.on("window-all-closed", () => {});
+
+app.on("before-quit", (e) => {
+  if (quitting) return;
+  quitting = true;
+  if (reconcileTimer) clearTimeout(reconcileTimer);
+  if (flushTimer) clearInterval(flushTimer);
+  if (trayTimer) clearInterval(trayTimer);
+  // Stop sampling now (closes the open bucket into the outbox file —
+  // synchronous, nothing lost) but do NOT end the shift: the UI tells the
+  // user a quit leaves it active on the server.
+  workMode?.tracker?.stop();
+  workContext.shutdown();
+  if (session && outbox && outbox.size > 0) {
+    e.preventDefault();
+    const deadline = new Promise((resolve) => setTimeout(resolve, 5000));
+    Promise.race([workMode.flush({ force: true }).catch(() => {}), deadline]).finally(() => app.quit());
+  }
 });

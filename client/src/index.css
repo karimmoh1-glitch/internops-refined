@@ -3,237 +3,241 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   InternOps design tokens
+   ------------------------------------------------------------
+   A restrained, warm-neutral base with ONE brand accent (cobalt)
+   and a small set of semantic accents, each reserved for one job:
+     --work   Work Mode (active session, timers, Companion)
+     --pulse  Pulse Chat / AI surfaces
+     --ok     success / approved / completed
+     --warn   warning / due soon / waiting
+     --danger overdue / blocked / destructive
+     --info   neutral informational (in review)
+   Both themes define the same names; components only ever use the
+   semantic names, never raw hexes.
+   ============================================================ */
+:root {
+  color-scheme: light;
+
+  --bg: #F7F6F3;          /* page canvas */
+  --bg-sunken: #F0EEEA;   /* wells, inset areas */
+  --surface: #FFFFFF;     /* cards, panels */
+  --surface-2: #FAF9F7;   /* secondary surface (hover rows, subtle fills) */
+  --surface-raised: #FFFFFF; /* popovers, menus, dialogs */
+  --line: #E6E3DE;        /* hairline borders */
+  --line-strong: #D5D1CA;
+  --ink: #17161A;         /* primary text */
+  --ink-2: #4B4A52;       /* secondary text */
+  --ink-3: #85838D;       /* tertiary / metadata */
+  --ink-4: #B5B3BC;       /* placeholders, disabled */
+  --accent: #1F4DEB;      /* brand cobalt */
+  --accent-hover: #1740CF;
+  --accent-soft: #E9EEFF;
+  --accent-ink: #FFFFFF;
+  --work: #0F8A6A;
+  --work-soft: #E3F4EE;
+  --work-ink: #FFFFFF;
+  --pulse: #6D3BE6;
+  --pulse-soft: #EFE9FD;
+  --ok: #1E8E4D;
+  --ok-soft: #E4F4EA;
+  --warn: #B7700B;
+  --warn-soft: #FBF1DF;
+  --danger: #D5382F;
+  --danger-soft: #FCE8E6;
+  --info: #3862A8;
+  --info-soft: #E8EEF9;
+  --focus: #1F4DEB;
+  --shadow-lift: 0 1px 2px rgba(23, 22, 26, 0.05), 0 8px 24px -12px rgba(23, 22, 26, 0.18);
+  --shadow-pop: 0 2px 4px rgba(23, 22, 26, 0.06), 0 16px 40px -16px rgba(23, 22, 26, 0.28);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: #0B0B0C;
+  --bg-sunken: #070708;
+  --surface: #121214;
+  --surface-2: #17171A;
+  --surface-raised: #1A1A1E;
+  --line: #232327;
+  --line-strong: #2F2F35;
+  --ink: #F2F1F4;
+  --ink-2: #B4B2BC;
+  --ink-3: #7E7C88;
+  --ink-4: #545260;
+  --accent: #5B86FF;
+  --accent-hover: #779BFF;
+  --accent-soft: #15203F;
+  --accent-ink: #0B0B0C;
+  --work: #2FC496;
+  --work-soft: #0E2A22;
+  --work-ink: #0B0B0C;
+  --pulse: #A98BFF;
+  --pulse-soft: #221B3A;
+  --ok: #4CC97A;
+  --ok-soft: #0F2A1A;
+  --warn: #E7A33A;
+  --warn-soft: #2E2210;
+  --danger: #F06A61;
+  --danger-soft: #341515;
+  --info: #7FA3E3;
+  --info-soft: #141E33;
+  --focus: #5B86FF;
+  --shadow-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  --shadow-pop: 0 2px 4px rgba(0, 0, 0, 0.5), 0 16px 40px -16px rgba(0, 0, 0, 0.8);
+}
+
 @theme inline {
-  /* Single global dark theme — this app doesn't ship a light/dark toggle,
-     it just runs dark everywhere, so these tokens are the only palette.
-     Four deliberate surface tiers, each with one job — not six near-black
-     hexes that drifted apart because nothing consolidated them:
-       background       page canvas
-       card              standard content surface (cards, panels, dialogs)
-       popover           raised chrome (sidebar, dropdowns, command palette,
-                          tooltips) — one shade lighter than card so floating
-                          UI reads as "above" the page, not just "a card"
-       surface-accent    accent-tinted feature surface, reserved for the
-                          handful of "signature" widgets (Pulse Score, the AI
-                          assistant panels) that should read as a distinct
-                          category of content, not another generic card */
-  --color-background: #0B0A09;
-  --color-foreground: #FFFFFF;
-  --color-card: #141110;
-  --color-card-foreground: #FFFFFF;
-  --color-popover: #171412;
-  --color-popover-foreground: #FFFFFF;
-  --color-surface-accent: #12101C;
-  --color-primary: #6D5EF5;
-  --color-primary-foreground: #FFFFFF;
-  --color-secondary: #1C1917;
-  --color-secondary-foreground: #FFFFFF;
-  --color-muted: #171412;
-  --color-muted-foreground: #A8A29E;
-  --color-accent: #6D5EF5;
-  --color-accent-foreground: #FFFFFF;
-  --color-destructive: #E5484D;
+  --color-bg: var(--bg);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-raised: var(--surface-raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-work: var(--work);
+  --color-work-soft: var(--work-soft);
+  --color-work-ink: var(--work-ink);
+  --color-pulse: var(--pulse);
+  --color-pulse-soft: var(--pulse-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  /* shadcn aliases so the existing primitives pick up the same system */
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--bg-sunken);
+  --color-muted-foreground: var(--ink-3);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
   --color-destructive-foreground: #FFFFFF;
-  --color-border: #2A2624;
-  --color-input: #2A2624;
-  --color-ring: #6D5EF5;
+  --color-border: var(--line);
+  --color-input: var(--line-strong);
+  --color-ring: var(--focus);
 
-  --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-heading: "Space Grotesk", "Manrope", -apple-system, sans-serif;
-  /* Editorial display serif — used only on the marketing landing page for a
-     warmer, less "AI-template" voice than the app's Space Grotesk headings. */
-  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
 
-  --radius: 12px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius: 8px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-line; }
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
   }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
-    font-feature-settings: "cv11", "ss01", "cv01";
+    @apply font-sans bg-bg text-ink;
+    font-size: 14px;
+    line-height: 1.5;
+    font-feature-settings: "ss01", "cv11", "tnum" 0;
+    overscroll-behavior-y: none;
   }
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-heading font-semibold tracking-tight text-foreground;
-  }
-}
-
-/* Tabular figures for anything showing a number that changes — stat
-   tiles, counters — so digits don't jitter in width as they update. */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Authoritative large-metric treatment — the headline number on a stat
-   tile or dashboard card. Heavier and tighter than a generic
-   text-2xl/text-3xl font-bold, so numbers read as the point of the card
-   rather than a bootstrap KPI grid. */
-.text-metric {
-  font-family: var(--font-heading);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-/* Small caps-tracked label — pairs with .text-metric, or stands alone as
-   a section eyebrow / field label. */
-.text-label {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  ::selection { background: var(--accent-soft); color: var(--ink); }
+  h1, h2, h3, h4 { @apply font-sans font-semibold tracking-[-0.015em] text-ink; }
+  a { color: inherit; text-decoration: none; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  input::placeholder, textarea::placeholder { color: var(--ink-4); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  [data-radix-popper-content-wrapper] { z-index: 60 !important; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
   }
 }
 
-.animate-fade-in-up {
-  animation: fade-in-up 0.5s ease-out forwards;
+/* ---------- Typography scale ---------- */
+.t-display { font-family: var(--font-sans); font-weight: 600; font-size: clamp(2.25rem, 5vw, 3.75rem); line-height: 1.02; letter-spacing: -0.035em; }
+.t-page { font-size: 1.375rem; line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; }
+.t-section { font-size: 0.9375rem; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; }
+.t-body { font-size: 0.875rem; line-height: 1.5; }
+.t-meta { font-size: 0.75rem; line-height: 1.4; color: var(--ink-3); }
+.t-label { font-size: 0.6875rem; line-height: 1; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.t-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.t-serif { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
+
+/* ---------- Surfaces ---------- */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.panel-sunken { background: var(--bg-sunken); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.hairline-b { border-bottom: 1px solid var(--line); }
+.lift { box-shadow: var(--shadow-lift); }
+.pop { box-shadow: var(--shadow-pop); }
+.row-hover { transition: background-color 120ms var(--ease-out); }
+.row-hover:hover { background: var(--surface-2); }
+
+/* ---------- Motion ---------- */
+@keyframes io-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes io-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes io-pop { from { opacity: 0; transform: scale(0.97) translateY(4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes io-pulse-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--work) 45%, transparent); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes io-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes io-caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.anim-fade-up { animation: io-fade-up 260ms var(--ease-out) both; }
+.anim-fade { animation: io-fade 180ms var(--ease-out) both; }
+.anim-pop { animation: io-pop 180ms var(--ease-out) both; }
+.anim-stagger > * { animation: io-fade-up 320ms var(--ease-out) both; }
+.anim-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.anim-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.anim-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.anim-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.anim-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.anim-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.anim-stagger > *:nth-child(n+7) { animation-delay: 240ms; }
+.work-ring { animation: io-pulse-ring 2.2s var(--ease-out) infinite; }
+.skeleton { background: linear-gradient(90deg, var(--bg-sunken) 25%, var(--surface-2) 50%, var(--bg-sunken) 75%); background-size: 200% 100%; animation: io-shimmer 1.6s linear infinite; border-radius: var(--radius-sm); }
+.caret::after { content: ""; display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--pulse); animation: io-caret 0.9s steps(2) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .work-ring, .skeleton, .caret::after { animation: none; }
+  .anim-fade-up, .anim-fade, .anim-pop, .anim-stagger > * { animation: none; opacity: 1; transform: none; }
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+/* ---------- Scrollbars ---------- */
+.scroll-thin { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
 
-.animate-fade-in {
-  animation: fade-in 0.15s ease-out forwards;
-}
-
-/* Printing any page: never print the app chrome, only the content. The
-   certificate page additionally opts into a light background via its own
-   .certificate-print class, since printing white text on a dark page
-   wastes ink and looks broken on paper. */
+/* ---------- Print ---------- */
 @media print {
-  [data-print-hide] {
-    display: none !important;
-  }
+  [data-print-hide] { display: none !important; }
+  body { background: #fff; color: #000; }
 }
 
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-slide-up {
-  animation: slide-up 0.2s ease-out forwards;
-}
-
-@keyframes scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-scale-in {
-  animation: scale-in 0.15s ease-out forwards;
-}
-
-@keyframes spark {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.4);
-    opacity: 1;
-    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
-  }
-}
-
-.animate-spark {
-  animation: spark 1.2s ease-in-out infinite;
-}
-
-/* Scroll-reveal: elements start hidden+offset via [data-reveal], and
-   useScrollReveal adds .is-visible via IntersectionObserver once they enter
-   the viewport — mirrors the "content settles into place as you scroll"
-   feel of apple.com product pages. A slight scale is mixed into the
-   translate so the settle reads as depth, not just a slide. */
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(28px) scale(0.97);
-  transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1), transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
-}
-[data-reveal].is-visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-/* data-reveal-lg: same mechanism, larger initial displacement — used for
-   hero-weight elements that should feel like they arrive from further back. */
-[data-reveal-lg] {
-  opacity: 0;
-  transform: translateY(44px) scale(0.95);
-  transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), transform 1s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
-}
-[data-reveal-lg].is-visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-reveal], [data-reveal-lg] {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-}
-
-/* Ambient drift on the landing hero's glow layers — slow, subtle, never
-   distracting. Paused entirely under reduced-motion. */
-@keyframes aurora-drift {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.85; }
-  50% { transform: translate3d(1.5%, -2%, 0) scale(1.05); opacity: 1; }
-}
-.animate-aurora {
-  animation: aurora-drift 14s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-aurora {
-    animation: none;
-  }
-}
-
-.slim-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.slim-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 4px;
-}
-.slim-scrollbar::-webkit-scrollbar-thumb {
-  background: #2A2624;
-  border-radius: 4px;
-}
-.slim-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #3d3733;
-}
+/* Landing-only: dotted grid background, kept out of the app shell. */
+.grid-dots { background-image: radial-gradient(color-mix(in srgb, var(--ink) 12%, transparent) 1px, transparent 1px); background-size: 22px 22px; }
+.mask-fade-b { -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
