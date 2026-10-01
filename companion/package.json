@@ -1,7 +1,7 @@
 {
   "name": "internops-companion",
   "productName": "InternOps Companion",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Desktop companion for InternOps Work Mode — tracks high-level application activity only while explicitly enabled, and produces a factual shift report at the end of each session.",
   "main": "src/main.js",
   "scripts": {
@@ -27,17 +27,26 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "InternOps Companion asks System Events for the name of the frontmost application and its window title, and supported browsers for the active tab's domain, only while Work Mode is on. Nothing is read outside a shift."
+      }
     },
     "dmg": {
       "title": "InternOps Companion"

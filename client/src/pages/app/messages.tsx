@@ -46,13 +46,14 @@ export default function MessagesPage({ channelId }: { channelId?: string }) {
   // ?userId= deep link (from a person's profile, a task, a notification…)
   const userIdParam = new URLSearchParams(search).get("userId");
   const handledUserIdRef = useRef<string | null>(null);
+  const { mutate: openDMWith } = openDM;
+  const selfId = user?.id;
   useEffect(() => {
     if (!userIdParam || handledUserIdRef.current === userIdParam) return;
     handledUserIdRef.current = userIdParam;
-    if (userIdParam === user?.id) { setLocation("/messages", { replace: true }); return; }
-    openDM.mutate(userIdParam);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userIdParam]);
+    if (userIdParam === selfId) { setLocation("/messages", { replace: true }); return; }
+    openDMWith(userIdParam);
+  }, [userIdParam, selfId, setLocation, openDMWith]);
 
   if (!user) return null;
   const isAdmin = user.role === "admin";
