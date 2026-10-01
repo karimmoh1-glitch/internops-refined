@@ -4,3 +4,7 @@ dist/
 .agents/
 .claude/
 *.log
+api/index.js
+.vercel/
+.vercel
+.env*

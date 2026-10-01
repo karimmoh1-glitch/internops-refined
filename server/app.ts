@@ -32,7 +32,7 @@ export async function createApp(opts: { quiet?: boolean } = {}): Promise<{ app: 
   // Production deployments terminate TLS at a single reverse proxy in front
   // of this app. Without this, req.ip and express-rate-limit both see the
   // proxy's IP for every request, which defeats per-client rate limiting.
-  if (isProduction) {
+  if (isProduction || process.env.VERCEL) {
     app.set("trust proxy", 1);
   }
 

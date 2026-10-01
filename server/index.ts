@@ -20,7 +20,8 @@ export { log };
     await setupVite(httpServer, app);
   }
 
-  startScheduler();
+  // Vercel runs scheduled work through /api/cron/* instead (vercel.json).
+  if (!process.env.VERCEL) startScheduler();
 
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen({ port, host: "0.0.0.0" }, () => {

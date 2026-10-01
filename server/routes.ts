@@ -371,13 +371,19 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Feature modules. Registered first so their fixed paths (e.g.
   // /api/tasks/:id/detail) are matched before any broader pattern below.
-  const [{ registerSearchRoutes }, { registerPulseRoutes }, { registerOverviewRoutes }, { registerTaskDetailRoutes }] = await Promise.all([
-    import("./routes/search"), import("./routes/pulse"), import("./routes/overview"), import("./routes/taskDetail"),
+  const [{ registerSearchRoutes }, { registerPulseRoutes }, { registerOverviewRoutes }, { registerTaskDetailRoutes }, { registerCronRoutes, lazyShiftSweep }] = await Promise.all([
+    import("./routes/search"), import("./routes/pulse"), import("./routes/overview"), import("./routes/taskDetail"), import("./routes/cron"),
   ]);
   registerSearchRoutes(app);
   registerPulseRoutes(app);
   registerOverviewRoutes(app);
   registerTaskDetailRoutes(app);
+  registerCronRoutes(app);
+  // Hosts without a scheduler (Vercel) still close abandoned shifts: the
+  // sweep piggybacks on the requests that read live session state.
+  if (process.env.VERCEL) {
+    app.use(["/api/work-sessions/active", "/api/overview", "/api/me/overview"], (_req, _res, next) => { lazyShiftSweep(); next(); });
+  }
 
   // Production-only: rewrites <title>/og:title/og:description in the
   // static index.html for this one dynamic path before falling through to
@@ -390,7 +396,9 @@ export async function registerRoutes(
       const user = await storage.getUserByPublicSlug(req.params.slug as string);
       if (!user || !user.publicProfileEnabled || user.deactivatedAt) return next();
 
-      const indexPath = path.resolve(__dirname, "public", "index.html");
+      const candidates = [path.resolve(__dirname, "public", "index.html"), path.resolve(process.cwd(), "dist", "public", "index.html")];
+      const indexPath = candidates.find((c) => fs.existsSync(c));
+      if (!indexPath) return next();
       const template = await fs.promises.readFile(indexPath, "utf-8");
       const title = `${escapeHtml(user.name)} — InternOps Profile`;
       const description = `See ${escapeHtml(user.name)}'s completed work and skills on InternOps.`;
