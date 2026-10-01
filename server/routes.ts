@@ -393,13 +393,17 @@ export async function registerRoutes(
   app.get("/i/:slug", async (req, res, next) => {
     if (process.env.NODE_ENV !== "production") return next();
     try {
-      const user = await storage.getUserByPublicSlug(req.params.slug as string);
-      if (!user || !user.publicProfileEnabled || user.deactivatedAt) return next();
-
       const candidates = [path.resolve(__dirname, "public", "index.html"), path.resolve(process.cwd(), "dist", "public", "index.html")];
       const indexPath = candidates.find((c) => fs.existsSync(c));
       if (!indexPath) return next();
       const template = await fs.promises.readFile(indexPath, "utf-8");
+      const user = await storage.getUserByPublicSlug(req.params.slug as string);
+      if (!user || !user.publicProfileEnabled || user.deactivatedAt) {
+        // Unknown or private slug: serve the SPA unchanged so it renders
+        // its own "profile not found" state (there is no static fallback
+        // behind this route on serverless hosts).
+        return res.status(200).set({ "Content-Type": "text/html" }).send(template);
+      }
       const title = `${escapeHtml(user.name)} — InternOps Profile`;
       const description = `See ${escapeHtml(user.name)}'s completed work and skills on InternOps.`;
       const html = template

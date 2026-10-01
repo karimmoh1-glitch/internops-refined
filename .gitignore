@@ -8,3 +8,4 @@ api/index.js
 .vercel/
 .vercel
 .env*
+.env.vercel.local
