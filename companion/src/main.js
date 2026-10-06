@@ -10,6 +10,7 @@ const { WorkMode, STATES } = require("./workMode");
 const workContext = require("./workContext");
 const permissions = require("./permissions");
 const updater = require("./updater");
+const { formatHMS, connectionStatus: connectionStatusFor, trayStatusLine } = require("./status");
 
 // Without a single-instance lock a second launch would load the same
 // persisted session, see the same active shift on the server, and start
@@ -36,8 +37,9 @@ let workMode = null;
 let task = null;
 let taskFetchedAt = 0;
 let observation = { status: "unavailable", at: null };
+let completion = null; // { endedAt, durationSeconds } after a report is submitted, until the next shift
 const connection = { failures: 0, lastOkAt: null, lastError: null };
-let permissionState = { platform: process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "unsupported", app: "unknown", windowTitle: "unknown", browserDomain: "unknown", browser: null, needsAttention: false };
+let permissionState = { platform: process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "unsupported", app: "unknown", windowTitle: "unknown", windowTitleGate: null, browserDomain: "unknown", browser: null, needsAttention: false };
 let updateStatus = updater.getStatus();
 let reconcileTimer = null;
 let flushTimer = null;
@@ -52,18 +54,8 @@ function userDataPath(name) {
   return path.join(app.getPath("userData"), name);
 }
 
-function formatHMS(totalSeconds) {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return [h, m, sec].map((n) => String(n).padStart(2, "0")).join(":");
-}
-
 function connectionStatus() {
-  if (connection.failures === 0) return "connected";
-  if (connection.failures < 3) return "reconnecting";
-  return "offline";
+  return connectionStatusFor(connection);
 }
 
 function buildState() {
@@ -75,6 +67,7 @@ function buildState() {
     work: workMode ? workMode.snapshot() : { state: STATES.OFF },
     task,
     observation,
+    completion,
     connection: {
       status: connectionStatus(),
       queued: outbox ? outbox.size : 0,
@@ -214,9 +207,21 @@ function updateTray() {
   const pendingReport = workMode?.state === STATES.ENDED_PENDING_REPORT;
   tray.setImage(on ? trayIcons.on : trayIcons.off);
   tray.setTitle(on ? ` ${formatHMS(elapsedSeconds())}` : "");
+  const statusLine = trayStatusLine({
+    loggedIn: !!session,
+    workState: workMode?.state ?? STATES.OFF,
+    paused: !!workMode?.paused,
+    elapsedSeconds: elapsedSeconds(),
+    connection: connectionStatus(),
+    queued: outbox ? outbox.size : 0,
+    completed: !!completion,
+  });
+  tray.setToolTip(`InternOps Companion — ${statusLine}`);
   const template = [
+    { label: statusLine, enabled: false },
+    { type: "separator" },
     {
-      label: on ? "End Work Mode…" : busy ? (workMode.state === STATES.STARTING ? "Starting…" : "Ending…") : "Start Work Mode",
+      label: on ? "End Work Mode…" : busy ? (workMode.state === STATES.STARTING ? "Connecting…" : "Ending…") : "Start Work Mode",
       enabled: !!session && !busy,
       click: () => (on ? showWindow("confirm-end") : ipcStartWork()),
     },
@@ -273,7 +278,7 @@ async function refreshPermissions({ probe = false } = {}) {
     console.error("[permissions] check failed:", err);
   }
   if (observation.status !== "ok") {
-    observation = { ...observation, status: permissionState.needsAttention ? "permission" : "unavailable" };
+    observation = { ...observation, status: permissionState.app === "denied" ? "permission" : "unavailable" };
   }
   broadcast();
   return permissionState;
@@ -284,6 +289,7 @@ function handleSample(ctx, meta) {
     observation = {
       status: "ok",
       application: ctx.application,
+      windowTitle: ctx.windowTitle ?? null,
       documentName: ctx.documentName,
       browserDomain: ctx.browserDomain,
       idleSeconds: ctx.idleSeconds,
@@ -295,7 +301,7 @@ function handleSample(ctx, meta) {
     if (permissionState.needsAttention || permissionState.app !== "ok") refreshPermissions({ probe: false });
     else broadcast();
   } else {
-    observation = { status: permissionState.needsAttention ? "permission" : "unavailable", at: meta.at, failures: meta.failures };
+    observation = { status: permissionState.app === "denied" ? "permission" : "unavailable", at: meta.at, failures: meta.failures };
     broadcast();
   }
 }
@@ -350,6 +356,7 @@ function handleSessionExpired(message) {
   authStore.clearSession();
   sessionExpired = message || "Session expired — sign in again.";
   task = null;
+  completion = null;
   workMode.forceOff("session-expired").catch(() => {});
   broadcast();
 }
@@ -372,6 +379,11 @@ async function reconcileTick() {
   try {
     await workMode.reconcile();
     noteConnectionOk();
+    // Anything still queued (a restart mid-shift, a connection that just
+    // came back) goes out now rather than at the next 5-minute flush.
+    // Backoff is respected, so a server that is up but refusing is not
+    // hammered every 10 seconds.
+    if (outbox.size > 0) await flushOutbox();
     // A missed unlock-screen event must never leave sampling paused for a
     // whole shift: if the OS says we're not locked, clear that reason.
     if (pauseReasons.has("locked")) {
@@ -426,6 +438,9 @@ async function ipcStartWork() {
   try {
     const snap = await workMode.start();
     noteConnectionOk();
+    // Switch to the active cadence now, not after the pending idle tick:
+    // a revoked device or a server-side end must be noticed within seconds.
+    scheduleReconcile(config.RECONCILE_ACTIVE_MS);
     refreshTask().then(broadcast);
     broadcast();
     return { ok: true, work: snap };
@@ -503,6 +518,7 @@ handle("logout", async () => {
     session = null;
     sessionExpired = null;
     task = null;
+    completion = null;
     authStore.clearSession();
     await workMode.forceOff("signed-out");
     workMode.dismissReport();
@@ -526,6 +542,7 @@ handle("stop-work", async () => {
   try {
     const snap = await workMode.stop();
     noteConnectionOk();
+    scheduleReconcile(config.RECONCILE_IDLE_MS);
     persistReport();
     broadcast();
     return { ok: true, work: snap };
@@ -548,6 +565,7 @@ handle("submit-report", async ({ note }) => {
     if (!(err?.status === 400 && /already been submitted/i.test(err.message || ""))) throw err;
   }
   noteConnectionOk();
+  completion = { endedAt: pending.endedAt ?? new Date().toISOString(), durationSeconds: pending.report?.durationSeconds ?? null };
   workMode.markReportSubmitted();
   persistReport();
   broadcast();
@@ -600,6 +618,7 @@ app.whenReady().then(async () => {
     outbox,
     onChange: () => {
       updater.syncInstallOnQuit();
+      if (workMode.state === STATES.STARTING || workMode.state === STATES.ON) completion = null;
       if (workMode.state === STATES.OFF || workMode.state === STATES.ENDED_PENDING_REPORT) persistReport();
       if (workMode.state !== STATES.ON) observation = { status: "unavailable", at: null };
       broadcast();

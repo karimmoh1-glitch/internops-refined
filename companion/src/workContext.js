@@ -7,7 +7,9 @@
 // or null, meaning UNKNOWN — never guessed, never a fallback dressed up as
 // data. A null commonly means the OS gates the signal behind a permission
 // (macOS Accessibility for window titles, per-app Automation for browser
-// tabs) the user hasn't granted — a legitimate UNKNOWN, not an error.
+// tabs) the user hasn't granted — a legitimate UNKNOWN, not an error. The
+// application name itself is read from LaunchServices (lsappinfo), which
+// macOS does not gate, so it is observed even with nothing granted.
 //
 // Deliberately never touched: keystrokes, mouse position/content, screen
 // pixels, clipboard, full URLs (only the hostname), passwords, or any
@@ -117,20 +119,41 @@ function inferDocumentName(windowTitle) {
 // Permissions screen can show ✔/✖ per signal without a separate probe.
 const signals = {
   app: { status: "unknown", error: null, at: null }, // "ok" | "denied" | "error" | "unknown"
-  windowTitle: { status: "unknown", error: null, at: null },
+  // Apple Events to System Events (the macOS "Automation" gate). Learned
+  // from the window-title attempt, which is the only thing that needs it.
+  systemEvents: { status: "unknown", error: null, at: null },
+  windowTitle: { status: "unknown", error: null, at: null, gate: null }, // gate: "automation" | "accessibility" | null
   browserDomain: { status: "unknown", error: null, at: null, browser: null },
 };
+// A signal that has worked before and then fails for a non-permission
+// reason (the frontmost app simply has no window) stays "ok": the
+// permission is still granted, this one sample just had nothing to read.
 function note(signal, status, error = null, extra = {}) {
-  signals[signal] = { status, error: error ? String(error).split("\n")[0].slice(0, 200) : null, at: Date.now(), ...extra };
+  const prev = signals[signal];
+  const keepOk = status === "error" && prev?.status === "ok";
+  signals[signal] = {
+    ...prev,
+    status: keepOk ? "ok" : status,
+    error: error ? String(error).split("\n")[0].slice(0, 200) : null,
+    at: Date.now(),
+    ...extra,
+  };
 }
 function getSignals() {
   return JSON.parse(JSON.stringify(signals));
 }
-// macOS error codes: -1743 "Not authorized to send Apple events",
-// -25211 / "assistive access" for Accessibility.
-function isPermissionError(err) {
+// Which macOS gate an osascript error points at:
+//   -1743 / "not authorized to send Apple events" → Automation (per target app)
+//   -25211 / "assistive access"                   → Accessibility
+//   -10004 / "not allowed"                        → a privilege violation, also Automation
+function permissionGate(err) {
   const text = String(err?.stderr || err?.message || err || "");
-  return /-1743|not authori[sz]ed|assistive access|not allowed|-25211|-10004/i.test(text);
+  if (/assistive access|-25211|accessibility/i.test(text)) return "accessibility";
+  if (/-1743|not authori[sz]ed|not allowed|-10004/i.test(text)) return "automation";
+  return null;
+}
+function isPermissionError(err) {
+  return permissionGate(err) !== null;
 }
 
 async function osascript(script) {
@@ -138,12 +161,42 @@ async function osascript(script) {
   return stdout.trim();
 }
 
-async function getFrontmostApplicationMacOS() {
+// `lsappinfo info` prints `"LSDisplayName"="Brave Browser"` lines.
+function parseLsappinfoName(stdout) {
+  const m = String(stdout || "").match(/"LSDisplayName"="(.*)"/);
+  const name = m ? m[1].trim() : "";
+  return name.length > 0 ? name : null;
+}
+
+// The frontmost application's display name straight from LaunchServices.
+// No Apple Events, no TCC prompt, no permission to grant — it is the same
+// fact System Events would report, read from the process table instead.
+async function getFrontmostApplicationViaLaunchServices() {
+  const { stdout: asn } = await execFileAsync("lsappinfo", ["front"], { timeout: EXEC_TIMEOUT_MS });
+  const id = asn.trim();
+  if (!id) return null;
+  const { stdout } = await execFileAsync("lsappinfo", ["info", "-only", "name", id], { timeout: EXEC_TIMEOUT_MS });
+  return parseLsappinfoName(stdout);
+}
+
+async function getFrontmostApplicationViaSystemEvents() {
   return (await osascript('tell application "System Events" to get name of first application process whose frontmost is true')) || null;
 }
 
-// Requires Accessibility permission — without it this throws and we
-// correctly report UNKNOWN rather than a stale/wrong title.
+// LaunchServices first (never gated); System Events only as a fallback.
+async function getFrontmostApplicationMacOS() {
+  try {
+    const name = await getFrontmostApplicationViaLaunchServices();
+    if (name) return name;
+  } catch {
+    // lsappinfo missing or failed — fall through to Apple Events
+  }
+  return getFrontmostApplicationViaSystemEvents();
+}
+
+// Needs Apple Events to System Events (Automation) AND Accessibility —
+// without either this throws and we correctly report UNKNOWN rather than a
+// stale/wrong title.
 async function getWindowTitleMacOS() {
   const title = await osascript('tell application "System Events" to tell (first process whose frontmost is true) to get title of front window');
   return title.length > 0 ? title : null;
@@ -183,11 +236,17 @@ async function getMacOSContext(idleSeconds) {
   let windowTitle = null;
   try {
     windowTitle = await getWindowTitleMacOS();
-    note("windowTitle", "ok");
+    note("windowTitle", "ok", null, { gate: null });
+    note("systemEvents", "ok");
   } catch (err) {
     // A window-less frontmost app (Finder with no window) also throws; only
-    // call it "denied" when the error says so.
-    note("windowTitle", isPermissionError(err) ? "denied" : "error", err?.stderr || err?.message);
+    // call it "denied" when the error says so, and say which gate.
+    const gate = permissionGate(err);
+    const detail = err?.stderr || err?.message;
+    note("windowTitle", gate ? "denied" : "error", detail, { gate });
+    // Reaching the Accessibility error means the Apple Event itself got through.
+    if (gate === "automation") note("systemEvents", "denied", detail);
+    else note("systemEvents", "ok");
   }
 
   let browserDomain = null;
@@ -259,12 +318,16 @@ function shutdown() {
 
 module.exports = {
   getCurrentWorkContext,
+  getFrontmostApplicationMacOS,
+  parseLsappinfoName,
   extractDomain,
   inferDocumentName,
   normalizeWindowsProcessName,
   WINDOWS_PROCESS_NAMES,
   MACOS_BROWSERS,
   getSignals,
+  _noteSignal: note, // test seam
   isPermissionError,
+  permissionGate,
   shutdown,
 };

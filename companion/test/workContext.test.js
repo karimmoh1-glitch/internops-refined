@@ -63,3 +63,35 @@ test("normalizeWindowsProcessName passes unknown names through and rejects empti
 test("the normalisation table keys are lowercase (lookup is case-insensitive)", () => {
   for (const key of Object.keys(WINDOWS_PROCESS_NAMES)) assert.equal(key, key.toLowerCase());
 });
+
+// --- macOS application name via LaunchServices + permission gates ---
+const { parseLsappinfoName, permissionGate, isPermissionError, _noteSignal, getSignals } = require("../src/workContext");
+
+test("parseLsappinfoName reads the display name out of `lsappinfo info` output and nothing else", () => {
+  assert.equal(parseLsappinfoName('"LSDisplayName"="Brave Browser"\n"pid"=71268\n'), "Brave Browser");
+  assert.equal(parseLsappinfoName('"LSDisplayName"="Visual Studio Code"'), "Visual Studio Code");
+  assert.equal(parseLsappinfoName('"LSDisplayName"=""'), null, "an empty name is UNKNOWN, not an empty string");
+  assert.equal(parseLsappinfoName(""), null);
+  assert.equal(parseLsappinfoName(null), null);
+  assert.equal(parseLsappinfoName('"pid"=1'), null);
+});
+
+test("permissionGate names the macOS setting an osascript error points at", () => {
+  assert.equal(permissionGate({ stderr: "88:93: execution error: Not authorized to send Apple events to System Events. (-1743)" }), "automation");
+  assert.equal(permissionGate({ message: "osascript is not allowed assistive access. (-25211)" }), "accessibility");
+  assert.equal(permissionGate({ stderr: "execution error: An error of type -10004 has occurred." }), "automation");
+  assert.equal(permissionGate({ stderr: "execution error: Can't get window 1 of process \"Finder\". Invalid index. (-1719)" }), null, "a window-less app is not a permission problem");
+  assert.equal(isPermissionError({ stderr: "(-1743)" }), true);
+  assert.equal(isPermissionError(new Error("timeout")), false);
+});
+
+test("a signal that has worked keeps 'ok' through a non-permission error, but flips on a real denial", () => {
+  _noteSignal("windowTitle", "ok", null, { gate: null });
+  _noteSignal("windowTitle", "error", "Can't get window 1 of process. (-1719)");
+  assert.equal(getSignals().windowTitle.status, "ok");
+  assert.match(getSignals().windowTitle.error, /-1719/);
+  _noteSignal("windowTitle", "denied", "(-1743)", { gate: "automation" });
+  assert.equal(getSignals().windowTitle.status, "denied");
+  assert.equal(getSignals().windowTitle.gate, "automation");
+  assert.equal(getSignals().windowTitle.error.length <= 200, true);
+});

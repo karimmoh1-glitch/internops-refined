@@ -1,6 +1,12 @@
 // Renderer: pure view of the main process's state. The only local state
 // here is navigation (which screen is on top) and in-flight button
 // busy-ness. Every string goes through textContent — never innerHTML.
+//
+// Visible states, by name: "Sign in to InternOps", "Ready to work",
+// "Connecting…", "Working", "Ending…", "Work session complete",
+// "Session expired"; connection row: "Connected" / "Connecting…" /
+// "Connection lost — retrying"; observation card: "Permission required" /
+// "Observation unavailable".
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -57,9 +63,11 @@
 
   // ---------- view resolution ----------
   function resolveView() {
-    if (localView === "permissions") return "permissions";
     if (!state) return "login";
+    // A gone session outranks any local screen: "Session expired" must be
+    // impossible to miss, even if Permissions was open at the time.
     if (state.auth.expired) return "expired";
+    if (localView === "permissions") return "permissions";
     if (!state.auth.loggedIn) return "login";
     if (state.work.state === "ENDED_PENDING_REPORT" && !reportHidden) return "report";
     return "home";
@@ -84,26 +92,52 @@
     if (view !== "home") stopTimer();
   }
 
+  // Short, human status for each observed signal — shared by the Ready
+  // card and the Observed card so the story is the same before and during
+  // a shift.
+  function signalSummary(p) {
+    const mac = p?.platform === "macos";
+    const gateLabel = (g) => (g === "both" ? "Needs Automation and Accessibility" : g === "automation" ? "Needs Automation permission" : "Needs Accessibility permission");
+    const app = p?.app === "ok" ? ["ok", "Observed"] : p?.app === "denied" ? ["denied", "Permission required"] : p?.app === "unsupported" ? ["unknown", "Not on this platform"] : ["unknown", "Available"];
+    const title = p?.windowTitle === "ok" ? ["ok", "Observed"]
+      : p?.windowTitle === "denied" ? ["denied", gateLabel(p.windowTitleGate)]
+      : p?.windowTitle === "unsupported" ? ["unknown", "Not on this platform"]
+      : mac ? ["unknown", "Needs Accessibility"] : ["unknown", "Available"];
+    const browser = p?.browserDomain === "ok" ? ["ok", p.browser ? `Observed in ${p.browser}` : "Observed"]
+      : p?.browserDomain === "denied" ? ["denied", p.browser ? `Not allowed for ${p.browser}` : "Not allowed"]
+      : p?.browserDomain === "unsupported" ? ["unknown", "Not on this platform"]
+      : mac ? ["unknown", "Asked per browser"] : ["unknown", "Best effort"];
+    return { app, title, browser };
+  }
+
   function renderHome() {
     const work = state.work;
     const on = work.state === "ON";
-    const busy = work.state === "STARTING" || work.state === "STOPPING";
+    // A Start that is still waiting for the server (even queued behind an
+    // in-flight request) is "Connecting…" from the user's point of view.
+    const starting = work.state === "STARTING" || (inflight.start && work.state === "OFF");
+    const busy = starting || work.state === "STOPPING";
+    const done = work.state === "OFF" && !!state.completion && !starting;
     const dot = $("status-dot");
     const label = $("status-label");
     const sub = $("status-sub");
 
-    if (work.state === "STARTING") {
-      setDot(dot, "accent"); label.textContent = "Starting…"; sub.textContent = "Opening a shift on the server.";
+    if (starting) {
+      setDot(dot, "accent"); label.textContent = "Connecting…"; sub.textContent = "Opening your shift.";
     } else if (work.state === "STOPPING") {
-      setDot(dot, "accent"); label.textContent = "Ending…"; sub.textContent = "Observation stopped. Sending what's queued and closing the shift.";
+      setDot(dot, "accent"); label.textContent = "Ending…"; sub.textContent = "Observation has stopped. Sending what's left and closing the shift.";
     } else if (on && work.paused) {
       setDot(dot, "warn");
-      label.textContent = work.pauseReason === "sleep" ? "Paused — asleep" : "Paused — screen locked";
-      sub.textContent = "Nothing is observed while locked or asleep. The shift stays open.";
+      label.textContent = "Paused";
+      sub.textContent = work.pauseReason === "sleep" ? "Nothing is observed while asleep. The shift stays open." : "Nothing is observed while locked. The shift stays open.";
     } else if (on) {
-      setDot(dot, "work"); label.textContent = "Working"; sub.textContent = "Observing the application in front. Only while this is on.";
+      setDot(dot, "work"); label.textContent = "Working"; sub.textContent = "Observing the application in front.";
+    } else if (done) {
+      setDot(dot, "ok"); label.textContent = "Work session complete";
+      const dur = state.completion.durationSeconds;
+      sub.textContent = dur != null ? `Report submitted · ${formatShort(dur)} recorded.` : "Report submitted.";
     } else {
-      setDot(dot, null); label.textContent = "Ready for Work Mode"; sub.textContent = "Nothing is observed until you start.";
+      setDot(dot, null); label.textContent = "Ready to work"; sub.textContent = "Nothing is observed until you start.";
     }
 
     // Timer
@@ -120,42 +154,67 @@
     if (task) {
       taskCard.hidden = false;
       $("task-title").textContent = task.title;
-      $("task-reason").textContent = task.reason ? `Likely next: ${task.reason}` : "Recommended next";
+      $("task-reason").textContent = task.reason || "Recommended next";
     } else {
       taskCard.hidden = !on;
       $("task-title").textContent = "No task recommended right now";
       $("task-reason").textContent = "";
     }
 
-    // Observation
+    // Observation (while on) / what will be observed (while off)
+    const perms = state.permissions || {};
+    const sig = signalSummary(perms);
     const obs = state.observation || {};
     const obsCard = $("observe-card");
-    const fix = $("btn-fix-perms");
+    const missing = $("observe-missing");
     obsCard.hidden = !on;
-    fix.hidden = true;
+    missing.hidden = true;
     if (on) {
-      if (obs.status === "ok") {
+      if (work.paused) {
+        obsCard.dataset.tone = "muted";
+        $("observe-primary").textContent = "Paused";
+        $("observe-secondary").textContent = work.pauseReason === "sleep" ? "Resumes when the Mac wakes." : "Resumes when you unlock.";
+      } else if (obs.status === "ok") {
         obsCard.dataset.tone = "";
         const detail = obs.documentName || obs.browserDomain || "";
         $("observe-primary").textContent = detail ? `${obs.application} — ${detail}` : obs.application;
         const parts = [];
-        if (obs.idle) parts.push(`idle ${formatShort(obs.idleSeconds)} — recorded with its idle reading`);
-        else if (typeof obs.idleSeconds === "number" && obs.idleSeconds >= 60) parts.push(`no input for ${formatShort(obs.idleSeconds)}`);
+        if (obs.idle) parts.push(`No input for ${formatShort(obs.idleSeconds)} — recorded as idle`);
+        else if (typeof obs.idleSeconds === "number" && obs.idleSeconds >= 60) parts.push(`No input for ${formatShort(obs.idleSeconds)}`);
         if (obs.browserDomain && obs.documentName) parts.push(obs.browserDomain);
-        $("observe-secondary").textContent = parts.join(" · ");
+        if (!obs.documentName && obs.windowTitle) parts.push("Window title observed");
+        $("observe-secondary").textContent = parts.join(" · ") || "Application in front";
+        if (sig.title[0] === "denied") {
+          missing.hidden = false;
+          $("observe-missing-text").textContent = `Window title: ${sig.title[1].replace(/^Needs /, "needs ")}`;
+        } else if (sig.browser[0] === "denied") {
+          missing.hidden = false;
+          $("observe-missing-text").textContent = `Browser domain: ${sig.browser[1].replace(/^Not allowed/, "not allowed")}`;
+        }
       } else if (obs.status === "permission") {
         obsCard.dataset.tone = "warn";
         $("observe-primary").textContent = "Permission required";
-        $("observe-secondary").textContent = "macOS isn't letting the Companion see the frontmost app. The shift is still timed.";
-        fix.hidden = false;
-      } else if (work.paused) {
+        $("observe-secondary").textContent = "The Companion can't see which application is in front. The shift is still timed.";
+        missing.hidden = false;
+        $("observe-missing-text").textContent = "Grant permission to observe";
+      } else if (!obs.at) {
         obsCard.dataset.tone = "muted";
-        $("observe-primary").textContent = "Paused";
-        $("observe-secondary").textContent = "Resumes when you unlock.";
+        $("observe-primary").textContent = "Observing…";
+        $("observe-secondary").textContent = "The first sample lands in a moment.";
       } else {
         obsCard.dataset.tone = "muted";
         $("observe-primary").textContent = "Observation unavailable";
-        $("observe-secondary").textContent = obs.at ? "The OS didn't report a frontmost application." : "Waiting for the first sample…";
+        $("observe-secondary").textContent = "No application in front could be read. The shift is still timed.";
+      }
+    }
+
+    const signalsCard = $("signals-card");
+    signalsCard.hidden = on || busy;
+    if (!on) {
+      for (const [id, [status, text]] of [["signal-app", sig.app], ["signal-title", sig.title], ["signal-browser", sig.browser]]) {
+        const el = $(id);
+        el.dataset.status = status;
+        el.textContent = text;
       }
     }
 
@@ -164,7 +223,8 @@
     const connRow = $("connection");
     connRow.hidden = false;
     connRow.dataset.status = conn.status || "connected";
-    $("conn-label").textContent = conn.status === "offline" ? "Offline" : conn.status === "reconnecting" ? "Reconnecting…" : "Connected";
+    const lost = conn.status === "offline" || conn.status === "reconnecting";
+    $("conn-label").textContent = lost ? "Connection lost — retrying" : conn.status === "connecting" ? "Connecting…" : "Connected";
     $("conn-queued").textContent = conn.queued > 0 ? `· ${conn.queued} queued` : "";
 
     // Buttons
@@ -172,12 +232,13 @@
     const stop = $("btn-stop");
     start.hidden = on || work.state === "STOPPING";
     stop.hidden = !(on || work.state === "STOPPING");
-    setBusy(start, work.state === "STARTING" || inflight.start);
+    setBusy(start, starting);
     setBusy(stop, work.state === "STOPPING" || inflight.stop);
-    start.querySelector(".btn-label").textContent = work.state === "STARTING" ? "Starting…" : "Start Work Mode";
-    stop.querySelector(".btn-label").textContent = work.state === "STOPPING" ? "Ending…" : "End Shift";
+    start.querySelector(".btn-label").textContent = starting ? "Connecting…" : done ? "Start another shift" : "Start Work Mode";
+    stop.querySelector(".btn-label").textContent = work.state === "STOPPING" ? "Ending…" : "End shift";
     $("quit-note").hidden = !on;
     $("btn-logout").hidden = on || busy;
+    $("sep-logout").hidden = on || busy;
 
     renderUpdate(state.update);
   }
@@ -196,15 +257,15 @@
     banner.hidden = false;
     switch (u.state) {
       case "up-to-date": msg.textContent = "You're on the latest version."; break;
-      case "available": msg.textContent = `Update v${u.version} — downloading…`; break;
-      case "deferred": msg.textContent = `Update v${u.version} will download once the shift ends.`; break;
+      case "available": msg.textContent = `Update ${u.version} — downloading…`; break;
+      case "deferred": msg.textContent = `Update ${u.version} will download once the shift ends.`; break;
       case "downloading": msg.textContent = `Downloading update… ${u.percent}%`; break;
-      case "downloaded": msg.textContent = `Update v${u.version} downloaded — installs after the shift.`; break;
-      case "ready-to-install": msg.textContent = `Update v${u.version} ready.`; install.hidden = false; break;
+      case "downloaded": msg.textContent = `Update ${u.version} downloaded — installs after the shift.`; break;
+      case "ready-to-install": msg.textContent = `Update ${u.version} is ready.`; install.hidden = false; break;
       case "error":
         if (!u.manual) { banner.hidden = true; return; }
         banner.dataset.tone = "error";
-        msg.textContent = `Update check failed: ${u.message}`;
+        msg.textContent = "Couldn't check for updates right now.";
         break;
       default: banner.hidden = true;
     }
@@ -257,23 +318,31 @@
     const p = state.permissions || {};
     const mac = p.platform === "macos";
     $("perm-intro").textContent = mac
-      ? "macOS gates each signal behind its own permission. Grant what you're comfortable with — anything missing is left out of the report, never guessed."
+      ? "macOS asks separately for each signal. Grant what you're comfortable with."
       : p.platform === "windows"
-        ? "Windows doesn't require permissions for these signals. Statuses reflect what the last samples could read."
-        : "Activity observation isn't supported on this platform. Shifts are still timed.";
-    $("perm-mac-actions").hidden = !mac;
+        ? "Windows doesn't ask for permission for these signals. Statuses reflect what the last samples could read."
+        : "Activity observation isn't available on this platform. Shifts are still timed.";
+    const gate = p.windowTitleGate;
+    const titleHint = !mac ? "Text of the window in front"
+      : p.windowTitle === "denied" ? (gate === "both" ? "Allow the Companion in Automation and Accessibility" : gate === "automation" ? "Allow the Companion to control System Events" : "Allow the Companion in Accessibility")
+      : "Needs Accessibility";
+    const browserHint = !mac ? "Address bar, best effort"
+      : p.browser ? (p.browserDomain === "denied" ? `Allow the Companion to control ${p.browser}` : `Asked once ${p.browser} is in front`) : "Asked the first time a browser is in front";
     const rows = [
-      ["perm-app", p.app, "perm-app-hint", mac ? "Automation → System Events" : "Foreground window"],
-      ["perm-title", p.windowTitle, "perm-title-hint", mac ? "Accessibility" : "Window text"],
-      ["perm-browser", p.browserDomain, "perm-browser-hint", mac ? (p.browser ? `Automation → ${p.browser}` : "Automation, per browser, once one is in front") : "Address bar via UI Automation (best effort)"],
+      ["perm-app", mac && p.app !== "denied" ? (p.app === "ok" ? "ok" : "unknown") : p.app, "perm-app-hint", mac ? "No permission needed" : "Window in front"],
+      ["perm-title", p.windowTitle, "perm-title-hint", titleHint],
+      ["perm-browser", p.browserDomain, "perm-browser-hint", browserHint],
     ];
     for (const [id, status, hintId, hint] of rows) {
       const badge = $(id);
       const s = status || "unknown";
       badge.dataset.status = s;
-      badge.textContent = BADGE[s] || s;
+      badge.textContent = id === "perm-app" && mac && s === "unknown" ? "Available" : BADGE[s] || s;
       $(hintId).textContent = hint;
     }
+    $("btn-open-accessibility").hidden = !(mac && p.windowTitle === "denied");
+    $("btn-open-accessibility").dataset.target = gate === "automation" || gate === "both" ? "automation" : "accessibility";
+    $("btn-open-automation").hidden = !(mac && p.browserDomain === "denied");
   }
 
   // ---------- timer ----------
@@ -296,6 +365,7 @@
   $("login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = $("login-submit");
+    if (btn.disabled) return;
     const errorEl = $("login-error");
     const email = $("login-email").value.trim();
     const password = $("login-password").value;
@@ -348,6 +418,7 @@
   }
   const dlgEnd = $("dlg-end");
   $("btn-stop").addEventListener("click", () => {
+    if (inflight.stop || dlgEnd.open) return;
     dlgEnd.returnValue = "";
     dlgEnd.showModal();
     $("dlg-end-confirm").focus();
@@ -371,6 +442,7 @@
 
   $("btn-submit-report").addEventListener("click", async () => {
     const btn = $("btn-submit-report");
+    if (btn.disabled) return;
     setBusy(btn, true);
     showError($("report-error"), null);
     try {
@@ -382,7 +454,7 @@
   });
   $("btn-report-later").addEventListener("click", () => { reportHidden = true; render(); });
   const dlgDiscard = $("dlg-discard");
-  $("btn-report-discard").addEventListener("click", () => { dlgDiscard.returnValue = ""; dlgDiscard.showModal(); });
+  $("btn-report-discard").addEventListener("click", () => { if (!dlgDiscard.open) { dlgDiscard.returnValue = ""; dlgDiscard.showModal(); } });
   dlgDiscard.addEventListener("close", async () => {
     if (dlgDiscard.returnValue === "confirm") await api.discardReport();
   });
@@ -392,7 +464,7 @@
   $("btn-perms").addEventListener("click", openPermissions);
   $("btn-fix-perms").addEventListener("click", openPermissions);
   $("btn-perms-back").addEventListener("click", () => { localView = null; render(); });
-  $("btn-open-accessibility").addEventListener("click", () => api.openPermissionSettings("accessibility"));
+  $("btn-open-accessibility").addEventListener("click", (e) => api.openPermissionSettings(e.currentTarget.dataset.target === "automation" ? "automation" : "accessibility"));
   $("btn-open-automation").addEventListener("click", () => api.openPermissionSettings("automation"));
   $("btn-recheck").addEventListener("click", async () => {
     const btn = $("btn-recheck");
@@ -411,7 +483,7 @@
   api.onState((next) => {
     const wasLoggedIn = state?.auth?.loggedIn;
     state = next;
-    if (wasLoggedIn && !next.auth.loggedIn) { reportHidden = false; stopTimer(); }
+    if (wasLoggedIn && !next.auth.loggedIn) { reportHidden = false; localView = null; stopTimer(); }
     render();
   });
   api.onNavigate((view) => {
