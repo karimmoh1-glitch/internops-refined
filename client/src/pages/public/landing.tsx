@@ -3,7 +3,7 @@ import { PublicNav } from "@/components/public/PublicNav";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { Hero, Problem, FeatureStories, PrivacyBoundary, MoreStrip, FinalCta } from "@/components/landing";
 
-const TITLE = "InternOps — The operating system for intern teams";
+const TITLE = "InternOps — Tasks, shifts and reviews for intern teams";
 
 export default function Landing() {
   useEffect(() => {

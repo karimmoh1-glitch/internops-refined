@@ -110,6 +110,9 @@ export async function aiChat(
   messages: Array<{role: "user" | "assistant"; content: string}>,
   mode: "brainstorm" | "plan" = "plan"
 ): Promise<string> {
+  if (!hasOpenAiKey()) {
+    return "The AI mentor isn't configured on this server (no OPENAI_API_KEY), so it can't answer messages. Plan drafts are still generated from a template, and your manager's comments and your logs are all here as usual.";
+  }
   const projectIdea = projectContext?.idea || "Not specified";
   const projectTitle = projectContext?.title || "Untitled";
   const projectStatus = projectContext?.status || "unknown";

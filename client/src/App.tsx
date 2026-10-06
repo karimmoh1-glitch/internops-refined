@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ComponentType } from "react";
-import { Switch, Route, Redirect, useLocation } from "wouter";
+import { Switch, Route, Redirect, useLocation, useSearch } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth";
@@ -55,8 +55,11 @@ function PageFallback() {
 function Private({ component: C, admin = false, params }: { component: ComponentType<any>; admin?: boolean; params?: Record<string, string | undefined> }) {
   const { user, ready } = useAuth();
   const [location] = useLocation();
+  const search = useSearch();
   if (!ready) return <PageFallback />;
-  if (!user) return <Redirect to={`/login?next=${encodeURIComponent(location)}`} />;
+  // Keep the query string so deep links like /people?tab=alumni survive a
+  // sign-in round trip.
+  if (!user) return <Redirect to={`/login?next=${encodeURIComponent(location + (search ? `?${search}` : ""))}`} />;
   if (admin && user.role !== "admin") return <Redirect to="/" />;
   return (
     <AppShell>

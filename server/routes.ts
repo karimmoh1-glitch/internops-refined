@@ -142,7 +142,7 @@ function getBaseUrl(): string {
     }
     return "https://internops.vercel.app";
   }
-  return "http://localhost:3000";
+  return `http://localhost:${process.env.PORT || "5000"}`;
 }
 
 // Local-dev convenience only: password-reset, email-verification, and
@@ -2742,6 +2742,9 @@ export async function registerRoutes(
         if (!project || project.companyId !== companyId) {
           return res.status(400).json({ message: "Invalid project" });
         }
+        if (project.internId !== assigneeId) {
+          return res.status(400).json({ message: "That project belongs to a different intern." });
+        }
       }
 
       if (priority && !["low", "medium", "high"].includes(priority)) {
@@ -2893,6 +2896,18 @@ export async function registerRoutes(
         const project = await storage.getProjectById(projectId);
         if (!project || project.companyId !== task.companyId) {
           return res.status(400).json({ message: "Invalid project" });
+        }
+      }
+      // A task's project must belong to its assignee — whichever of the
+      // two is changing.
+      {
+        const nextAssignee = assigneeId || task.assigneeId;
+        const nextProjectId = projectId !== undefined ? (projectId || null) : task.projectId;
+        if (nextProjectId) {
+          const project = await storage.getProjectById(nextProjectId);
+          if (project && project.internId !== nextAssignee) {
+            return res.status(400).json({ message: "That project belongs to a different intern. Change the project or the assignee first." });
+          }
         }
       }
       if (priority && !["low", "medium", "high"].includes(priority)) {

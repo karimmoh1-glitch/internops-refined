@@ -125,7 +125,7 @@ export default function PersonPage({ id }: { id: string }) {
           <DropdownMenuItem asChild><Link href={`/tasks?new=1&assigneeId=${id}`}><ListPlus className="h-4 w-4" />Assign task</Link></DropdownMenuItem>
           <DropdownMenuItem asChild><Link href={`/projects?new=1&internId=${id}`}><FolderPlus className="h-4 w-4" />Assign project</Link></DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setEndDateOpen(true)}><CalendarClock className="h-4 w-4" />{meta?.expectedEndDate ? `Expected end: ${formatDate(meta.expectedEndDate, { month: "short", day: "numeric", year: "numeric" })}` : "Set expected end date"}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setEndDateOpen(true)}><CalendarClock className="h-4 w-4" />{meta?.expectedEndDate ? `Expected end: ${formatDate(meta.expectedEndDate, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}` : "Set expected end date"}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setConfirm(badgeAwarded
             ? { title: `Revoke ${name}'s completion badge?`, description: "It disappears from their public profile.", confirmLabel: "Revoke badge", destructive: true, run: () => badge.mutateAsync(false) }
             : { title: `Award ${name} the completion badge?`, description: "A manager-granted credential. It shows on their public profile if they've enabled it, and on their certificate.", confirmLabel: "Award badge", run: () => badge.mutateAsync(true) })}>
@@ -168,8 +168,8 @@ export default function PersonPage({ id }: { id: string }) {
     <Page width="wide">
       <PageHeader crumbs={[{ label: "People", href: isAlumni ? "/people?tab=alumni" : "/people" }, { label: name }]}
         eyebrow={isAlumni ? "Alumni" : deactivated ? "Deactivated intern" : "Intern"}
-        title={<span className="flex items-center gap-3"><Avatar name={name} size="lg" working={working} />{name}{badgeAwarded && <Pill tone="ok" icon={<Award className="h-3 w-3" />}>Completion badge</Pill>}</span>}
-        description={<span className="flex flex-wrap items-center gap-x-3 gap-y-1"><span>{email}</span>{statusLine}{meta?.expectedEndDate && !isAlumni && <span className="text-xs text-ink-3">Expected end {formatDate(meta.expectedEndDate, { month: "short", day: "numeric", year: "numeric" })}</span>}</span>}
+        title={<span className="flex min-w-0 flex-wrap items-center gap-3"><Avatar name={name} size="lg" working={working} /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{name}</span>{badgeAwarded && <Pill tone="ok" icon={<Award className="h-3 w-3" />}>Completion badge</Pill>}</span>}
+        description={<span className="flex flex-wrap items-center gap-x-3 gap-y-1"><span>{email}</span>{statusLine}{meta?.expectedEndDate && !isAlumni && <span className="text-xs text-ink-3">Expected end {formatDate(meta.expectedEndDate, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}</span>}</span>}
         actions={headerActions} />
 
       {facts}

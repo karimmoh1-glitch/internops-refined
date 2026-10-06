@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-10-06T02:00:34.466Z",
+        "reason": "Agent: Geist is the deliberate system-wide typeface of the InternOps design system (docs/DESIGN.md); owner asked for a premium modern sans and reviewed the result"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-10-06T02:00:34.486Z",
+        "reason": "Agent: Geist Mono is the deliberate numeric/timer face of the InternOps design system (docs/DESIGN.md)"
+      }
+    ]
+  }
+}

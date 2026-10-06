@@ -22,7 +22,7 @@ interface MeOverview {
 export function WorkModeCard({ className, autoEnd = false }: { className?: string; autoEnd?: boolean }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [report, setReport] = useState<ShiftReport | null>(null);
 
@@ -55,6 +55,11 @@ export function WorkModeCard({ className, autoEnd = false }: { className?: strin
 
   useEffect(() => { if (autoEnd && active.data) setConfirmEnd(true); }, [autoEnd, active.data]);
 
+  // The report opens after the session has already ended, so it is the
+  // "ready" branch below that renders it. Closing it lands on /work (the
+  // session list) from wherever the shift was ended.
+  const closeReport = () => { setReport(null); if (location !== "/work") setLocation("/work"); };
+
   if (active.isLoading) return <div className={cn("panel p-5", className)}><Skeleton className="h-5 w-40 mb-3" /><Skeleton className="h-10 w-full" /></div>;
   if (active.error) return <div className={cn("panel", className)}><ErrorState compact title="Work Mode status unavailable" message="We couldn't check whether a session is running. Nothing has changed on the server." onRetry={() => active.refetch()} /></div>;
 
@@ -81,7 +86,7 @@ export function WorkModeCard({ className, autoEnd = false }: { className?: strin
           <Link href="/download" className="inline-flex items-center gap-1.5 hover:text-ink"><Download className="h-3.5 w-3.5" />Get the Companion</Link>
           <Link href="/work" className="inline-flex items-center gap-1.5 hover:text-ink"><History className="h-3.5 w-3.5" />Past sessions</Link>
         </div>
-        {report && <ShiftReportDialog report={report} onClose={() => setReport(null)} />}
+        {report && <ShiftReportDialog report={report} onClose={closeReport} />}
       </div>
     );
   }
@@ -130,7 +135,7 @@ export function WorkModeCard({ className, autoEnd = false }: { className?: strin
       </div>
 
       <ConfirmDialog open={confirmEnd} onOpenChange={setConfirmEnd} title="End this shift?" description={<span>You've been in Work Mode for <strong className="t-num text-ink">{formatDuration(Math.round((Date.now() - new Date(session.startedAt).getTime()) / 1000))}</strong>. Ending stops time tracking and activity observation immediately, then generates your shift report.</span>} confirmLabel="End shift" pending={end.isPending} onConfirm={() => end.mutate()} />
-      {report && <ShiftReportDialog report={report} onClose={() => { setReport(null); setLocation("/work"); }} />}
+      {report && <ShiftReportDialog report={report} onClose={closeReport} />}
     </div>
   );
 }

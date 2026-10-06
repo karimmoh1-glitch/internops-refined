@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Building2, Flame, Layers, RotateCcw, Scale, Send, Shield, Shuffle, Sparkles, Target, ThumbsDown, Trash2, TrendingUp, Zap } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, tzOffset } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,11 @@ export function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours,
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  // The server says whether an AI key is configured. Without one the mentor
+  // can only return its connection-error line, so say so up front instead
+  // of letting the welcome message promise a conversation that can't happen.
+  const availability = useQuery<{ aiAvailable: boolean }>({ queryKey: [`/api/pulse/suggestions?tzOffsetMinutes=${tzOffset()}`], staleTime: 5 * 60_000 });
+  const aiUnavailable = availability.data?.aiAvailable === false;
 
   const brainstormWelcome = () => `I'm your brainstorming partner. Let's explore ideas for this project.\n\nWe can:\n- Challenge assumptions and flip ideas around\n- Weigh pros and cons of different approaches\n- Break down hard problems with analogies\n- Explore technologies, architectures, and edge cases\n\nTry a starter below, hit Spark for a random prompt, or just start typing.`;
   const planWelcome = () => {
@@ -221,6 +226,9 @@ export function UnifiedAIChat({ projectId, projectStatus, hasPlan, minimumHours,
       </div>
 
       <div className="border-t border-line p-2.5 space-y-2">
+        {aiUnavailable && (
+          <p className="rounded-md border border-warn/25 bg-warn-soft/60 px-2.5 py-1.5 text-xs text-ink-2" role="status">No AI key is configured on this server, so the mentor can't answer messages. Plan drafts are still generated from a template.</p>
+        )}
         {mode === "brainstorm" && fresh && (
           <div className="flex flex-wrap gap-1.5">
             {starters.map((s) => (

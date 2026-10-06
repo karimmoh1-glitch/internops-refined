@@ -16,7 +16,7 @@ const LIFECYCLE: { label: string; state: "done" | "current" | "next" }[] = [
 export function TasksMock({ className }: { className?: string }) {
   return (
     <AppFrame active="Tasks" label="Sample task detail: Ship onboarding email is in review, with a lifecycle stepper, three submission entries including one round of requested changes, and approve or request-changes actions. Beside it, a project plan awaiting review." caption="Sample task and plan. Names and dates are illustrative." className={className}>
-      <div className="grid gap-3 @3xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-3 @2xl:grid-cols-[1.5fr_1fr]">
         <section className="panel overflow-hidden">
           <div className="px-4 pt-3 pb-3 hairline-b">
             <div className="text-[11px] text-ink-3">Tasks / Onboarding</div>

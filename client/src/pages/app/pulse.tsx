@@ -81,7 +81,7 @@ export default function PulsePage() {
         <header className="flex flex-wrap items-center justify-between gap-3 py-4">
           <div className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-pulse-soft text-pulse"><Sparkles className="h-4 w-4" /></span>
-            <div><h1 className="t-page leading-tight">Pulse</h1><p className="text-xs text-ink-3">{isAdmin ? "Answers from your team's real tasks, sessions, and signals." : "Answers from your own tasks, sessions, and feedback."}{" "}{aiAvailable ? <Pill tone="pulse" className="ml-1 text-[10px]"><Bot className="h-3 w-3" />AI</Pill> : <Pill tone="neutral" className="ml-1 text-[10px]"><Database className="h-3 w-3" />Data lookups</Pill>}</p></div>
+            <div><h1 className="t-page leading-tight">Pulse</h1><p className="text-xs text-ink-3">{isAdmin ? "Answers from your team's real tasks, sessions, and signals." : "Answers from your own tasks, sessions, and feedback."}{" "}{aiAvailable ? <Pill tone="pulse" className="ml-1 text-[11px]"><Bot className="h-3 w-3" />AI</Pill> : <Pill tone="neutral" className="ml-1 text-[11px]"><Database className="h-3 w-3" />Data lookups</Pill>}</p></div>
           </div>
           {messages.length > 0 && <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)}><Trash2 className="h-3.5 w-3.5" />Clear</Button>}
         </header>

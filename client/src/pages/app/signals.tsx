@@ -71,7 +71,7 @@ export default function SignalsPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-[13px] font-semibold text-ink">{s.headline}</span>
                               {s.internName && s.internId && <Link href={`/people/${s.internId}`} className="inline-flex items-center gap-1 text-xs text-ink-2 hover:text-ink"><Avatar name={s.internName} size="xs" />{s.internName}</Link>}
-                              <Pill tone="neutral" className="text-[10px]">{s.source}</Pill>
+                              <Pill tone="neutral" className="text-[11px]">{s.source}</Pill>
                             </div>
                             <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{s.description}</p>
                             <div className="mt-2 flex flex-wrap items-center gap-1.5">

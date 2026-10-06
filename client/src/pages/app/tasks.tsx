@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
+import { TaskFormDialog, type TaskFormValues } from "@/components/tasks/TaskFormDialog";
 import { SubmitDialog, BlockDialog, ReviewDialog } from "@/components/tasks/TaskActionDialogs";
 import { useTaskMutations } from "@/components/tasks/useTaskMutations";
 
@@ -35,6 +35,10 @@ export default function TasksPage() {
   const [project, setProject] = useState<string>(() => params.get("projectId") || "all");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(() => params.get("new") === "1");
+  // Deep links (`/tasks?new=1&assigneeId=…&projectId=…`) pre-fill the create
+  // form. The values are captured here before the URL is replaced, so the
+  // dialog keeps them; opening via the button or `n` starts blank.
+  const [createInitial, setCreateInitial] = useState<Partial<TaskFormValues>>(() => ({ assigneeId: params.get("assigneeId") || "", projectId: params.get("projectId") || "" }));
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [focusIdx, setFocusIdx] = useState(-1);
@@ -42,7 +46,13 @@ export default function TasksPage() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { localStorage.setItem("internops_tasks_layout", layout); }, [layout]);
-  useEffect(() => { if (params.get("new") === "1") { setCreateOpen(true); setLocation("/tasks", { replace: true }); } }, [params, setLocation]);
+  useEffect(() => {
+    if (params.get("new") !== "1") return;
+    setCreateInitial({ assigneeId: params.get("assigneeId") || "", projectId: params.get("projectId") || "" });
+    setCreateOpen(true);
+    setLocation("/tasks", { replace: true });
+  }, [params, setLocation]);
+  const openCreate = useCallback(() => { setCreateInitial({}); setCreateOpen(true); }, []);
 
   const tasksQ = useQuery<Task[]>({ queryKey: [isAdmin ? "/api/tasks" : "/api/tasks/mine"], refetchInterval: 30_000 });
   const interns = useQuery<{ id: string; name: string; deactivatedAt: string | null }[]>({ queryKey: ["/api/interns"], enabled: isAdmin });
@@ -82,19 +92,22 @@ export default function TasksPage() {
       if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); setFocusIdx((i) => Math.min(filtered.length - 1, i + 1)); }
       else if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); setFocusIdx((i) => Math.max(0, i - 1)); }
       else if (e.key === "Enter" && focusIdx >= 0 && filtered[focusIdx]) setLocation(`/tasks/${filtered[focusIdx].id}`);
-      else if (e.key === "n" && isAdmin) { e.preventDefault(); setCreateOpen(true); }
+      else if (e.key === "n" && isAdmin) { e.preventDefault(); openCreate(); }
       else if (e.key === "x" && isAdmin && focusIdx >= 0 && filtered[focusIdx]) { e.preventDefault(); toggleSelect(filtered[focusIdx].id); }
       else if (e.key === "Escape") { setSelected(new Set()); setFocusIdx(-1); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [filtered, focusIdx, isAdmin, setLocation]);
+  }, [filtered, focusIdx, isAdmin, setLocation, openCreate]);
 
   const toggleSelect = useCallback((id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; }), []);
 
   const viewOptions = isAdmin
     ? [{ value: "all" as View, label: "All", count: counts.all }, { value: "in_review" as View, label: "In review", count: counts.in_review }, { value: "overdue" as View, label: "Overdue", count: counts.overdue }, { value: "blocked" as View, label: "Blocked", count: counts.blocked }, { value: "in_progress" as View, label: "In progress", count: counts.in_progress }, { value: "todo" as View, label: "To do", count: counts.todo }, { value: "completed" as View, label: "Approved", count: counts.completed }]
     : [{ value: "all" as View, label: "All", count: counts.all }, { value: "in_progress" as View, label: "In progress", count: counts.in_progress }, { value: "todo" as View, label: "To do", count: counts.todo }, { value: "in_review" as View, label: "In review", count: counts.in_review }, { value: "blocked" as View, label: "Blocked", count: counts.blocked }, { value: "completed" as View, label: "Approved", count: counts.completed }];
+
+  // Memoised so the edit form isn't reset by the 30s refetch while someone is typing.
+  const editInitial = useMemo<Partial<TaskFormValues> | undefined>(() => editTask ? { id: editTask.id, title: editTask.title, description: editTask.description ?? "", assigneeId: editTask.assigneeId, projectId: editTask.projectId ?? "", priority: editTask.priority, dueDate: editTask.dueDate ? new Date(editTask.dueDate).toISOString().slice(0, 10) : "", skillTags: editTask.skillTags ?? [], dependsOnTaskId: editTask.dependsOnTaskId ?? "" } : undefined, [editTask]);
 
   const grouped = useMemo(() => {
     const g = new Map<TaskStatus, Task[]>();
@@ -104,7 +117,7 @@ export default function TasksPage() {
   }, [filtered]);
 
   const rowActions = (t: Task) => {
-    const items: { label: string; icon: React.ReactNode; onSelect: () => void; destructive?: boolean }[] = [];
+    const items: RowAction[] = [];
     if (!isAdmin || t.assigneeId === user?.id) {
       if (t.status === "todo") items.push({ label: "Start", icon: <Play className="h-4 w-4" />, onSelect: () => m.start.mutate(t.id) });
       if (t.status === "in_progress" || t.status === "blocked") items.push({ label: "Submit for review", icon: <Send className="h-4 w-4" />, onSelect: () => setDialog({ kind: "submit", task: t }) });
@@ -119,46 +132,7 @@ export default function TasksPage() {
     return items;
   };
 
-  const Row = ({ t, idx }: { t: Task; idx: number }) => {
-    const due = dueLabel(t.dueDate, t.status);
-    const actions = rowActions(t);
-    return (
-      <div className={cn("group flex items-center gap-2.5 px-3 md:px-4 h-11 row-hover", focusIdx === idx && "bg-surface-2 ring-1 ring-inset ring-accent/40", selected.has(t.id) && "bg-accent-soft/50")} onMouseEnter={() => setFocusIdx(idx)}>
-        {isAdmin && <input type="checkbox" aria-label={`Select ${t.title}`} checked={selected.has(t.id)} onChange={() => toggleSelect(t.id)} className="h-3.5 w-3.5 accent-[var(--accent)] shrink-0" />}
-        <StatusIcon status={t.status} />
-        <Link href={`/tasks/${t.id}`} className="min-w-0 flex-1 flex items-center gap-2">
-          <span className="truncate text-[13px] text-ink">{t.title}</span>
-          {t.blockedReason && <span className="hidden lg:inline truncate text-xs text-danger max-w-[200px]">· {t.blockedReason}</span>}
-        </Link>
-        {t.projectId && projectById.get(t.projectId) && <span className="hidden xl:inline text-xs text-ink-3 truncate max-w-[160px]">{projectById.get(t.projectId)}</span>}
-        {isAdmin && <span className="hidden md:flex items-center gap-1.5 text-xs text-ink-3 w-[120px] truncate"><Avatar name={nameById.get(t.assigneeId) ?? "?"} size="xs" /><span className="truncate">{(nameById.get(t.assigneeId) ?? "Unknown").split(" ")[0]}</span></span>}
-        {due ? <Pill tone={due.tone === "muted" ? "neutral" : due.tone} className="hidden sm:inline-flex w-[92px] justify-center">{due.text}</Pill> : <span className="hidden sm:block w-[92px]" />}
-        <PriorityMark priority={t.priority} />
-        {actions.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-xs" aria-label={`Actions for ${t.title}`} className="opacity-60 group-hover:opacity-100"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              {actions.map((a, i) => <DropdownMenuItem key={i} onSelect={a.onSelect} className={a.destructive ? "text-danger focus:text-danger" : ""}>{a.icon}{a.label}</DropdownMenuItem>)}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-    );
-  };
-
-  const BoardCard = ({ t }: { t: Task }) => {
-    const due = dueLabel(t.dueDate, t.status);
-    return (
-      <Link href={`/tasks/${t.id}`} className="block rounded-md border border-line bg-surface p-2.5 hover:border-line-strong hover:lift transition-all anim-pop">
-        <p className="text-[13px] text-ink leading-snug line-clamp-2">{t.title}</p>
-        {t.blockedReason && <p className="mt-1 text-xs text-danger line-clamp-2">{t.blockedReason}</p>}
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">{isAdmin && <Avatar name={nameById.get(t.assigneeId) ?? "?"} size="xs" />}{due && <Pill tone={due.tone === "muted" ? "neutral" : due.tone}>{due.text}</Pill>}</div>
-          <PriorityMark priority={t.priority} />
-        </div>
-      </Link>
-    );
-  };
+  const rowProps = { isAdmin, focusIdx, selected, onFocus: setFocusIdx, onToggleSelect: toggleSelect, projectName: (t: Task) => (t.projectId ? projectById.get(t.projectId) : undefined), assigneeName: (t: Task) => nameById.get(t.assigneeId), rowActions };
 
   const emptyTitle = view === "all" && assignee === "all" && project === "all" && !search ? (isAdmin ? "No tasks yet" : "Nothing assigned yet") : "No tasks match";
   const emptyDesc = view === "all" && assignee === "all" && project === "all" && !search
@@ -169,8 +143,8 @@ export default function TasksPage() {
     <Page width="wide">
       <PageHeader title="Tasks" description={isAdmin ? "Assign, review, and track work across the team." : "Everything assigned to you, in priority order."}
         actions={<>
-          <Segmented value={layout} onChange={setLayout} options={[{ value: "list", label: <LayoutList className="h-3.5 w-3.5" /> }, { value: "board", label: <Columns3 className="h-3.5 w-3.5" /> }]} />
-          {isAdmin && <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" />New task<Kbd className="ml-1 hidden md:inline-flex bg-accent-hover/40 border-accent-hover text-accent-ink/80">N</Kbd></Button>}
+          <Segmented value={layout} onChange={setLayout} options={[{ value: "list", label: <><LayoutList className="h-3.5 w-3.5" /><span className="sr-only">List view</span></> }, { value: "board", label: <><Columns3 className="h-3.5 w-3.5" /><span className="sr-only">Board view</span></> }]} />
+          {isAdmin && <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" />New task<Kbd className="ml-1 hidden md:inline-flex bg-accent-hover/40 border-accent-hover text-accent-ink/80">N</Kbd></Button>}
         </>}>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <div className="overflow-x-auto scroll-thin max-w-full -mx-1 px-1 pb-1"><Segmented value={view} onChange={(v) => { setView(v); setFocusIdx(-1); }} options={viewOptions} /></div>
@@ -196,7 +170,7 @@ export default function TasksPage() {
 
       {tasksQ.isLoading ? <div className="panel p-4"><SkeletonRows rows={8} /></div>
         : tasksQ.error ? <ErrorState message={(tasksQ.error as Error).message} onRetry={() => tasksQ.refetch()} />
-        : filtered.length === 0 ? <div className="panel"><EmptyState icon={<ListTodo />} title={emptyTitle} description={emptyDesc} action={isAdmin && view === "all" ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" />New task</Button> : undefined} /></div>
+        : filtered.length === 0 ? <div className="panel"><EmptyState icon={<ListTodo />} title={emptyTitle} description={emptyDesc} action={isAdmin && view === "all" ? <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" />New task</Button> : undefined} /></div>
         : layout === "list" ? (
           <div className="panel overflow-hidden">
             {view === "all" ? STATUS_ORDER.map((s) => {
@@ -207,17 +181,17 @@ export default function TasksPage() {
               return (
                 <div key={s}>
                   <div className={cn("flex items-center gap-2 px-3 md:px-4 h-8 bg-surface-2/60 border-y border-line first:border-t-0 text-xs font-medium", toneClasses[meta.tone].text)}><meta.Icon className="h-3.5 w-3.5" />{meta.label}<span className="t-num text-ink-4">{items.length}</span></div>
-                  <div className="divide-y divide-line">{items.map((t, i) => <Row key={t.id} t={t} idx={startIdx + i} />)}</div>
+                  <div className="divide-y divide-line">{items.map((t, i) => <TaskListRow key={t.id} t={t} idx={startIdx + i} {...rowProps} />)}</div>
                 </div>
               );
-            }) : <div className="divide-y divide-line">{filtered.map((t, i) => <Row key={t.id} t={t} idx={i} />)}</div>}
+            }) : <div className="divide-y divide-line">{filtered.map((t, i) => <TaskListRow key={t.id} t={t} idx={i} {...rowProps} />)}</div>}
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5 items-start">
             {STATUS_ORDER.map((s) => { const meta = TASK_STATUS_META[s]; const items = grouped.get(s)!; return (
               <div key={s} className="rounded-lg bg-bg-sunken border border-line p-2 min-h-[120px]">
                 <div className={cn("flex items-center gap-1.5 px-1 pb-2 text-xs font-medium", toneClasses[meta.tone].text)}><meta.Icon className="h-3.5 w-3.5" />{meta.label}<span className="t-num text-ink-4">{items.length}</span></div>
-                <div className="space-y-2">{items.map((t) => <BoardCard key={t.id} t={t} />)}{items.length === 0 && <p className="px-1 py-3 text-xs text-ink-4">Empty</p>}</div>
+                <div className="space-y-2">{items.map((t) => <BoardCard key={t.id} t={t} assigneeName={isAdmin ? nameById.get(t.assigneeId) ?? "?" : undefined} />)}{items.length === 0 && <p className="px-1 py-3 text-xs text-ink-4">Empty</p>}</div>
               </div>
             ); })}
           </div>
@@ -235,8 +209,8 @@ export default function TasksPage() {
         </div>
       )}
 
-      <TaskFormDialog open={createOpen} onOpenChange={setCreateOpen} initial={{ assigneeId: params.get("assigneeId") || "" }} />
-      <TaskFormDialog open={!!editTask} onOpenChange={(o) => !o && setEditTask(null)} initial={editTask ? { id: editTask.id, title: editTask.title, description: editTask.description ?? "", assigneeId: editTask.assigneeId, projectId: editTask.projectId ?? "", priority: editTask.priority, dueDate: editTask.dueDate ? new Date(editTask.dueDate).toISOString().slice(0, 10) : "", skillTags: editTask.skillTags ?? [], dependsOnTaskId: editTask.dependsOnTaskId ?? "" } : undefined} />
+      <TaskFormDialog open={createOpen} onOpenChange={setCreateOpen} initial={createInitial} />
+      <TaskFormDialog open={!!editTask} onOpenChange={(o) => !o && setEditTask(null)} initial={editInitial} />
       {dialog?.kind === "submit" && <SubmitDialog open onOpenChange={() => setDialog(null)} pending={m.submit.isPending} previousFeedback={dialog.task.feedback} resubmission={!!dialog.task.submittedAt} onSubmit={(text) => m.submit.mutate({ id: dialog.task.id, submission: text }, { onSuccess: () => setDialog(null) })} />}
       {dialog?.kind === "block" && <BlockDialog open onOpenChange={() => setDialog(null)} pending={m.block.isPending} onBlock={(reason) => m.block.mutate({ id: dialog.task.id, reason }, { onSuccess: () => setDialog(null) })} />}
       {(dialog?.kind === "approve" || dialog?.kind === "changes") && <ReviewDialog open onOpenChange={() => setDialog(null)} mode={dialog.kind} pending={m.approve.isPending || m.requestChanges.isPending} submission={dialog.task.submission} onApprove={(fb) => m.approve.mutate({ id: dialog.task.id, feedback: fb }, { onSuccess: () => setDialog(null) })} onRequestChanges={(fb) => m.requestChanges.mutate({ id: dialog.task.id, feedback: fb }, { onSuccess: () => setDialog(null) })} />}
@@ -248,6 +222,57 @@ export default function TasksPage() {
           onConfirm={async () => { const ids = dialog.task.id === "__bulk" ? Array.from(selected) : [dialog.task.id]; for (const id of ids) await m.remove.mutateAsync(id).catch(() => {}); setSelected(new Set()); setDialog(null); }} />
       )}
     </Page>
+  );
+}
+
+// Rows and cards live outside TasksPage on purpose: defining them inline
+// gives React a new component type on every render, which remounts every
+// row (and closes its open dropdown) each time hover moves the focus index.
+type RowAction = { label: string; icon: React.ReactNode; onSelect: () => void; destructive?: boolean };
+
+function TaskListRow({ t, idx, isAdmin, focusIdx, selected, onFocus, onToggleSelect, projectName, assigneeName, rowActions }: {
+  t: Task; idx: number; isAdmin: boolean; focusIdx: number; selected: Set<string>; onFocus: (i: number) => void; onToggleSelect: (id: string) => void;
+  projectName: (t: Task) => string | undefined; assigneeName: (t: Task) => string | undefined; rowActions: (t: Task) => RowAction[];
+}) {
+  const due = dueLabel(t.dueDate, t.status);
+  const actions = rowActions(t);
+  const project = projectName(t);
+  const assignee = assigneeName(t);
+  return (
+    <div className={cn("group flex items-center gap-2.5 px-3 md:px-4 h-11 row-hover", focusIdx === idx && "bg-surface-2 ring-1 ring-inset ring-accent/40", selected.has(t.id) && "bg-accent-soft/50")} onMouseEnter={() => onFocus(idx)}>
+      {isAdmin && <input type="checkbox" aria-label={`Select ${t.title}`} checked={selected.has(t.id)} onChange={() => onToggleSelect(t.id)} className="h-3.5 w-3.5 accent-[var(--accent)] shrink-0" />}
+      <StatusIcon status={t.status} />
+      <Link href={`/tasks/${t.id}`} className="min-w-0 flex-1 flex items-center gap-2">
+        <span className="truncate text-[13px] text-ink">{t.title}</span>
+        {t.blockedReason && <span className="hidden lg:inline truncate text-xs text-danger max-w-[200px]">· {t.blockedReason}</span>}
+      </Link>
+      {project && <span className="hidden xl:inline text-xs text-ink-3 truncate max-w-[160px]">{project}</span>}
+      {isAdmin && <span className="hidden md:flex items-center gap-1.5 text-xs text-ink-3 w-[120px] truncate"><Avatar name={assignee ?? "?"} size="xs" /><span className="truncate">{(assignee ?? "Unknown").split(" ")[0]}</span></span>}
+      {due ? <Pill tone={due.tone === "muted" ? "neutral" : due.tone} className="hidden sm:inline-flex w-[92px] justify-center">{due.text}</Pill> : <span className="hidden sm:block w-[92px]" />}
+      <PriorityMark priority={t.priority} />
+      {actions.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-xs" aria-label={`Actions for ${t.title}`} className="opacity-60 group-hover:opacity-100"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {actions.map((a, i) => <DropdownMenuItem key={i} onSelect={a.onSelect} className={a.destructive ? "text-danger focus:text-danger" : ""}>{a.icon}{a.label}</DropdownMenuItem>)}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+}
+
+function BoardCard({ t, assigneeName }: { t: Task; assigneeName?: string }) {
+  const due = dueLabel(t.dueDate, t.status);
+  return (
+    <Link href={`/tasks/${t.id}`} className="block rounded-md border border-line bg-surface p-2.5 hover:border-line-strong hover:lift transition-all anim-pop">
+      <p className="text-[13px] text-ink leading-snug line-clamp-2">{t.title}</p>
+      {t.blockedReason && <p className="mt-1 text-xs text-danger line-clamp-2">{t.blockedReason}</p>}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">{assigneeName !== undefined && <Avatar name={assigneeName} size="xs" />}{due && <Pill tone={due.tone === "muted" ? "neutral" : due.tone}>{due.text}</Pill>}</div>
+        <PriorityMark priority={t.priority} />
+      </div>
+    </Link>
   );
 }
 

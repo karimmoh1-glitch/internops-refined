@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Menu, X, LogOut, ChevronsUpDown, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import LogoMark, { Wordmark } from "@/components/logo-mark";
 import { Button } from "@/components/ui/button";
 import { Kbd, Avatar } from "@/components/kit";
-import { NAV, isActive } from "./nav";
+import { NAV, NAV_GROUP_LABEL, isActive, type NavGroup } from "./nav";
 import { NotificationCenter } from "./NotificationCenter";
 import { CommandPalette, useCommandPalette, openCommandPalette } from "./CommandPalette";
 import { WorkModeChip } from "./WorkModeChip";
@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 export default function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
   const [location] = useLocation();
+  const search = useSearch();
   const [mobileOpen, setMobileOpen] = useState(false);
   const palette = useCommandPalette();
   const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
@@ -45,14 +46,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   const NavList = ({ onNavigate }: { onNavigate?: () => void }) => (
     <nav className="flex flex-col gap-0.5 px-2" aria-label="Primary">
-      {(["work", "team", "system"] as const).map((group, gi) => {
+      {(["workspace", "intelligence", "organization", "system"] as NavGroup[]).map((group, gi) => {
         const groupItems = items.filter((i) => i.group === group);
         if (groupItems.length === 0) return null;
+        const label = NAV_GROUP_LABEL[group];
         return (
           <div key={group} className={cn(gi > 0 && "mt-4")}>
-            {gi > 0 && <div className="px-2 pb-1.5 t-label text-[10px]">{group === "team" ? (user.role === "admin" ? "Team" : "Connect") : "System"}</div>}
+            {label && <div className="px-2 pb-1.5 text-[11px] font-medium text-ink-4">{label}</div>}
             {groupItems.map((item) => {
-              const active = isActive(item, location);
+              const active = isActive(item, location, search);
               const n = badge(item.href);
               return (
                 <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined}
@@ -138,7 +140,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)]" aria-label="Primary" data-print-hide>
         <div className="grid grid-cols-5">
           {items.filter((i) => ["/", "/tasks", "/work", "/pulse"].includes(i.href)).map((item) => {
-            const active = isActive(item, location);
+            const active = isActive(item, location, search);
             return (
               <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center gap-1 h-14 text-[10.5px] font-medium", active ? "text-accent" : "text-ink-3")} aria-current={active ? "page" : undefined}>
                 <item.icon className="h-5 w-5" strokeWidth={active ? 2.25 : 2} />{item.label}

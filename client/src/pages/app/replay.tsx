@@ -100,7 +100,7 @@ export default function ReplayPage({ sessionId }: { sessionId: string }) {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             {e.taskId && (e.type === "task_started" || e.type === "task_submitted" || e.type === "task_approved") ? <Link href={`/tasks/${e.taskId}`} className="text-[13px] font-medium text-ink hover:text-accent">{e.label}</Link> : <span className={cn("text-[13px]", meta.kind === "observed" ? "font-medium text-ink" : meta.kind === "unknown" ? "text-ink-2" : "text-ink")}>{e.label}</span>}
-                            <Pill tone={meta.kind === "observed" ? "work" : meta.kind === "unknown" ? "neutral" : "accent"} className="text-[10px]">{KIND_LABEL[meta.kind]}</Pill>
+                            <Pill tone={meta.kind === "observed" ? "work" : meta.kind === "unknown" ? "neutral" : "accent"} className="text-[11px]">{KIND_LABEL[meta.kind]}</Pill>
                           </div>
                           {e.detail && <p className="mt-0.5 text-xs text-ink-3">{e.detail}</p>}
                         </div>

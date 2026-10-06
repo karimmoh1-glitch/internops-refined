@@ -14,8 +14,8 @@ export function PageHeader({ title, description, actions, crumbs, eyebrow, class
       {crumbs && crumbs.length > 0 && (
         <nav className="mb-2 flex items-center gap-1 text-xs text-ink-3" aria-label="Breadcrumb">
           {crumbs.map((c, i) => (
-            <span key={i} className="flex items-center gap-1">
-              {c.href ? <Link href={c.href} className="hover:text-ink transition-colors">{c.label}</Link> : <span className="text-ink-2">{c.label}</span>}
+            <span key={i} className="flex items-center gap-1 min-w-0">
+              {c.href ? <Link href={c.href} className="hover:text-ink transition-colors truncate max-w-[220px]">{c.label}</Link> : <span className="text-ink-2 truncate max-w-[220px] sm:max-w-[360px]">{c.label}</span>}
               {i < crumbs.length - 1 && <ChevronRight className="h-3 w-3" />}
             </span>
           ))}

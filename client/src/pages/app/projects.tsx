@@ -153,7 +153,7 @@ export default function ProjectsPage() {
           </Section>
         )}
 
-      {isAdmin && <AssignProjectDialog open={assignOpen} onOpenChange={(o) => (o ? setAssignOpen(true) : closeDialog(setAssignOpen))} />}
+      {isAdmin && <AssignProjectDialog open={assignOpen} defaultInternId={params.get("internId") ?? undefined} onOpenChange={(o) => (o ? setAssignOpen(true) : closeDialog(setAssignOpen))} />}
       {!isAdmin && <ProposeProjectDialog open={proposeOpen} onOpenChange={(o) => (o ? setProposeOpen(true) : closeDialog(setProposeOpen))} />}
       {isAdmin && <RejectProposalDialog project={rejecting} open={!!rejecting} onOpenChange={(o) => { if (!o) setRejecting(null); }} />}
     </Page>

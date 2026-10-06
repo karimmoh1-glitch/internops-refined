@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { AlertTriangle, ExternalLink, FileText, History, Radar, Sparkles, Wrench } from "lucide-react";
@@ -205,6 +205,9 @@ export function ExpectedEndDateDialog({ open, onOpenChange, internId, value }: {
   const { toast } = useToast();
   const saved = value ? value.slice(0, 10) : "";
   const [date, setDate] = useState(saved);
+  // The dialog stays mounted, so re-sync the input with the stored value
+  // each time it opens (and after a save changes `value`).
+  useEffect(() => { if (open) setDate(saved); }, [open, saved]);
   const save = useMutation({
     mutationFn: (expectedEndDate: string | null) => api("PUT", `/api/interns/${internId}/expected-end-date`, { expectedEndDate }),
     onSuccess: (_d, v) => { invalidatePeople(qc); onOpenChange(false); toast({ title: v ? "Expected end date saved" : "End date cleared", description: v ? "They'll be moved to alumni automatically when it passes." : "Marked as undecided." }); },

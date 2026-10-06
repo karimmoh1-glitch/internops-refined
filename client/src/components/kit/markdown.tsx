@@ -39,9 +39,11 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
     const parts = t.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
     for (const part of parts) {
       if (!part) continue;
-      if (part.startsWith("**")) out.push(<strong key={`${keyPrefix}-${i++}`} className="font-semibold text-ink">{part.slice(2, -2)}</strong>);
-      else if (part.startsWith("`")) out.push(<code key={`${keyPrefix}-${i++}`} className="rounded-sm bg-bg-sunken px-1 py-px font-mono text-[12px]">{part.slice(1, -1)}</code>);
-      else if (part.startsWith("*")) out.push(<em key={`${keyPrefix}-${i++}`} className="italic text-ink-2">{part.slice(1, -1)}</em>);
+      // Only a part that is a COMPLETE token (the split regex captured
+      // it) gets styled; a stray "**" at the start of ordinary text is text.
+      if (/^\*\*[^*]+\*\*$/.test(part)) out.push(<strong key={`${keyPrefix}-${i++}`} className="font-semibold text-ink">{part.slice(2, -2)}</strong>);
+      else if (/^`[^`]+`$/.test(part)) out.push(<code key={`${keyPrefix}-${i++}`} className="rounded-sm bg-bg-sunken px-1 py-px font-mono text-[12px]">{part.slice(1, -1)}</code>);
+      else if (/^\*[^*]+\*$/.test(part)) out.push(<em key={`${keyPrefix}-${i++}`} className="italic text-ink-2">{part.slice(1, -1)}</em>);
       else out.push(<Fragment key={`${keyPrefix}-${i++}`}>{part}</Fragment>);
     }
   };

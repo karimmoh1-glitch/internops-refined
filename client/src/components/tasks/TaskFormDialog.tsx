@@ -20,7 +20,10 @@ export function TaskFormDialog({ open, onOpenChange, initial, onSaved }: { open:
   const [tagInput, setTagInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { if (open) { setV({ title: "", description: "", assigneeId: "", projectId: "", priority: "medium", dueDate: "", skillTags: [], dependsOnTaskId: "", ...initial }); setError(null); } }, [open, initial]);
+  // Reset when the dialog opens or is pointed at a different task/prefill —
+  // not on every parent render, which would wipe what's being typed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) { setV({ title: "", description: "", assigneeId: "", projectId: "", priority: "medium", dueDate: "", skillTags: [], dependsOnTaskId: "", ...initial }); setError(null); } }, [open, initial?.id, initial?.assigneeId, initial?.projectId]);
 
   const interns = useQuery<{ id: string; name: string; deactivatedAt: string | null }[]>({ queryKey: ["/api/interns"], enabled: open });
   const projects = useQuery<{ id: string; title: string; internId: string; status: string }[]>({ queryKey: ["/api/projects"], enabled: open });

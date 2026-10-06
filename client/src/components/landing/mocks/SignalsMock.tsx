@@ -12,7 +12,7 @@ const APPROVALS = [
 export function SignalsMock({ className }: { className?: string }) {
   return (
     <AppFrame active="Signals" label="Sample Signals screen: four signals, each with a severity, a headline, the evidence behind it and actions; beside it, two submissions waiting on review with approve and request-changes buttons." caption="Sample signals. Each one is a condition the data can show, with its evidence attached." className={className}>
-      <div className="grid gap-3 @3xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-3 @2xl:grid-cols-[1.5fr_1fr]">
         <section className="panel overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 hairline-b">
             <span className="t-section">Signals</span>

@@ -152,7 +152,17 @@ export default function ProjectDetailPage({ id }: { id: string }) {
   });
   const deleteProject = useMutation({
     mutationFn: () => api("DELETE", `/api/projects/${id}`),
-    onSuccess: () => { invalidateProject(qc, id); qc.removeQueries({ queryKey: PROJECT_KEYS.detail(id) }); toast({ title: "Project deleted" }); setLocation("/projects"); },
+    // Leave first, then drop this project's caches. Invalidating the detail
+    // key while the page is still mounted refetches a project that no
+    // longer exists (a 404 in the console and a flash of the error state).
+    onSuccess: () => {
+      setLocation("/projects");
+      invalidateProject(qc);
+      qc.removeQueries({ queryKey: PROJECT_KEYS.detail(id) });
+      qc.removeQueries({ queryKey: PROJECT_KEYS.logs(id) });
+      qc.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && /^\/api\/(tasks|channels)/.test(q.queryKey[0]) });
+      toast({ title: "Project deleted" });
+    },
     onError: (e: Error) => toast({ title: "Couldn't delete project", description: e.message, variant: "destructive" }),
   });
 
@@ -358,7 +368,7 @@ export default function ProjectDetailPage({ id }: { id: string }) {
       {isAdmin && <RejectProposalDialog project={rejectOpen ? project : null} open={rejectOpen} onOpenChange={setRejectOpen} />}
       {!isAdmin && <ProposeProjectDialog open={proposeOpen} onOpenChange={setProposeOpen} />}
       {!isAdmin && <GeneratePlanDialog projectId={project.id} minimumHours={project.minimumTotalHours} open={generateOpen} onOpenChange={setGenerateOpen} />}
-      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title={`Delete "${project.title}"?`} description="Every plan version, weekly log, comment and criterion on this project is permanently removed. The intern is notified." confirmLabel="Delete project" destructive pending={deleteProject.isPending} onConfirm={() => deleteProject.mutate()} />
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title={`Delete "${project.title}"?`} description={`Every plan version, weekly log, comment and criterion on this project is permanently removed.${stats && stats.total > 0 ? ` The ${pluralize(stats.total, "task")} linked to it ${stats.total === 1 ? "is" : "are"} kept and simply unlinked.` : ""} The intern is notified.`} confirmLabel="Delete project" destructive pending={deleteProject.isPending} onConfirm={() => deleteProject.mutate()} />
       <ConfirmDialog open={resetOpen} onOpenChange={setResetOpen} title="Reset your plan?" description="Every draft version is deleted and the project goes back to Assigned. This only works before a plan has been submitted." confirmLabel="Reset plan" destructive pending={resetPlan.isPending} onConfirm={() => resetPlan.mutate()} />
     </Page>
   );

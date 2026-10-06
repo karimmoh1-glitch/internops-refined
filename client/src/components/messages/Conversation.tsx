@@ -36,15 +36,18 @@ export function Conversation({ channel, user, onBack, onDeleted }: {
 
   // ─── Mark read: on open, and whenever the number of messages changes ───
   const readKeyRef = useRef("");
+  const loaded = messages.data !== undefined;
   useEffect(() => {
-    if (!visible) return;
+    // Wait for the first page of messages: marking read while still loading
+    // sends one PUT for "0 messages" and a second as soon as they arrive.
+    if (!visible || !loaded) return;
     const k = `${channel.id}:${list.length}`;
     if (readKeyRef.current === k) return;
     readKeyRef.current = k;
     api("PUT", `/api/channels/${channel.id}/read`)
       .then(() => { qc.invalidateQueries({ queryKey: CHANNELS_KEY }); qc.invalidateQueries({ queryKey: UNREAD_KEY }); })
       .catch(() => { /* read receipts are best-effort */ });
-  }, [channel.id, list.length, visible, qc]);
+  }, [channel.id, list.length, visible, loaded, qc]);
 
   // ─── Scroll: stick to the bottom unless the reader has scrolled up ───
   const scrollRef = useRef<HTMLDivElement>(null);

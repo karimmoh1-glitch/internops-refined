@@ -71,7 +71,7 @@ export function NotificationCenter({ className }: { className?: string }) {
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className={cn("relative", className)} aria-label={count > 0 ? `Notifications, ${count} unread` : "Notifications"}>
             <Bell className="h-[18px] w-[18px]" />
-            {count > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full bg-accent text-accent-ink text-[10px] font-semibold flex items-center justify-center t-num" aria-hidden>{count > 99 ? "99+" : count}</span>}
+            {count > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full bg-accent text-accent-ink text-[11px] font-semibold flex items-center justify-center t-num" aria-hidden>{count > 99 ? "99+" : count}</span>}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" sideOffset={8} className="w-[380px] max-w-[calc(100vw-16px)] p-0 overflow-hidden rounded-xl pop">

@@ -602,16 +602,10 @@ export class DatabaseStorage implements IStorage {
       await tx.delete(chatMessages).where(eq(chatMessages.projectId, id));
       await tx.delete(channels).where(eq(channels.projectId, id));
 
-      const projectTasks = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
-      if (projectTasks.length > 0) {
-        const taskIds = projectTasks.map((t) => t.id);
-        await tx.update(projectCompletionCriteria).set({ taskId: null }).where(inArray(projectCompletionCriteria.taskId, taskIds));
-        await tx.update(tasks).set({ dependsOnTaskId: null }).where(inArray(tasks.dependsOnTaskId, taskIds));
-        await tx.update(workActivities).set({ taskId: null, taskCorrelation: null }).where(inArray(workActivities.taskId, taskIds));
-        await tx.delete(taskSubmissions).where(inArray(taskSubmissions.taskId, taskIds));
-        await tx.delete(taskComments).where(inArray(taskComments.taskId, taskIds));
-        await tx.delete(tasks).where(inArray(tasks.id, taskIds));
-      }
+      // Tasks are records of real work (submissions, comments, Work Mode
+      // evidence). Deleting the container unlinks them; it never erases
+      // them. The intern keeps the task, now without a project.
+      await tx.update(tasks).set({ projectId: null }).where(eq(tasks.projectId, id));
       await tx.update(workActivities).set({ projectId: null }).where(eq(workActivities.projectId, id));
       await tx.update(workSummaries).set({ primaryProjectId: null }).where(eq(workSummaries.primaryProjectId, id));
       await tx.delete(projects).where(eq(projects.id, id));
