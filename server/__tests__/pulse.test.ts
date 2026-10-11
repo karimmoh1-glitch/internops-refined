@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { createServer, type Server } from "node:http";
+import type { Socket } from "node:net";
 import { getApp, request, resetDatabase, seedWorkspace, auth, createUser, pool } from "./helpers";
 
 // Reads the SSE stream the Pulse endpoint produces and returns the parsed events.
@@ -108,6 +110,31 @@ describe("Pulse Chat (deterministic engine, no OpenAI key)", () => {
       delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
     }
   });
+
+  it("a hung AI provider is cut off by the timeout and the deterministic engine still answers", async () => {
+    const sockets = new Set<Socket>();
+    const hang: Server = createServer(() => { /* never respond */ });
+    hang.on("connection", (s) => { sockets.add(s); s.on("close", () => sockets.delete(s)); });
+    await new Promise<void>((r) => hang.listen(47392, "127.0.0.1", r));
+    process.env.OPENAI_API_KEY = "sk-not-a-real-key";
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "http://127.0.0.1:47392/v1";
+    process.env.PULSE_PROVIDER_TIMEOUT_MS = "700";
+    const started = Date.now();
+    try {
+      const { text, aiGenerated } = await ask(ws.adminToken, "What is blocked?");
+      expect(aiGenerated).toBe(false);
+      expect(text).toMatch(/blocked task/i);
+      expect(text).toContain("Connect analytics");
+      // 700ms timeout, one retry, plus the deterministic answer: well under the 60s function budget.
+      expect(Date.now() - started).toBeLessThan(10000);
+    } finally {
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+      delete process.env.PULSE_PROVIDER_TIMEOUT_MS;
+      for (const s of sockets) s.destroy();
+      await new Promise<void>((r) => hang.close(() => r()));
+    }
+  }, 20000);
 
   it("says plainly when there is no recorded evidence", async () => {
     const { text } = await ask(ws.adminToken, "What is Omar Other doing right now?");

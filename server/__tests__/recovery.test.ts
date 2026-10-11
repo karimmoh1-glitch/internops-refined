@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { createServer, type Server } from "node:http";
+import type { Socket } from "node:net";
 import { getApp, request, resetDatabase, seedWorkspace, auth, PASSWORD, createUser, createCompany, login } from "./helpers";
 
 // Account recovery and role boundaries when no email provider is
@@ -124,4 +126,27 @@ describe("recovery without email", () => {
       delete process.env.RESEND_API_KEY;
     }
   });
+
+  it("a provider that accepts the connection but never answers is cut off by the timeout", async () => {
+    const app = await getApp();
+    const sockets = new Set<Socket>();
+    const hang: Server = createServer(() => { /* never respond */ });
+    hang.on("connection", (s) => { sockets.add(s); s.on("close", () => sockets.delete(s)); });
+    await new Promise<void>((r) => hang.listen(47391, "127.0.0.1", r));
+    process.env.RESEND_API_KEY = "re_test_not_a_real_key";
+    process.env.EMAIL_PROVIDER_TIMEOUT_MS = "800";
+    const started = Date.now();
+    try {
+      const res = await request(app).post("/api/invitations").set(auth(ws.adminToken)).send({ name: "Hang Case", email: `hang-${Date.now()}@example.com` });
+      expect(res.status).toBe(201);
+      expect(res.body.emailSent).toBe(false);
+      expect(res.body.emailError).toBe("provider_unreachable");
+      expect(Date.now() - started).toBeLessThan(5000);
+    } finally {
+      delete process.env.RESEND_API_KEY;
+      delete process.env.EMAIL_PROVIDER_TIMEOUT_MS;
+      for (const s of sockets) s.destroy();
+      await new Promise<void>((r) => hang.close(() => r()));
+    }
+  }, 15000);
 });
