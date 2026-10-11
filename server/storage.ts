@@ -474,8 +474,10 @@ export class DatabaseStorage implements IStorage {
 
   // alumniRecords row is left as historical record, not deleted.
   async reactivateAlumnus(id: string): Promise<User | undefined> {
-    const [updated] = await db.update(users).set({ alumniAt: null }).where(eq(users.id, id)).returning();
-    await this.setUserDeactivated(id, false);
+    // One update, one returned row: callers (and the audit response) must
+    // see the account exactly as it now is, not a row from before the
+    // deactivation flag was cleared.
+    const [updated] = await db.update(users).set({ alumniAt: null, deactivatedAt: null }).where(eq(users.id, id)).returning();
     return updated;
   }
 

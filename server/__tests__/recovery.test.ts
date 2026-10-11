@@ -80,4 +80,29 @@ describe("recovery without email", () => {
     const me = await request(app).get("/api/auth/me").set(auth(ws.intern2Token));
     expect(me.body.role).toBe("intern");
   });
+
+  it("ending an internship closes sign-in, and reopening it restores an active account", async () => {
+    const app = await getApp();
+    const company = await createCompany("Alumni Co");
+    const admin = await createUser({ role: "admin", companyId: company.id });
+    const intern = await createUser({ role: "intern", companyId: company.id, name: "Grad Uate" });
+    const adminToken = await login(admin.email);
+
+    const end = await request(app).post(`/api/interns/${intern.id}/transition-alumni`).set(auth(adminToken)).send({});
+    expect(end.status).toBe(200);
+    expect(end.body.user.alumniAt).toBeTruthy();
+    const alumni = await request(app).get("/api/alumni").set(auth(adminToken));
+    expect(alumni.body.some((a: any) => a.id === intern.id)).toBe(true);
+    // Alumni get a specific, honest refusal (403), not the generic 401.
+    const blocked = await request(app).post("/api/auth/login").send({ email: intern.email, password: PASSWORD });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.message).toMatch(/alumni|ended|no longer/i);
+
+    const reopen = await request(app).post(`/api/alumni/${intern.id}/reactivate`).set(auth(adminToken)).send({});
+    expect(reopen.status).toBe(200);
+    expect(reopen.body.alumniAt).toBeNull();
+    expect(reopen.body.deactivatedAt).toBeNull();
+    const back = await request(app).post("/api/auth/login").send({ email: intern.email, password: PASSWORD });
+    expect(back.status).toBe(200);
+  });
 });

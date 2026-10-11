@@ -579,6 +579,11 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
+      if (user.alumniAt) {
+        // Ending an internship closes sign-in but it is not a disciplinary
+        // deactivation; say what actually happened.
+        return res.status(403).json({ message: "This internship has ended, so sign-in is closed. Your alumni profile and certificate stay available; a manager can reopen the internship." });
+      }
       if (user.deactivatedAt) {
         return res.status(403).json({ message: "This account has been deactivated. Contact an admin." });
       }
