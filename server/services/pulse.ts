@@ -53,7 +53,8 @@ function fmtDuration(seconds: number): string {
 function daysOverdue(t: Task, now: Date): number {
   return Math.max(1, Math.floor((now.getTime() - new Date(t.dueDate!).getTime()) / 86_400_000));
 }
-function plural(n: number, word: string): string { return `${n} ${word}${n === 1 ? "" : "s"}`; }
+const IRREGULAR_PLURALS: Record<string, string> = { person: "people" };
+function plural(n: number, word: string): string { return `${n} ${n === 1 ? word : (IRREGULAR_PLURALS[word] ?? `${word}s`)}`; }
 
 // ---------------------------------------------------------------------
 // Name resolution (deliberately strict: never guess between two people)
