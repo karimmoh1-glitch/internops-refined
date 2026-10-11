@@ -878,15 +878,24 @@ export async function registerRoutes(
       // anyone with server log access, not just that admin.
       logDevOnlyLink(`📧 INTERN INVITE LINK`, email.toLowerCase().trim(), inviteLink);
 
-      // Fire-and-forget email
+      // Awaited on purpose: the response promises (or does not promise)
+      // delivery, so it must reflect what the provider actually did. sendEmail
+      // never throws and times out after 10s.
       const company = await storage.getCompanyById(companyId);
       const adminUser = await storage.getUser((req as any).userId);
-      sendInternInviteEmail(email.toLowerCase().trim(), inviteLink, company?.name || "your company", adminUser?.name).catch(() => {});
-
-      const emailSent = isEmailConfigured();
+      const delivery = isEmailConfigured()
+        ? await sendInternInviteEmail(email.toLowerCase().trim(), inviteLink, company?.name || "your company", adminUser?.name)
+        : { ok: false, error: "not_configured" as const };
+      const emailSent = delivery.ok;
+      const message = emailSent
+        ? "Invitation sent"
+        : delivery.error === "not_configured"
+          ? "Invitation created. No email was sent because email delivery is not configured; share the link yourself."
+          : "Invitation created, but the email could not be delivered right now; share the link yourself.";
       res.status(201).json({
-        message: emailSent ? "Invitation sent" : "Invitation created. No email was sent because email delivery is not configured; share the link yourself.",
+        message,
         emailSent,
+        emailError: emailSent ? undefined : delivery.error,
         invitation: { id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt },
         inviteLink,
       });

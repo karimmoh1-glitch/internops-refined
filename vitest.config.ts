@@ -9,6 +9,7 @@ export default defineConfig({
     },
   },
   test: {
+    env: { RESEND_BASE_URL: "http://127.0.0.1:1" },
     include: ["server/**/*.test.ts", "shared/**/*.test.ts"],
     // Integration tests share one Postgres database; run files serially so
     // fixtures created by one file can't race another's cleanup.

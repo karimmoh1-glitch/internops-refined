@@ -105,4 +105,23 @@ describe("recovery without email", () => {
     const back = await request(app).post("/api/auth/login").send({ email: intern.email, password: PASSWORD });
     expect(back.status).toBe(200);
   });
+
+  it("a configured but failing email provider is reported honestly, never as sent", async () => {
+    const app = await getApp();
+    process.env.RESEND_API_KEY = "re_test_not_a_real_key";
+    try {
+      const cfg = await request(app).get("/api/config");
+      expect(cfg.body.emailConfigured).toBe(true);
+      const res = await request(app).post("/api/invitations").set(auth(ws.adminToken)).send({ name: "Fail Case", email: `fail-${Date.now()}@example.com` });
+      expect(res.status).toBe(201);
+      expect(res.body.emailSent).toBe(false);
+      // The SDK wraps a connection failure in its own error object rather than throwing.
+      expect(typeof res.body.emailError).toBe("string");
+      expect(res.body.emailError.length).toBeGreaterThan(0);
+      expect(res.body.message).toMatch(/could not be delivered/i);
+      expect(res.body.inviteLink).toMatch(/\/invite\//);
+    } finally {
+      delete process.env.RESEND_API_KEY;
+    }
+  });
 });
