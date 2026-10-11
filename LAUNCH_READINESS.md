@@ -91,7 +91,7 @@ Verified locally on 2026-10-10 with exactly these steps.
 
 ## Deployment
 
-Deploys run through the Vercel git integration on push to `main`. Gate before merging: `npm run typecheck && npm test && npm run test:companion && npm run build`, each on its real exit code. Post-deploy smoke: `/api/health` 200, `/api/config` returns JSON, `curl -I /` shows the CSP header, `/login` and `/download` 200, `/api/auth/me` 401 unauthenticated.
+Deploys are manual (`npx vercel --prod` from an up-to-date `main`); the Vercel project is not connected to the GitHub repository, so merging alone changes nothing in production. GitHub Actions CI runs typecheck, build and Companion tests on every pull request. Gate before merging: `npm run typecheck && npm test && npm run test:companion && npm run build`, each on its real exit code. Post-deploy smoke: `/api/health` 200, `/api/config` returns JSON, `curl -I /` shows the CSP header, `/login` and `/download` 200, `/api/auth/me` 401 unauthenticated.
 
 Status of this pass's deployment is recorded in the final report.
 
