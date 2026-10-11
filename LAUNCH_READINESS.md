@@ -148,6 +148,9 @@ Open, documented, not blockers: unsigned macOS Companion (P2), deterministic Pul
 
 ## Deployments
 
+**2026-10-11 (UTC), PR #89 → d9c3561**: `npx vercel --prod`, deployment `internops-22cyr3rk2`, aliased to https://internops.vercel.app, status Ready. Post-deploy: `/api/health` 200; `/api/config` `{"emailConfigured":false}`; `/api/auth/me`, `POST /api/invitations`, `POST /api/pulse/ask` 401 unauthenticated; `/login`, `/download`, `/theme.js` 200; CSP on `/`; a fresh local build of `main` produces the identical content-hashed client asset that production serves; live landing and login render with no console errors or failed requests.
+
+
 **2026-10-11 (UTC), PR #85 → 3d94e07**: `npx vercel --prod`, deployment `internops-pwxwfjaxk`, aliased to https://internops.vercel.app. Post-deploy: `/api/health` 200; `/api/config` `{"emailConfigured":false}`; `/api/auth/me` 401; reset-link route 401 unauthenticated; `/login`, `/download`, `/forgot-password` 200; `/theme.js` served as JavaScript and referenced by the page; CSP, nosniff, `X-Frame-Options`, `Referrer-Policy`, Permissions-Policy, HSTS on `/`; headless Chrome on the live landing, forgot-password, login and download pages at 1440 and 390 with no console errors or blocked requests; static pages 100–160 ms to first byte, API 170–200 ms warm.
 
 **2026-10-11 (UTC), PR #87 → 2fed63f**: `npx vercel --prod`, deployment `internops-2hglpvptn`, aliased to https://internops.vercel.app, status Ready. Post-deploy: `/api/health` 200; `/api/config` `{"emailConfigured":false}`; `/api/auth/me`, `POST /api/invitations` and `POST /api/pulse/ask` all 401 unauthenticated; `/login`, `/download`, `/theme.js` 200; CSP present on `/`; headless Chrome on the live landing, login and forgot-password pages at 1440 with no console errors, failed requests or overflow. The deployed code is `main` at 2fed63f, the merge of PR #87 whose gates are listed above.
