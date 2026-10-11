@@ -93,7 +93,19 @@ Verified locally on 2026-10-10 with exactly these steps.
 
 Deploys are manual (`npx vercel --prod` from an up-to-date `main`); the Vercel project is not connected to the GitHub repository, so merging alone changes nothing in production. GitHub Actions CI runs typecheck, build and Companion tests on every pull request. Gate before merging: `npm run typecheck && npm test && npm run test:companion && npm run build`, each on its real exit code. Post-deploy smoke: `/api/health` 200, `/api/config` returns JSON, `curl -I /` shows the CSP header, `/login` and `/download` 200, `/api/auth/me` 401 unauthenticated.
 
-Status of this pass's deployment is recorded in the final report.
+**Deployed 2026-10-11 (UTC)**: PR #85 merged as 3d94e07, deployed with `npx vercel --prod` as deployment `internops-pwxwfjaxk`, aliased to https://internops.vercel.app. Post-deploy evidence:
+
+| Check | Result |
+| --- | --- |
+| `/api/health` | 200 |
+| `/api/config` | 200, `{"emailConfigured":false}` |
+| `/api/auth/me` unauthenticated | 401 |
+| `POST /api/users/x/reset-link` unauthenticated | 401 |
+| `/login`, `/download`, `/forgot-password` | 200 |
+| `/theme.js` | 200, `application/javascript`; index references it, no inline script |
+| Headers on `/` | CSP with `script-src 'self'`, nosniff, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: no-referrer`, Permissions-Policy, HSTS |
+| Headless Chrome on production: landing, forgot-password, login, download at 1440 and 390 | no console errors, no blocked requests, no horizontal overflow |
+| Response times (3 samples) | static pages 100–160 ms to first byte; API 170–200 ms warm, one 1.7 s cold start |
 
 ## Release decision
 
