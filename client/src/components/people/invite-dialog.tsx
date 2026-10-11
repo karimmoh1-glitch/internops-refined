@@ -11,7 +11,7 @@ import { CopyButton, EmptyState, ErrorState, Pill, RelativeTime, SectionLabel, S
 import { useNow } from "@/lib/use-now";
 import { type Invitation, invalidatePeople } from "./types";
 
-interface InviteResult { inviteLink: string; invitation: { id: string; email: string; expiresAt: string } }
+interface InviteResult { inviteLink: string; emailSent: boolean; invitation: { id: string; email: string; expiresAt: string } }
 
 // Invite = the intern sets their own password through a 48h link. The link
 // is shown once here (and emailed if mail is configured) — copy it.
@@ -28,7 +28,7 @@ export function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   const create = useMutation({
     mutationFn: () => api<InviteResult>("POST", "/api/invitations", { name: name.trim(), email: email.trim() }),
-    onSuccess: (d) => { setResult(d); invalidatePeople(qc); toast({ title: "Invitation created", description: `Share the link with ${d.invitation.email}. It expires in 48 hours.` }); },
+    onSuccess: (d) => { setResult(d); invalidatePeople(qc); toast({ title: d.emailSent ? "Invitation sent" : "Invitation created", description: d.emailSent ? `${d.invitation.email} has the link by email. It expires in 48 hours.` : `No email was sent. Share the link with ${d.invitation.email} yourself. It expires in 48 hours.` }); },
     onError: (err: Error) => toast({ title: "Couldn't create invitation", description: err.message, variant: "destructive" }),
   });
 
@@ -52,7 +52,7 @@ export function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                 <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-2">{result.inviteLink}</code>
                 <CopyButton value={result.inviteLink} size="xs" label="Copy link" />
               </div>
-              <p className="mt-2 text-xs text-ink-3">Expires <RelativeTime value={result.invitation.expiresAt} />. This link is only shown once.</p>
+              <p className="mt-2 text-xs text-ink-3">Expires <RelativeTime value={result.invitation.expiresAt} />. This link is only shown once.{result.emailSent ? " A copy was emailed to them." : " No email was sent, so share it yourself."}</p>
             </div>
             <Button variant="outline" size="sm" onClick={() => { setResult(null); setName(""); setEmail(""); }}>Invite another</Button>
           </div>

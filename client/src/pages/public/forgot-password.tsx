@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,9 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  // Honest copy: never promise an email this deployment cannot send.
+  const config = useQuery<{ emailConfigured: boolean }>({ queryKey: ["/api/config"], staleTime: 5 * 60_000 });
+  const emailOff = config.data?.emailConfigured === false;
 
   const canSubmit = email.trim().length > 0 && !loading;
 
@@ -38,6 +42,20 @@ export default function ForgotPassword() {
         >
           <p>If an account exists for <strong>{sentTo}</strong>, we've sent a link to reset its password. Check your inbox and your spam folder.</p>
         </AuthResult>
+      </AuthLayout>
+    );
+  }
+
+  if (emailOff) {
+    return (
+      <AuthLayout
+        title="Reset your password"
+        description="This workspace doesn't send email yet, so reset links come from a manager."
+        footer={<p><Link href="/login" className="text-ink-2 hover:text-ink">Back to log in</Link></p>}
+      >
+        <Notice tone="info">
+          Ask a manager in your workspace to open your profile under People and choose <strong>Create password reset link</strong>. The link they send you is valid for one hour.
+        </Notice>
       </AuthLayout>
     );
   }

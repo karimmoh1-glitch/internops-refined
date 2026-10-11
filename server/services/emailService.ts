@@ -58,6 +58,13 @@ ${body}
 </html>`;
 }
 
+// True when a real provider is configured. Routes use this to tell the
+// client honestly whether a message will go out (invite / reset flows
+// fall back to a link the manager shares by hand when it is false).
+export function isEmailConfigured(): boolean {
+  return !!process.env.RESEND_API_KEY;
+}
+
 export async function sendEmail(msg: EmailMessage): Promise<void> {
   const resend = getResendClient();
 
