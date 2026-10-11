@@ -262,6 +262,11 @@
       case "downloading": msg.textContent = `Downloading update… ${u.percent}%`; break;
       case "downloaded": msg.textContent = `Update ${u.version} downloaded — installs after the shift.`; break;
       case "ready-to-install": msg.textContent = `Update ${u.version} is ready.`; install.hidden = false; break;
+      case "manual":
+        // Only when the user asked; a Windows build is not "broken", it just updates by download.
+        if (!u.manual) { banner.hidden = true; return; }
+        msg.textContent = u.message || "Updates are manual on this platform.";
+        break;
       case "error":
         if (!u.manual) { banner.hidden = true; return; }
         banner.dataset.tone = "error";

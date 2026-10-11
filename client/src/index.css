@@ -30,21 +30,21 @@
   --ink: #17161A;         /* primary text */
   --ink-2: #4B4A52;       /* secondary text */
   --ink-3: #6B6975;       /* tertiary / metadata */
-  --ink-4: #8F8D97;       /* placeholders, disabled */
+  --ink-4: #6F6C79;       /* placeholders, disabled */
   --accent: #1F4DEB;      /* brand cobalt */
   --accent-hover: #1740CF;
   --accent-soft: #E9EEFF;
   --accent-ink: #FFFFFF;
-  --work: #0F8A6A;
+  --work: #0C7A5D;
   --work-soft: #E3F4EE;
   --work-ink: #FFFFFF;
   --pulse: #6D3BE6;
   --pulse-soft: #EFE9FD;
-  --ok: #1E8E4D;
+  --ok: #187A41;
   --ok-soft: #E4F4EA;
-  --warn: #B7700B;
+  --warn: #9A5E08;
   --warn-soft: #FBF1DF;
-  --danger: #D5382F;
+  --danger: #C0302A;
   --danger-soft: #FCE8E6;
   --info: #3862A8;
   --info-soft: #E8EEF9;
@@ -66,7 +66,7 @@
   --ink: #F2F1F4;
   --ink-2: #B4B2BC;
   --ink-3: #928F9C;
-  --ink-4: #6A6876;
+  --ink-4: #858291;
   --accent: #5B86FF;
   --accent-hover: #779BFF;
   --accent-soft: #15203F;

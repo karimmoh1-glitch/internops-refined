@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Award, CalendarClock, FileBadge, FolderKanban, FolderPlus, GraduationCap, ListPlus, ListTodo, MessageSquare, MoreHorizontal, Power, RotateCcw, ShieldPlus, Square, Trash2 } from "lucide-react";
+import { Award, CalendarClock, FileBadge, FolderKanban, FolderPlus, GraduationCap, KeyRound, ListPlus, ListTodo, MessageSquare, MoreHorizontal, Power, RotateCcw, ShieldPlus, Square, Trash2 } from "lucide-react";
 import { aggregateSkillTags } from "@shared/skills";
 import { cn } from "@/lib/utils";
 import { formatDate, formatDuration, pluralize } from "@/lib/format";
@@ -11,6 +11,7 @@ import { Avatar, Dot, EmptyState, ErrorState, KeyValue, LiveClock, Page, PageHea
 import { ActionConfirm, type PendingAction, TypedDeleteDialog } from "@/components/people/confirm";
 import { useInternActions } from "@/components/people/use-intern-actions";
 import { ExpectedEndDateDialog, NarrativePanel, SessionsPanel, SignalsPanel, SkillsPanel, TaskRows } from "@/components/people/person-panels";
+import { ResetLinkDialog } from "@/components/people/reset-link-dialog";
 import { type Alumnus, type Dashboard, type InternRow, type Overview, type PersonSignal, type Project, type Task, type WorkSession, type WorkSummary, type WorktimeSummary, invalidatePeople, overviewKey, signalsKey } from "@/components/people/types";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +24,7 @@ export default function PersonPage({ id }: { id: string }) {
   const [confirm, setConfirm] = useState<PendingAction | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
+  const [resetLinkOpen, setResetLinkOpen] = useState(false);
 
   const interns = useQuery<InternRow[]>({ queryKey: ["/api/interns"] });
   const dashboard = useQuery<Dashboard>({ queryKey: ["/api/dashboard"] });
@@ -133,6 +135,7 @@ export default function PersonPage({ id }: { id: string }) {
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setConfirm({ title: `End ${name}'s internship?`, description: "Freezes their tasks, skills, and narrative into an alumni record, ends any active shift, and closes sign-in. You can reopen it from the Alumni tab.", confirmLabel: "Transition to alumni", destructive: true, run: () => transition.mutateAsync() })}><GraduationCap className="h-4 w-4" />Transition to alumni</DropdownMenuItem>
           <DropdownMenuSeparator />
+          {!deactivated && <DropdownMenuItem onSelect={() => setResetLinkOpen(true)}><KeyRound className="h-4 w-4" />Create password reset link</DropdownMenuItem>}
           {deactivated
             ? <DropdownMenuItem onSelect={() => setConfirm({ title: `Reactivate ${name}?`, description: "They can sign in again with everything intact.", confirmLabel: "Reactivate", run: () => actions.reactivate.mutateAsync(ref) })}><Power className="h-4 w-4" />Reactivate</DropdownMenuItem>
             : <>
@@ -252,6 +255,7 @@ export default function PersonPage({ id }: { id: string }) {
         description="This erases their account and every task, work session, report, message, and device tied to it. There is no undo. If you only want to stop them signing in, deactivate instead."
         onConfirm={async () => { await actions.remove.mutateAsync(ref); navigate("/people"); }} />
       <ExpectedEndDateDialog open={endDateOpen} onOpenChange={setEndDateOpen} internId={id} value={meta?.expectedEndDate ?? null} />
+      <ResetLinkDialog open={resetLinkOpen} onOpenChange={setResetLinkOpen} userId={id} name={name} />
     </Page>
   );
 }

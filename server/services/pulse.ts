@@ -60,6 +60,19 @@ function plural(n: number, word: string): string { return `${n} ${word}${n === 1
 // ---------------------------------------------------------------------
 type Match = { person: User } | { ambiguous: User[] } | null;
 
+// Name parts that are also everyday English words. A full name still
+// matches exactly; on its own, one of these must not turn "what other
+// tasks are overdue" into a profile of someone surnamed Other.
+const AMBIGUOUS_NAME_WORDS = new Set([
+  "other", "will", "may", "june", "april", "august", "grace", "hope", "mark", "bill", "art", "sky", "summer", "rose", "ray",
+  "page", "chase", "max", "gene", "pat", "jack", "frank", "rich", "young", "long", "short", "little", "white", "black", "brown",
+  "green", "gray", "grey", "stone", "wood", "hill", "field", "lane", "park", "day", "week", "north", "south", "east", "west",
+  "king", "knight", "bishop", "dean", "major", "general", "miller", "baker", "cook", "smith", "carter", "hunter", "mason",
+  "reed", "read", "best", "good", "new", "old", "last", "first", "next", "now", "today", "work", "working", "task", "tasks",
+  "done", "due", "late", "early", "still", "more", "most", "all", "any", "one", "who", "what", "when", "where", "which", "how",
+  "on", "in", "at", "to", "of", "for", "and", "or", "is", "are", "was", "were", "be", "been", "has", "have", "had", "do", "did",
+]);
+
 export function findMentionedPerson(people: User[], question: string): Match {
   const q = question.toLowerCase();
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -68,7 +81,7 @@ export function findMentionedPerson(people: User[], question: string): Match {
   if (exact.length > 1) return { ambiguous: exact };
   let best = 0; let candidates: User[] = [];
   for (const p of people) {
-    const words = p.name.toLowerCase().split(/\s+/).filter((w) => w.length >= 2);
+    const words = p.name.toLowerCase().split(/\s+/).filter((w) => w.length >= 2 && !AMBIGUOUS_NAME_WORDS.has(w));
     let score = 0;
     for (const w of words) if (new RegExp(`\\b${esc(w)}\\b`).test(q)) score += w.length;
     if (score > 0 && score > best) { best = score; candidates = [p]; }
@@ -124,8 +137,8 @@ async function personAnswer(ctx: OrgContext, person: User, q: string): Promise<s
   if (/work(ed|ing)? on|what.*(did|has|is).*(do|doing)|today/.test(q)) {
     const lines: string[] = [];
     const rollup = activityRollup(today);
-    if (rollup.length > 0) lines.push(`**Observed today** (Companion): ` + rollup.map((a) => `${a.application}${a.context ? ` (${a.context})` : ""} ${fmtDuration(a.seconds)}`).join("; ") + ".");
-    else lines.push(`**Observed today:** nothing recorded — ${onShift ? "the Companion hasn't reported activity this session" : "no Work Mode session today"}.`);
+    if (rollup.length > 0) lines.push(`**Observed today for ${ref.person(person)}** (Companion): ` + rollup.map((a) => `${a.application}${a.context ? ` (${a.context})` : ""} ${fmtDuration(a.seconds)}`).join("; ") + ".");
+    else lines.push(`**Observed today for ${ref.person(person)}:** nothing recorded — ${onShift ? "the Companion hasn't reported activity this session" : "no Work Mode session today"}.`);
     lines.push(inProgress.length > 0 ? `**In progress:** ${inProgress.map(ref.task).join(", ")}.` : `**In progress:** no task currently in progress.`);
     const submittedToday = ctx.recentSubmissions.filter((s) => s.internId === person.id && new Date(s.submittedAt) >= ctx.todayStart);
     if (submittedToday.length > 0) lines.push(`**Submitted today:** ${submittedToday.map((s) => { const t = ctx.taskById.get(s.taskId); return t ? ref.task(t) : "a task"; }).join(", ")}.`);
@@ -232,7 +245,7 @@ export async function answerOrgQuestion(ctx: OrgContext, question: string): Prom
     if (lines.length === 0) return done(`No project has overdue or blocked tasks right now.`);
     return done(`**Projects:**\n` + lines.join("\n"));
   }
-  if (/no (assigned |open )?work|unassigned|nothing assigned|idle|free/.test(q)) {
+  if (/no (assigned |open )?(work|tasks?)|without (any )?(open )?tasks?|unassigned|nothing assigned|idle|free|available/.test(q)) {
     const none = ctx.interns.filter((i) => !ctx.tasks.some((t) => t.assigneeId === i.id && t.status !== "completed"));
     if (none.length === 0) return done(`Everyone has at least one open task.`);
     return done(`**${plural(none.length, "person")} with no open tasks:** ${none.map(ref.person).join(", ")}.`);

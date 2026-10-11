@@ -5,7 +5,7 @@ InternOps is the operating system for intern and early-career teams: tasks with 
 ## Tech Stack
 
 - **Frontend**: React 19 + TypeScript, Wouter, TanStack React Query, Tailwind CSS v4, shadcn/ui, Vite
-- **Backend**: Express 5 on Node.js, JWT auth (stateless, with server-enforced per-device revocation), PostgreSQL via Drizzle ORM
+- **Backend**: Express 4 on Node.js, JWT auth (stateless, with server-enforced per-device revocation), PostgreSQL via Drizzle ORM
 - **AI**: OpenAI SDK for plan generation, chat, and revision guidance
 - **Email**: Resend, behind a provider-agnostic service (`server/services/emailService.ts`) — swappable without touching call sites
 - No dependency on any specific hosting platform. See [Deployment](#deployment) below.
@@ -38,6 +38,8 @@ InternOps is the operating system for intern and early-career teams: tasks with 
    ```
 
 Without `RESEND_API_KEY` or `OPENAI_API_KEY` set, email sends log to the console instead of actually sending, and AI features fall back to a non-AI structured plan generator — the app runs fully otherwise. Nothing needs to be mocked or stubbed to develop locally.
+
+The client learns whether email is configured from the public `GET /api/config` (`{ emailConfigured }`) and adjusts its copy: invitations say "share the link yourself", and the forgot-password page explains the manager path instead of promising an email. **Account recovery without email**: a manager opens the person's profile under People and chooses *Create password reset link* (`POST /api/users/:id/reset-link`, admin-only, same workspace, audit-logged). The one-hour link is shown once to that manager and is never logged.
 
 ### Environment Variables
 
@@ -102,9 +104,13 @@ Environment variables (set in the Vercel project, Production): `DATABASE_URL`, `
 
 ### Deploying
 
+The Vercel project is connected to this GitHub repository: every push to `main` builds and deploys production, and pull requests get preview deployments. Merge only after `npm run typecheck`, `npm test` and `npm run test:companion` pass. A manual deploy from a checkout is also possible:
+
 ```bash
 npx vercel --prod
 ```
+
+Static responses (the SPA shell and assets) carry the same security headers as API responses through `vercel.json`: a Content-Security-Policy with `script-src 'self'` (the first-paint theme script lives in `client/public/theme.js` for this reason), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`.
 
 The first account that signs up on an empty database becomes the manager; every later signup is a pending request a manager approves.
 

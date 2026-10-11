@@ -12,7 +12,7 @@ import { finalizeWorkSession, endShiftForAccountChange, MAX_SHIFT_HOURS } from "
 import {
   sendInternInviteEmail, sendPlanSubmittedEmail, sendPlanApprovedEmail,
   sendRevisionRequestedEmail, sendCommentEmail, sendNewInternJoinedEmail,
-  sendPasswordResetEmail, sendVerificationEmail,
+  sendPasswordResetEmail, sendVerificationEmail, isEmailConfigured,
   sendApplicationReceivedEmail, sendNewApplicationAdminEmail,
   sendApplicationApprovedEmail, sendApplicationRejectedEmail,
   getAdminNotificationEmails,
@@ -579,6 +579,11 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
+      if (user.alumniAt) {
+        // Ending an internship closes sign-in but it is not a disciplinary
+        // deactivation; say what actually happened.
+        return res.status(403).json({ message: "This internship has ended, so sign-in is closed. Your alumni profile and certificate stay available; a manager can reopen the internship." });
+      }
       if (user.deactivatedAt) {
         return res.status(403).json({ message: "This account has been deactivated. Contact an admin." });
       }
@@ -878,8 +883,10 @@ export async function registerRoutes(
       const adminUser = await storage.getUser((req as any).userId);
       sendInternInviteEmail(email.toLowerCase().trim(), inviteLink, company?.name || "your company", adminUser?.name).catch(() => {});
 
+      const emailSent = isEmailConfigured();
       res.status(201).json({
-        message: "Invitation sent successfully",
+        message: emailSent ? "Invitation sent" : "Invitation created. No email was sent because email delivery is not configured; share the link yourself.",
+        emailSent,
         invitation: { id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt },
         inviteLink,
       });
@@ -4773,6 +4780,51 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to list users:", error);
       res.status(500).json({ message: "Failed to list users" });
+    }
+  });
+
+  // Public, non-sensitive deployment facts the client needs to render
+  // honest copy (e.g. the forgot-password page must not promise an email
+  // that will never be sent). Nothing here is secret.
+  app.get("/api/config", (_req, res) => {
+    res.json({ emailConfigured: isEmailConfigured() });
+  });
+
+  // A manager issues a one-hour password-reset link for someone in their
+  // own workspace. This is the supported recovery path when email delivery
+  // is not configured. The raw link is returned once to the requesting
+  // manager only; it is never logged or stored (only its hash is).
+  app.post("/api/users/:id/reset-link", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const companyId = (req as any).companyId;
+      const actorId = (req as any).userId as string;
+      const target = await storage.getUser(req.params.id as string);
+      if (!target || target.companyId !== companyId) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      if (target.id === actorId) {
+        return res.status(400).json({ message: "Change your own password from Settings instead" });
+      }
+      if (target.deactivatedAt) {
+        return res.status(400).json({ message: "Reactivate this account before issuing a reset link" });
+      }
+
+      const { token, tokenHash } = generateSecureToken();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      await storage.createPasswordResetToken({ email: target.email, tokenHash, expiresAt, used: false });
+
+      await logAudit({
+        actorUserId: actorId,
+        companyId,
+        action: "user.reset_link_issued",
+        targetType: "user",
+        targetId: target.id,
+      });
+
+      res.json({ resetLink: `${getBaseUrl()}/reset-password/${token}`, expiresAt, email: target.email });
+    } catch (error: any) {
+      console.error("Failed to issue reset link:", error);
+      res.status(500).json({ message: "Failed to issue reset link" });
     }
   });
 
