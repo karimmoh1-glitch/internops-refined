@@ -92,6 +92,23 @@ describe("Pulse Chat (deterministic engine, no OpenAI key)", () => {
     expect(b.aiGenerated).toBe(false);
   });
 
+  it("falls back to the deterministic engine, labelled as such, when the AI provider is configured but fails", async () => {
+    process.env.OPENAI_API_KEY = "sk-not-a-real-key";
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "http://127.0.0.1:1";
+    try {
+      const app = await getApp();
+      const sug = await request(app).get("/api/pulse/suggestions").set(auth(ws.adminToken));
+      expect(sug.body.aiAvailable).toBe(true);
+      const { text, aiGenerated, refs } = await ask(ws.adminToken, "What is overdue?");
+      expect(aiGenerated).toBe(false);
+      expect(text).toMatch(/overdue task/i);
+      expect(refs.some((r) => r.type === "task" && r.id === overdueId)).toBe(true);
+    } finally {
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+    }
+  });
+
   it("says plainly when there is no recorded evidence", async () => {
     const { text } = await ask(ws.adminToken, "What is Omar Other doing right now?");
     expect(text).toMatch(/isn't in Work Mode right now/);

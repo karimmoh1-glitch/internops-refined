@@ -116,7 +116,7 @@ export default function PulsePage() {
                               : m.pending && !m.content ? <span className="inline-flex items-center gap-1 text-ink-4"><span className="h-1.5 w-1.5 rounded-full bg-pulse animate-pulse" /><span className="h-1.5 w-1.5 rounded-full bg-pulse animate-pulse [animation-delay:150ms]" /><span className="h-1.5 w-1.5 rounded-full bg-pulse animate-pulse [animation-delay:300ms]" /></span>
                               : <PulseMarkdown text={m.content} streaming={!!m.pending} />}
                           </div>
-                          {m.role === "assistant" && !m.pending && m.references.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{m.references.slice(0, 8).map((r) => <RefChip key={`${r.type}-${r.id}`} type={r.type} id={r.id} label={r.label} />)}</div>}
+                          {m.role === "assistant" && !m.pending && m.references.some((r) => !m.content.includes(`[[${r.type}:${r.id}|`)) && <div className="mt-2 flex flex-wrap gap-1.5">{m.references.filter((r) => !m.content.includes(`[[${r.type}:${r.id}|`)).slice(0, 8).map((r) => <RefChip key={`${r.type}-${r.id}`} type={r.type} id={r.id} label={r.label} />)}</div>}
                           {m.role === "assistant" && !m.pending && !m.error && <div className="mt-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"><CopyButton value={m.content.replace(/\[\[(?:[a-z]+):[^|]+\|([^\]]+)\]\]/g, "$1")} size="xs" /></div>}
                         </div>
                       </div>

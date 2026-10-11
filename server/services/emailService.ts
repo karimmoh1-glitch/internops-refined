@@ -65,33 +65,45 @@ export function isEmailConfigured(): boolean {
   return !!process.env.RESEND_API_KEY;
 }
 
-export async function sendEmail(msg: EmailMessage): Promise<void> {
+export interface SendResult { ok: boolean; error?: string }
+
+const PROVIDER_TIMEOUT_MS = 10_000;
+
+// Never throws. Returns whether the provider accepted the message so callers
+// that promise delivery to a user (invitations) can tell the truth. Logs never
+// include message bodies or links: only recipient, subject and provider error.
+export async function sendEmail(msg: EmailMessage): Promise<SendResult> {
   const resend = getResendClient();
 
   if (!resend) {
     console.log("[MOCK EMAIL] Resend not configured. To: " + msg.to + " | Subject: " + msg.subject);
-    return;
+    return { ok: false, error: "not_configured" };
   }
 
   try {
-    const result = await resend.client.emails.send({
-      from: resend.fromEmail,
-      to: [msg.to],
-      subject: msg.subject,
-      text: msg.body,
-      html: msg.html || undefined,
-    });
+    const result = await Promise.race([
+      resend.client.emails.send({
+        from: resend.fromEmail,
+        to: [msg.to],
+        subject: msg.subject,
+        text: msg.body,
+        html: msg.html || undefined,
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("provider timeout")), PROVIDER_TIMEOUT_MS)),
+    ]);
     if (result.error) {
-      console.error("[RESEND ERROR]", result.error);
-    } else {
-      console.log("[EMAIL SENT] To: " + msg.to + " | ID: " + (result.data?.id || "unknown"));
+      console.error("[RESEND ERROR] To: " + msg.to + " | " + (result.error.name || "error") + ": " + result.error.message);
+      return { ok: false, error: result.error.name || "provider_error" };
     }
+    console.log("[EMAIL SENT] To: " + msg.to + " | ID: " + (result.data?.id || "unknown"));
+    return { ok: true };
   } catch (err: any) {
-    console.error("[EMAIL ERROR] " + err.message);
+    console.error("[EMAIL ERROR] To: " + msg.to + " | " + (err?.message || "unknown error"));
+    return { ok: false, error: "provider_unreachable" };
   }
 }
 
-export function sendVerificationEmail(email: string, verifyLink: string): Promise<void> {
+export function sendVerificationEmail(email: string, verifyLink: string): Promise<SendResult> {
   return sendEmail({
     to: email,
     subject: "Verify your InternOps email address",
@@ -113,7 +125,7 @@ function esc(v: unknown): string {
   return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-export function sendInternInviteEmail(email: string, inviteLink: string, companyName: string, inviterName?: string): Promise<void> {
+export function sendInternInviteEmail(email: string, inviteLink: string, companyName: string, inviterName?: string): Promise<SendResult> {
   return sendEmail({
     to: email,
     subject: "Invitation to join " + companyName + " on InternOps",
@@ -128,7 +140,7 @@ export function sendInternInviteEmail(email: string, inviteLink: string, company
   });
 }
 
-export function sendPlanSubmittedEmail(adminEmail: string, internName: string, projectTitle: string, versionNumber: number): Promise<void> {
+export function sendPlanSubmittedEmail(adminEmail: string, internName: string, projectTitle: string, versionNumber: number): Promise<SendResult> {
   return sendEmail({
     to: adminEmail,
     subject: "Plan Review Needed: " + projectTitle,
@@ -137,7 +149,7 @@ export function sendPlanSubmittedEmail(adminEmail: string, internName: string, p
   });
 }
 
-export function sendPlanApprovedEmail(internEmail: string, projectTitle: string, versionNumber: number, comment?: string): Promise<void> {
+export function sendPlanApprovedEmail(internEmail: string, projectTitle: string, versionNumber: number, comment?: string): Promise<SendResult> {
   return sendEmail({
     to: internEmail,
     subject: "Plan Approved: " + projectTitle,
@@ -146,7 +158,7 @@ export function sendPlanApprovedEmail(internEmail: string, projectTitle: string,
   });
 }
 
-export function sendRevisionRequestedEmail(internEmail: string, projectTitle: string, versionNumber: number, comment: string): Promise<void> {
+export function sendRevisionRequestedEmail(internEmail: string, projectTitle: string, versionNumber: number, comment: string): Promise<SendResult> {
   return sendEmail({
     to: internEmail,
     subject: "Revision Requested: " + projectTitle,
@@ -155,7 +167,7 @@ export function sendRevisionRequestedEmail(internEmail: string, projectTitle: st
   });
 }
 
-export function sendCommentEmail(internEmail: string, managerName: string, projectTitle: string, commentText: string, type: "plan" | "log"): Promise<void> {
+export function sendCommentEmail(internEmail: string, managerName: string, projectTitle: string, commentText: string, type: "plan" | "log"): Promise<SendResult> {
   return sendEmail({
     to: internEmail,
     subject: "New Comment: " + projectTitle,
@@ -164,7 +176,7 @@ export function sendCommentEmail(internEmail: string, managerName: string, proje
   });
 }
 
-export function sendNewInternJoinedEmail(adminEmail: string, internName: string, companyName: string): Promise<void> {
+export function sendNewInternJoinedEmail(adminEmail: string, internName: string, companyName: string): Promise<SendResult> {
   return sendEmail({
     to: adminEmail,
     subject: "New Intern Joined: " + internName,
@@ -173,7 +185,7 @@ export function sendNewInternJoinedEmail(adminEmail: string, internName: string,
   });
 }
 
-export function sendApplicationReceivedEmail(applicantEmail: string, applicantName: string, companyName: string): Promise<void> {
+export function sendApplicationReceivedEmail(applicantEmail: string, applicantName: string, companyName: string): Promise<SendResult> {
   return sendEmail({
     to: applicantEmail,
     subject: "Your InternOps application has been received",
@@ -186,7 +198,7 @@ export function sendApplicationReceivedEmail(applicantEmail: string, applicantNa
   });
 }
 
-export function sendNewApplicationAdminEmail(adminEmail: string, applicantName: string, applicantEmail: string, companyName: string, reviewLink: string, details: { skills?: string | null; motivation?: string | null }): Promise<void> {
+export function sendNewApplicationAdminEmail(adminEmail: string, applicantName: string, applicantEmail: string, companyName: string, reviewLink: string, details: { skills?: string | null; motivation?: string | null }): Promise<SendResult> {
   const detailRows = [
     details.skills ? "<p style=\"color:#52525b;font-size:14px;line-height:1.6\"><strong>Skills:</strong> " + esc(details.skills) + "</p>" : "",
     details.motivation ? "<p style=\"color:#52525b;font-size:14px;line-height:1.6\"><strong>Why they want to join:</strong> " + esc(details.motivation) + "</p>" : "",
@@ -205,7 +217,7 @@ export function sendNewApplicationAdminEmail(adminEmail: string, applicantName: 
   });
 }
 
-export function sendApplicationApprovedEmail(applicantEmail: string, applicantName: string, companyName: string, loginLink: string): Promise<void> {
+export function sendApplicationApprovedEmail(applicantEmail: string, applicantName: string, companyName: string, loginLink: string): Promise<SendResult> {
   return sendEmail({
     to: applicantEmail,
     subject: "You're in! Your " + companyName + " application was approved",
@@ -220,7 +232,7 @@ export function sendApplicationApprovedEmail(applicantEmail: string, applicantNa
   });
 }
 
-export function sendApplicationRejectedEmail(applicantEmail: string, applicantName: string, companyName: string): Promise<void> {
+export function sendApplicationRejectedEmail(applicantEmail: string, applicantName: string, companyName: string): Promise<SendResult> {
   return sendEmail({
     to: applicantEmail,
     subject: "Update on your " + companyName + " application",
@@ -233,7 +245,7 @@ export function sendApplicationRejectedEmail(applicantEmail: string, applicantNa
   });
 }
 
-export function sendPasswordResetEmail(email: string, resetLink: string): Promise<void> {
+export function sendPasswordResetEmail(email: string, resetLink: string): Promise<SendResult> {
   return sendEmail({
     to: email,
     subject: "Reset your InternOps password",
