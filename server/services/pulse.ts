@@ -396,7 +396,7 @@ export function internSuggestions(ctx: InternContext): PulseSuggestion[] {
 // ---------------------------------------------------------------------
 // A hung or slow provider must fail inside the 60s function budget so the
 // deterministic fallback still has time to answer.
-const PROVIDER_TIMEOUT_MS = 20_000;
+const providerTimeoutMs = () => Number(process.env.PULSE_PROVIDER_TIMEOUT_MS) || 20_000;
 
 export function hasOpenAiKey(): boolean {
   return !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
@@ -438,7 +438,7 @@ RULES:
 export async function streamOrgAnswer(ctx: OrgContext, messages: { role: "user" | "assistant"; content: string }[], onDelta: (text: string) => void): Promise<PulseAnswer> {
   const approvals = await collectApprovals(ctx);
   const allowed = (type: string, id: string) => type === "task" ? ctx.taskById.has(id) : type === "project" ? ctx.projectById.has(id) : type === "person" ? ctx.internById.has(id) : type === "replay" ? ctx.recentSessions.some((s) => s.id === id) : false;
-  const openai = new OpenAI({ apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL, timeout: PROVIDER_TIMEOUT_MS, maxRetries: 1 });
+  const openai = new OpenAI({ apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL, timeout: providerTimeoutMs(), maxRetries: 1 });
   const stream = await openai.chat.completions.create({
     model: process.env.PULSE_MODEL || "gpt-4o-mini",
     stream: true,
@@ -464,7 +464,7 @@ export async function streamInternAnswer(ctx: InternContext, messages: { role: "
     `Projects:`, ...ctx.projects.map((p) => `- project id=${p.id} title="${p.title}" status=${p.status}`),
     `Recent sessions:`, ...ctx.recentSessions.slice(0, 5).map((s) => `- session id=${s.id} started=${s.startedAt.toISOString()} ${s.endedAt ? `duration_min=${Math.round((s.durationSeconds ?? 0) / 60)}` : "active"}`),
   ].join("\n");
-  const openai = new OpenAI({ apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL, timeout: PROVIDER_TIMEOUT_MS, maxRetries: 1 });
+  const openai = new OpenAI({ apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL, timeout: providerTimeoutMs(), maxRetries: 1 });
   const stream = await openai.chat.completions.create({
     model: process.env.PULSE_MODEL || "gpt-4o-mini",
     stream: true,

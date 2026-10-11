@@ -67,7 +67,8 @@ export function isEmailConfigured(): boolean {
 
 export interface SendResult { ok: boolean; error?: string }
 
-const PROVIDER_TIMEOUT_MS = 10_000;
+// Overridable only so tests can prove the timeout path quickly; production keeps 10s.
+const providerTimeoutMs = () => Number(process.env.EMAIL_PROVIDER_TIMEOUT_MS) || 10_000;
 
 // Never throws. Returns whether the provider accepted the message so callers
 // that promise delivery to a user (invitations) can tell the truth. Logs never
@@ -89,7 +90,7 @@ export async function sendEmail(msg: EmailMessage): Promise<SendResult> {
         text: msg.body,
         html: msg.html || undefined,
       }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("provider timeout")), PROVIDER_TIMEOUT_MS)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("provider timeout")), providerTimeoutMs())),
     ]);
     if (result.error) {
       console.error("[RESEND ERROR] To: " + msg.to + " | " + (result.error.name || "error") + ": " + result.error.message);
