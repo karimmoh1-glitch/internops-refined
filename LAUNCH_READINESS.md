@@ -1,6 +1,6 @@
 # InternOps launch readiness
 
-Execution ledger for the production-readiness passes of 2026-10-10 (PR #85, #86) and the closure pass of 2026-10-11 (PR #87). Every line names what was checked, how, and what the evidence was. "Verified" means a test, a request, a capture or a driven session proved it in this pass, not that the code reads as if it should work.
+Execution ledger for the production-readiness passes of 2026-10-10 (PR #85, #86), the closure pass of 2026-10-11 (PR #87, #88) and the final launch verification of 2026-10-11 (PR #89). Every line names what was checked, how, and what the evidence was. "Verified" means a test, a request, a capture or a driven session proved it in this pass, not that the code reads as if it should work.
 
 Production: https://internops.vercel.app (Vercel project `internops`, Neon Postgres). Deploys are manual (`npx vercel --prod` from an up-to-date `main`); the Vercel project is not connected to GitHub, so merging alone changes nothing in production. GitHub Actions CI (typecheck + build, Companion tests) gates every pull request.
 
@@ -12,6 +12,30 @@ Production: https://internops.vercel.app (Vercel project `internops`, Neon Postg
 2. The requested production manager account does not demonstrably exist in production, and no production manager session was available to this pass. Every production workflow that needs a session is therefore verified on a production-mode build of the same commit, not on the live site.
 
 Everything else found across both passes is fixed, deployed or documented with its reason. Details per blocker are in "Remaining blockers".
+
+## Final launch verification 2026-10-11 (PR #89)
+
+Each line says whether it was verified **on production** or **locally**. Nothing below was inferred from source alone.
+
+| Requirement | Where | Result |
+| --- | --- | --- |
+| Production configuration unchanged since the closure pass | production | `vercel env ls`: still only `CRON_SECRET APP_URL JWT_SECRET DATABASE_URL`; `GET /api/config` → `emailConfigured:false`. |
+| Deployed code corresponds to `main` | production | Production serves `assets/index-DAKxkNcI.js` and `/theme.js` (sha 11ab2c8a…); a fresh `npm run build` of `main` 889b85b produces the identical content-hashed asset and theme file. |
+| Manager account | production (read-only) | Login probe with a deliberately wrong password → generic `401`, no `applicationStatus`. Existence, authentication and role on production remain **unverified**: no production session or database access exists here, and entering the real password into the live site is outside this pass. Nothing was created or changed. Steps in B2. |
+| Real email delivery | not possible | No valid provider credentials anywhere available (the only Resend key on this machine is rejected by Resend). No delivery is claimed. Steps in B1. |
+| Email provider failure and timeout handling | local (tests) | Provider unreachable → invitation `emailSent:false`, honest message (existing test). New: a provider that accepts the connection and never answers is cut off by the timeout (overridable via `EMAIL_PROVIDER_TIMEOUT_MS`, production 10 s) and reported as `provider_unreachable`, invite link still returned. Logs carry recipient, subject and error name only. |
+| Pulse capabilities active in production | production | No model key in the Vercel environment, so the deterministic engine answers everything, labelled `aiGenerated:false` ("Data lookup" in the UI). Model-backed behaviour is **not** live and is not claimed. `POST /api/pulse/ask` unauthenticated → 401. |
+| Pulse grounding, permissions, fallback, timeout | local (tests + production-mode build) | 16 Pulse integration tests: real task/session references, ambiguity, empty data, intern scoping, unknown names, provider unreachable → fallback, and new: a hung provider is cut off by the timeout (`PULSE_PROVIDER_TIMEOUT_MS`, production 20 s, one retry) and the deterministic engine still answers with real references in under 2 s. |
+| Companion packaged release — artifact integrity | artifact | `InternOps.Companion-1.4.2-arm64.zip` downloaded from the GitHub release; SHA-512 and size match `latest-mac.yml`; bundle version 1.4.2. |
+| Companion packaged release — signing and notarization | local (this Mac) | `codesign`: ad-hoc, linker-signed, identifier `Electron`, no Team ID. `spctl --assess`: rejected ("code has no resources but signature indicates they must be present"). No notarization ticket. Gatekeeper will block a normal double-click, as the download page states. **Operator**: sign with a Developer ID certificate and notarize (electron-builder `mac.identity` + `notarize`), or users keep using right-click → Open. |
+| Companion packaged release — launch, authentication, Work Mode, reporting | local (this Mac, packaged binary, local production-mode server) | The packaged app launched from the unzipped bundle; signed in as the QA intern; Work Mode started and the server showed the session active; shift ended, report generated (28 s observed), submitted; server session `completed`, report `submittedAt` set. |
+| Companion packaged release — collection boundary | local (packaged binary) | After End shift: tracker reported stopped, the session's activity count on the server stayed at 1 for 35 s afterwards, and the app log shows no activity upload after the end. Nothing is observed before Start (sign-in screen states it; server rejects pre-shift samples in tests). |
+| Companion packaged release — update check | local (packaged binary, real GitHub Releases) | On launch the packaged app checked GitHub Releases and logged "Update for version 1.4.2 is not available (latest version: 1.4.2)". Download/install of a newer version was not exercised (none exists). |
+| Companion — Windows, Intel macOS | not verified | No such hardware here. Windows updates are manual by design. |
+| Production workflows with a session | **not verified on production** | No authorized production session exists (see B2). The 64-check workflow audit (both roles, people, tasks, projects, submissions, approvals, Work Mode, reports, notifications, Pulse, recovery, authorization, revocation) passed on the production-mode build of the same code on 2026-10-11; see "Production workflow audit" below. Live-site checks that need no session pass: `/api/health` 200, `/api/auth/me` 401, `POST /api/invitations` 401, `POST /api/pulse/ask` 401, CSP on `/`, public pages render with no console errors at 1440 and 390. |
+| Release gates for PR #89 | local + CI | typecheck 0 · `npm test` 67/67 · Companion 59/59 · build 0 · `npm audit --omit=dev` 0 · CI recorded on the PR. |
+
+What this pass changed in code: only the two provider timeouts became environment-overridable for tests (production values unchanged) plus the two hanging-provider tests. No features were added.
 
 ## Remaining blockers
 
