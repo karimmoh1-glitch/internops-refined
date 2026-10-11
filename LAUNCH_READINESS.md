@@ -49,6 +49,7 @@ Baseline at the start of the pass: `main` at 3a1ce08, production https://interno
 
 | # | Finding | Status |
 | --- | --- | --- |
+| P2-7 | Accessibility: structural sweep (alt text, control names, form labels, one h1 per page, heading order) was clean on all public and manager pages; a text-contrast sweep found 11px tertiary text (`--ink-4`) at 3.4–3.9:1 in dark mode and the light-mode status colours (`--ok`, `--danger`, `--warn`, `--work`) at 3.4–4.3:1 on their soft backgrounds. | Fixed: tokens adjusted so every measured text node is at or above 4.5:1 (3:1 for large text) in both themes on home, tasks, people, pulse, signals, settings, landing, login, signup, download. Not covered: keyboard-only walkthrough of every dialog, screen-reader session. |
 | P3-1 | Landing page passes the 3/5/10-second read at 1440 and 390 (headline → capability nouns and product mock → subhead). No script or cursive type anywhere; the certificate uses a regular-weight serif for the recipient name, which is appropriate for a certificate. No redesign was needed. | Reviewed. |
 | P3-2 | Dev-only reset and invite links are printed to the local console (never in production, guarded by `NODE_ENV`). | Reviewed, correct. |
 
