@@ -6,6 +6,7 @@
 // the next quit (autoInstallOnAppQuit) so the user never has to think
 // about it; inside a shift that flag is switched off.
 const { autoUpdater } = require("electron-updater");
+const { updatePolicy } = require("./updatePolicy");
 
 let isWorkModeActive = () => false;
 let onStatus = () => {};
@@ -73,6 +74,12 @@ function syncInstallOnQuit() {
 }
 
 async function checkForUpdates({ manual = false } = {}) {
+  const policy = updatePolicy();
+  if (!policy.automatic) {
+    // Nothing to check against: say so instead of surfacing a 404 as an error.
+    setStatus({ state: "manual", message: policy.message, downloadUrl: policy.downloadUrl, manual });
+    return;
+  }
   try {
     await autoUpdater.checkForUpdates();
   } catch (err) {

@@ -60,6 +60,38 @@ describe("Pulse Chat (deterministic engine, no OpenAI key)", () => {
     void app;
   });
 
+  it("an everyday word inside a surname does not hijack an org question", async () => {
+    // intern2 is "Omar Other": the org engine must still answer the overdue question.
+    const { text, refs } = await ask(ws.adminToken, "What other tasks are overdue?");
+    expect(text).toMatch(/overdue task/i);
+    expect(text).toContain("Ship onboarding email");
+    expect(refs.some((r) => r.type === "task" && r.id === overdueId)).toBe(true);
+    // ...while a first name alone still finds the person.
+    const omar = await ask(ws.adminToken, "What is Omar working on today?");
+    expect(omar.text).toContain("Omar Other");
+    expect(omar.text).toMatch(/Observed today/);
+  });
+
+  it("answers from empty data without inventing anything", async () => {
+    const blockedBefore = await ask(ws.adminToken, "What needs approval?");
+    expect(blockedBefore.text).toMatch(/waiting on you|nothing is waiting/i);
+    const idle = await ask(ws.adminToken, "Who has no open tasks?");
+    expect(idle.text).toMatch(/no open tasks|everyone has at least one open task/i);
+    const hours = await ask(ws.adminToken, "How many hours did everyone log?");
+    expect(hours.text).toMatch(/Recorded Work Mode time/);
+    expect(hours.text).toContain("Ines Intern");
+    const unknown = await ask(ws.adminToken, "What is Zara working on?");
+    expect(unknown.text).toMatch(/didn't recognise that question/);
+  });
+
+  it("every answer without an AI key is labelled as deterministic", async () => {
+    const a = await ask(ws.adminToken, "What changed today?");
+    expect(a.aiGenerated).toBe(false);
+    expect(a.text).toMatch(/Since midnight/);
+    const b = await ask(ws.internToken, "What should I do next?");
+    expect(b.aiGenerated).toBe(false);
+  });
+
   it("says plainly when there is no recorded evidence", async () => {
     const { text } = await ask(ws.adminToken, "What is Omar Other doing right now?");
     expect(text).toMatch(/isn't in Work Mode right now/);

@@ -69,12 +69,14 @@ export default function DownloadPage() {
               <p className="text-[13px] leading-relaxed text-ink-2">
                 This build is not code-signed, so macOS will block a normal double-click. Open the .dmg, drag the app to Applications, then <strong className="font-medium text-ink">right-click the app and choose Open</strong>. You only need to do this the first time.
               </p>
+              <p className="mt-1.5 text-xs text-ink-3">Updates: checks GitHub Releases and installs on quit, never during a shift.</p>
             </div>
             <div>
               <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-ink"><Monitor className="h-4 w-4 text-ink-3" />Windows</div>
               <p className="text-[13px] leading-relaxed text-ink-2">
                 The Windows build is a .zip. Unzip it anywhere and run <strong className="font-medium text-ink">InternOps Companion</strong> from the extracted folder.
               </p>
+              <p className="mt-1.5 text-xs text-ink-3">Updates: manual. Download the new .zip from this page; the app does not update itself on Windows.</p>
             </div>
           </div>
         </section>
