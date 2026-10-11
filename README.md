@@ -104,11 +104,13 @@ Environment variables (set in the Vercel project, Production): `DATABASE_URL`, `
 
 ### Deploying
 
-The Vercel project is connected to this GitHub repository: every push to `main` builds and deploys production, and pull requests get preview deployments. Merge only after `npm run typecheck`, `npm test` and `npm run test:companion` pass. A manual deploy from a checkout is also possible:
+The Vercel project is **not** connected to the GitHub repository: pushing to `main` does not deploy anything, and pull requests get no preview deployment. GitHub Actions (`CI`: typecheck + build, Companion tests) runs on every pull request. Deploy by hand from an up-to-date checkout of `main`, after `npm run typecheck`, `npm test`, `npm run test:companion` and `npm run build` all pass:
 
 ```bash
 npx vercel --prod
 ```
+
+The build on Vercel runs `npm run build && npm run db:migrate`, so pending migrations are applied as part of the deploy. Verify afterwards: `/api/health` 200, `/api/config` returns JSON, `curl -I /` shows the Content-Security-Policy header.
 
 Static responses (the SPA shell and assets) carry the same security headers as API responses through `vercel.json`: a Content-Security-Policy with `script-src 'self'` (the first-paint theme script lives in `client/public/theme.js` for this reason), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`.
 
